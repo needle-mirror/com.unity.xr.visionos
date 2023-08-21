@@ -45,7 +45,7 @@ namespace UnityEditor.XR.VisionOS
 
             if (string.IsNullOrEmpty(m_TexturePath))
             {
-                Debug.LogError($"Trying to write reference image to resource group {pathToResourceGroup} with invalid texture path");
+                Debug.LogError($"Trying to write AR reference image to resource group {pathToResourceGroup} with invalid texture path");
                 return;
             }
 

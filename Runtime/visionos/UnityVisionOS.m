@@ -9,6 +9,10 @@
 #define VISIONOS_SIMULATOR 0
 #endif
 
+#define EXPORT(RETURN_TYPE) RETURN_TYPE __attribute__ ((visibility("default")))  __attribute__((__used__))
+
+bool s_ImmersiveSpaceReady;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,7 +20,12 @@ extern "C" {
 void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces* unityInterfaces);
 
 void ObjC_SetCPLayer(cp_layer_renderer_t layer);
-    
+
+EXPORT(bool) UnityVisionOS_IsImmersiveSpaceReady()
+{
+    return s_ImmersiveSpaceReady;
+}
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
@@ -26,6 +35,8 @@ void ObjC_SetCPLayer(cp_layer_renderer_t layer);
 + (void)loadPlugin;
 
 + (void)setLayerRenderer:(cp_layer_renderer_t)layerRenderer;
+
++ (void)setImmersiveSpaceReady;
 
 + (NSNumber*)getSinglePass;
 
@@ -43,9 +54,14 @@ void ObjC_SetCPLayer(cp_layer_renderer_t layer);
     ObjC_SetCPLayer(layerRenderer);
 }
 
++ (void)setImmersiveSpaceReady
+{
+    s_ImmersiveSpaceReady = true;
+}
+
 + (NSNumber*)getSinglePass
 {
     return @(VISIONOS_SINGLE_PASS);
 }
-                         
+
 @end

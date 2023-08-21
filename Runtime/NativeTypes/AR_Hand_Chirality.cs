@@ -1,6 +1,3 @@
-using UnityEngine;
-// ReSharper disable InconsistentNaming
-
 namespace UnityEngine.XR.VisionOS
 {
     /// <summary>

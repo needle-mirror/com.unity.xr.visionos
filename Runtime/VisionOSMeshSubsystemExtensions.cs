@@ -11,12 +11,6 @@ namespace UnityEngine.XR.VisionOS
     /// </summary>
     public static class VisionOSMeshSubsystemExtensions
     {
-#if UNITY_VISIONOS && !UNITY_EDITOR
-        const string k_LibraryName = "__Internal";
-#else
-        const string k_LibraryName = "arkit_stub";
-#endif
-        
         /// <summary>
         /// Get the face classifications for the given mesh ID.
         /// </summary>
@@ -28,7 +22,7 @@ namespace UnityEngine.XR.VisionOS
         /// </returns>
         public static unsafe NativeArray<ARMeshClassification> GetFaceClassifications(this XRMeshSubsystem subsystem, TrackableId meshId, Allocator allocator)
         {
-            var meshAnchor = UnityVisionOSGetMeshAnchorForMeshId(meshId);
+            var meshAnchor = GetMeshAnchorForMeshId(meshId);
             var geometry = NativeApi_Scene_Reconstruction.ar_mesh_anchor_get_geometry(meshAnchor);
             var classifications = NativeApi_Scene_Reconstruction.ar_mesh_geometry_get_classification(geometry);
             var numClassifications = 0;
@@ -61,7 +55,7 @@ namespace UnityEngine.XR.VisionOS
         /// </returns>
         public static bool GetClassificationEnabled(this XRMeshSubsystem subsystem)
         {
-            return VisionOSSessionSubsystem.VisionOSProvider.Instance.GetSceneReconstructionMode() == AR_Scene_Reconstruction_Mode.Classification;
+            return VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.GetSceneReconstructionMode() == AR_Scene_Reconstruction_Mode.Classification;
         }
 
         /// <summary>
@@ -71,11 +65,11 @@ namespace UnityEngine.XR.VisionOS
         /// <param name="enabled">Whether the mesh classification should be enabled.</param>
         public static void SetClassificationEnabled(this XRMeshSubsystem subsystem, bool enabled)
         {
-            VisionOSSessionSubsystem.VisionOSProvider.Instance.SetSceneReconstructionMode(
+            VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.SetSceneReconstructionMode(
                 enabled ? AR_Scene_Reconstruction_Mode.Classification : AR_Scene_Reconstruction_Mode.Default);
         }
-        
-        [DllImport(k_LibraryName, EntryPoint = "UnityVisionOSGetMeshAnchorForMeshId")]
-        static extern IntPtr UnityVisionOSGetMeshAnchorForMeshId(TrackableId trackableId);
+
+        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "UnityVisionOS_GetMeshAnchorForMeshId")]
+        static extern IntPtr GetMeshAnchorForMeshId(TrackableId trackableId);
     }
 }

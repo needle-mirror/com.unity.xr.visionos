@@ -67,6 +67,7 @@ struct MyApp: App {
             let configuration = UnityContentConfiguration(singlePass: singlePass, enableFoveation: false)
             CompositorLayer(configuration:configuration) { layerRenderer in
                 unityClass?.perform(Selector(("setLayerRenderer:")), with: layerRenderer)
+                unityClass?.perform(Selector(("setImmersiveSpaceReady")))
             }
         }.immersionStyle(selection: $immersionStyle, in: .full)
     }

@@ -17,15 +17,18 @@ namespace UnityEngine.XR.VisionOS
     {
         internal const string anchorSubsystemId = "VisionOS-Anchor";
 
-        class VisionOSProvider : Provider
+        // Note: This type does not implement IVisionOSProvider because World Tracking Data Provider is required for input,
+        // and managed by VisionOSWorldTrackingProvider
+        internal class VisionOSAnchorProvider : Provider
         {
             const int k_InitialSize = 16;
-            static VisionOSProvider s_Instance;
+
+            static VisionOSAnchorProvider s_Instance;
             static readonly unsafe NativeApi_World_Tracking.AR_World_Tracking_Update_Handler k_WorldTrackingUpdateHandler = WorldTrackingUpdateHandler;
             static readonly NativeApi_World_Tracking.AR_World_Tracking_Add_Anchor_Completion_Handler k_AddAnchorCompletionHandler = AddAnchorCompletionHandler;
             static readonly NativeApi_World_Tracking.AR_World_Tracking_Remove_Anchor_Completion_Handler k_RemoveAnchorCompletionHandler = RemoveAnchorCompletionHandler;
 
-            IntPtr m_WorldTrackingProvider;
+            IntPtr m_WorldTrackingProvider = IntPtr.Zero;
 
             readonly Dictionary<TrackableId, XRAnchor> m_TempAddedAnchors = new(k_InitialSize);
             readonly Dictionary<TrackableId, XRAnchor> m_TempUpdatedAnchors = new(k_InitialSize);
@@ -35,7 +38,7 @@ namespace UnityEngine.XR.VisionOS
             NativeArray<XRAnchor> m_UpdatedAnchors = new(k_InitialSize, Allocator.Persistent);
             NativeArray<TrackableId> m_RemovedAnchors = new(k_InitialSize, Allocator.Persistent);
 
-            public VisionOSProvider()
+            public VisionOSAnchorProvider()
             {
                 s_Instance = this;
             }
@@ -52,16 +55,24 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Start()
             {
-                m_WorldTrackingProvider = VisionOSSessionSubsystem.VisionOSProvider.Instance.WorldTrackingProvider;
-                NativeApi_World_Tracking.UnityVisionOS_impl_ar_world_tracking_provider_set_anchor_update_handler(m_WorldTrackingProvider, k_WorldTrackingUpdateHandler);
+                var worldTrackingProvider = VisionOSWorldTrackingProvider.Instance;
+                worldTrackingProvider.OnCreated += OnWorldTrackingProviderCreated;
+                m_WorldTrackingProvider = worldTrackingProvider.CurrentProvider;
             }
 
             public override void Stop()
             {
-                // Do nothing here, SessionSubsystem manages the lifecycle of WorldTrackingProvider
-                // TODO: Unsubscribe from updates? Re-create provider?
+                VisionOSWorldTrackingProvider.Instance.OnCreated -= OnWorldTrackingProviderCreated;
             }
-            
+
+            // TODO: Should AnchorSubsystem just create its own data provider?
+            public void OnWorldTrackingProviderCreated(IntPtr provider)
+            {
+                m_WorldTrackingProvider = provider;
+                if (m_WorldTrackingProvider != IntPtr.Zero)
+                    NativeApi_World_Tracking.UnityVisionOS_impl_ar_world_tracking_provider_set_anchor_update_handler(m_WorldTrackingProvider, k_WorldTrackingUpdateHandler);
+            }
+
             // ReSharper disable InconsistentNaming
             // TODO: Use IntPtr instead of void*?
             [MonoPInvokeCallback(typeof(NativeApi_World_Tracking.AR_World_Tracking_Update_Handler))]
@@ -71,7 +82,7 @@ namespace UnityEngine.XR.VisionOS
                 // TODO: Unsubscribe from updates? Re-create provider?
                 if (!s_Instance.running)
                     return;
-                
+
                 s_Instance.ProcessAnchorUpdates(added_anchors, added_anchor_count, updated_anchors, updated_anchor_count, removed_anchors, removed_anchor_count);
             }
 
@@ -89,7 +100,7 @@ namespace UnityEngine.XR.VisionOS
 
                 return new XRAnchor(trackableId, pose, trackingState, worldAnchor);
             }
-            
+
             static XRAnchor GetWorldAnchorWithPose(IntPtr worldAnchor, Pose pose)
             {
                 var trackableId = NativeApi_Utilities.GetTrackableId(worldAnchor);
@@ -108,7 +119,7 @@ namespace UnityEngine.XR.VisionOS
                     var trackableId = xrAnchor.trackableId;
                     if (trackableId == TrackableId.invalidId)
                     {
-                        Debug.LogError($"Trying to add anchor with invalid trackable id: {xrAnchor.trackableId}");
+                        Debug.LogError($"Trying to add AR anchor with invalid trackable id: {xrAnchor.trackableId}");
                         continue;
                     }
 
@@ -138,9 +149,9 @@ namespace UnityEngine.XR.VisionOS
                     else
                         m_TempUpdatedAnchors[trackableId] = anchor;
                 }
-                
+
                 worldAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(removed_anchors, removed_anchor_count, Allocator.None);
-                foreach(var anchor in worldAnchors)
+                foreach (var anchor in worldAnchors)
                 {
                     var trackableId = NativeApi_Utilities.GetTrackableId(anchor);
                     var removed = m_TempAddedAnchors.Remove(trackableId);
@@ -163,8 +174,8 @@ namespace UnityEngine.XR.VisionOS
                     NativeApi_Utilities.HashSetToNativeArray(m_TempRemovedAnchors, ref m_RemovedAnchors);
 
                     var changes = new TrackableChanges<XRAnchor>(
-                        m_AddedAnchors.GetUnsafePtr(), m_TempAddedAnchors.Count, 
-                        m_UpdatedAnchors.GetUnsafePtr(), m_TempUpdatedAnchors.Count, 
+                        m_AddedAnchors.GetUnsafePtr(), m_TempAddedAnchors.Count,
+                        m_UpdatedAnchors.GetUnsafePtr(), m_TempUpdatedAnchors.Count,
                         m_RemovedAnchors.GetUnsafePtr(), m_TempRemovedAnchors.Count,
                         defaultAnchor, sizeof(XRAnchor), allocator);
 
@@ -180,40 +191,64 @@ namespace UnityEngine.XR.VisionOS
 
             public override bool TryAddAnchor(Pose pose, out XRAnchor anchor)
             {
+                if (m_WorldTrackingProvider == IntPtr.Zero)
+                {
+                    Debug.LogError("Cannot add AR anchor; World tracking provider is null.");
+                    anchor = XRAnchor.defaultValue;
+                    return false;
+                }
+
                 var transform = NativeApi_Utilities.GetMatrixFloats(pose);
                 var anchorPtr = NativeApi_World_Tracking.UnityVisionOS_impl_ar_world_anchor_create_with_transform_float_array(transform);
                 NativeApi_World_Tracking.UnityVisionOS_impl_ar_world_tracking_provider_add_anchor(m_WorldTrackingProvider, anchorPtr, k_AddAnchorCompletionHandler);
 
                 anchor = GetWorldAnchorWithPose(anchorPtr, pose);
-                
+
                 // Completion handler is async, no way to return false here
-                // TODO: Async add anchor?
+                // TODO: New API for TryAddAnchorAsync?
                 return true;
             }
 
             [MonoPInvokeCallback(typeof(NativeApi_World_Tracking.AR_World_Tracking_Add_Anchor_Completion_Handler))]
             static void AddAnchorCompletionHandler(IntPtr anchor, bool successful, IntPtr error)
             {
-                //TODO: Read error
                 if (!successful)
-                    Debug.LogError("Failed to add anchor");
+                {
+                    var errorCode = (AR_World_Tracking_Error_Code)0;
+                    if (error != IntPtr.Zero)
+                        errorCode = (AR_World_Tracking_Error_Code)NativeApi_Error.ar_error_get_error_code(error);
+
+                    Debug.LogError($"Failed to add AR anchor. Error code: {errorCode}");
+                }
             }
 
             public override bool TryRemoveAnchor(TrackableId anchorId)
             {
+                if (m_WorldTrackingProvider == IntPtr.Zero)
+                {
+                    Debug.LogError("Cannot remove AR anchor; World tracking provider is null.");
+                    return false;
+                }
+
                 var uuid = NativeApi_Utilities.TrackableIdToPtr(anchorId);
                 NativeApi_World_Tracking.UnityVisionOS_impl_ar_world_tracking_provider_remove_anchor_with_identifier(m_WorldTrackingProvider, uuid, k_RemoveAnchorCompletionHandler);
+
                 // Completion handler is async, no way to return false here
-                // TODO: Async remove anchor?
+                // TODO: New API for TryRemoveAnchorAsync?
                 return true;
             }
-            
+
             [MonoPInvokeCallback(typeof(NativeApi_World_Tracking.AR_World_Tracking_Remove_Anchor_Completion_Handler))]
             static void RemoveAnchorCompletionHandler(IntPtr anchor, bool successful, IntPtr error)
             {
-                //TODO: Read error
                 if (!successful)
-                    Debug.LogError("Failed to remove anchor");
+                {
+                    var errorCode = (AR_World_Tracking_Error_Code)0;
+                    if (error != IntPtr.Zero)
+                        errorCode = (AR_World_Tracking_Error_Code)NativeApi_Error.ar_error_get_error_code(error);
+
+                    Debug.LogError($"Failed to remove AR anchor. Error code: {errorCode}");
+                }
             }
         }
 
@@ -223,8 +258,9 @@ namespace UnityEngine.XR.VisionOS
             var cinfo = new XRAnchorSubsystemDescriptor.Cinfo
             {
                 id = anchorSubsystemId,
-                providerType = typeof(VisionOSProvider),
+                providerType = typeof(VisionOSAnchorProvider),
                 subsystemTypeOverride = typeof(VisionOSAnchorSubsystem),
+
                 // TODO: Support attachment
                 supportsTrackableAttachments = false
             };

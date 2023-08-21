@@ -16,16 +16,16 @@ namespace UnityEngine.XR.VisionOS
     public sealed class VisionOSImageTrackingSubsystem : XRImageTrackingSubsystem
     {
         internal const string imageTrackingSubsystemId = "VisionOS-ImageTracking";
-        
-        class VisionOSProvider : Provider
+        const Feature k_ImageTrackingFeature = Feature.ImageTracking;
+
+        class VisionOSImageTrackingProvider : Provider, IVisionOSProvider
         {
             const int k_InitialSize = 16;
-            static VisionOSProvider s_Instance;
-            
+            static VisionOSImageTrackingProvider s_Instance;
+
             static readonly unsafe NativeApi_Image_Tracking.AR_Image_Tracking_Update_Handler k_ImageTrackingUpdateHandler = ImageTrackingUpdateHandler;
 
             IntPtr m_ImageTrackingConfiguration;
-            IntPtr m_ImageTrackingProvider;
 
             readonly Dictionary<TrackableId, XRTrackedImage> m_TempAddedImages = new(k_InitialSize);
             readonly Dictionary<TrackableId, XRTrackedImage> m_TempUpdatedImages = new(k_InitialSize);
@@ -37,13 +37,29 @@ namespace UnityEngine.XR.VisionOS
 
             VisionOSImageDatabase m_ImageDatabase;
 
-            public VisionOSProvider()
+            public AR_Authorization_Type RequiredAuthorizationType => NativeApi_Image_Tracking.ar_image_tracking_provider_get_required_authorization_type();
+            public bool IsSupported => NativeApi_Image_Tracking.ar_image_tracking_provider_is_supported();
+            public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
+
+            public VisionOSImageTrackingProvider()
             {
                 s_Instance = this;
+                VisionOSProviderRegistration.RegisterProvider(k_ImageTrackingFeature, this);
+            }
+
+            public override void Start()
+            {
+                VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.AddRequestedFeaturesAndAuthorizations(k_ImageTrackingFeature, RequiredAuthorizationType);
+            }
+
+            public override void Stop()
+            {
+                VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.RemoveRequestedFeaturesAndAuthorizations(k_ImageTrackingFeature, RequiredAuthorizationType);
             }
 
             public override void Destroy()
             {
+                VisionOSProviderRegistration.UnregisterProvider(k_ImageTrackingFeature, this);
                 m_AddedImages.Dispose();
                 m_UpdatedImages.Dispose();
                 m_RemovedImages.Dispose();
@@ -52,24 +68,33 @@ namespace UnityEngine.XR.VisionOS
                 m_TempRemovedImages.Clear();
             }
 
-            public override void Start()
+            public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
             {
+                if (!IsSupported)
+                {
+                    Debug.LogWarning("Image tracking provider is not supported");
+                    provider = IntPtr.Zero;
+                    return false;
+                }
+
                 // TODO: Warn about starting with no reference images?
                 // Configuration may have already been created by imageLibrary setter, otherwise no library is selected, so use an empty configuration
                 if (m_ImageTrackingConfiguration == IntPtr.Zero)
                     m_ImageTrackingConfiguration = NativeApi_Image_Tracking.ar_image_tracking_configuration_create();
 
-                m_ImageTrackingProvider = NativeApi_Image_Tracking.ar_image_tracking_provider_create(m_ImageTrackingConfiguration);
-                NativeApi_Image_Tracking.UnityVisionOS_impl_ar_image_tracking_provider_set_update_handler(m_ImageTrackingProvider, k_ImageTrackingUpdateHandler);
+                provider = NativeApi_Image_Tracking.ar_image_tracking_provider_create(m_ImageTrackingConfiguration);
+                CurrentProvider = provider;
+                if (provider == IntPtr.Zero)
+                {
+                    Debug.LogWarning("Failed to create image tracking provider.");
+                    return false;
+                }
 
-                VisionOSSessionSubsystem.VisionOSProvider.Instance.AddDataProvider(m_ImageTrackingProvider);
+                NativeApi_Image_Tracking.UnityVisionOS_impl_ar_image_tracking_provider_set_update_handler(provider, k_ImageTrackingUpdateHandler);
+
+                return true;
             }
 
-            public override void Stop()
-            {
-                VisionOSSessionSubsystem.VisionOSProvider.Instance.RemoveDataProvider(m_ImageTrackingProvider);
-            }
-            
             // ReSharper disable InconsistentNaming
             // TODO: Use IntPtr instead of void*?
             [MonoPInvokeCallback(typeof(NativeApi_Image_Tracking.AR_Image_Tracking_Update_Handler))]
@@ -89,7 +114,7 @@ namespace UnityEngine.XR.VisionOS
                 var referenceImageName = Marshal.PtrToStringAnsi(NativeApi_Image_Tracking.ar_reference_image_get_name(referenceImagePointer));
                 if (!m_ImageDatabase.TryGetImageForName(referenceImageName, out var referenceImage))
                 {
-                    Debug.LogError($"Cannot find id for reference image {referenceImagePointer} with name {referenceImageName}");
+                    Debug.LogError($"Cannot find id for AR reference image {referenceImagePointer} with name {referenceImageName}");
                     trackedImage = default;
                     return false;
                 }
@@ -108,7 +133,7 @@ namespace UnityEngine.XR.VisionOS
                     var trackableId = trackedImage.trackableId;
                     if (trackableId == TrackableId.invalidId)
                     {
-                        Debug.LogError($"Trying to add anchor with invalid trackable id: {trackedImage.trackableId}");
+                        Debug.LogError($"Trying to add AR image anchor with invalid trackable id: {trackedImage.trackableId}");
                         continue;
                     }
 
@@ -137,9 +162,9 @@ namespace UnityEngine.XR.VisionOS
                     else
                         m_TempUpdatedImages[trackableId] = image;
                 }
-                
+
                 imageAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(removed_anchors, removed_anchor_count, Allocator.None);
-                foreach(var image in imageAnchors)
+                foreach (var image in imageAnchors)
                 {
                     var trackableId = NativeApi_Utilities.GetTrackableId(image);
                     var removed = m_TempAddedImages.Remove(trackableId);
@@ -150,6 +175,7 @@ namespace UnityEngine.XR.VisionOS
                         m_TempRemovedImages.Add(trackableId);
                 }
             }
+
             // ReSharper restore InconsistentNaming
 
             public override RuntimeReferenceImageLibrary CreateRuntimeLibrary(
@@ -162,6 +188,12 @@ namespace UnityEngine.XR.VisionOS
             {
                 set
                 {
+                    if (!NativeApi_Image_Tracking.ar_image_tracking_provider_is_supported())
+                    {
+                        Debug.LogWarning("Image tracking is not supported");
+                        return;
+                    }
+
                     if (value == null)
                     {
                         m_ImageDatabase = null;
@@ -176,12 +208,12 @@ namespace UnityEngine.XR.VisionOS
                         NativeApi_Image_Tracking.ar_image_tracking_configuration_add_reference_images(m_ImageTrackingConfiguration, database.self);
 
                         // Restart session with new provider if one exists, otherwise assume subsystem is not started, and we will create one with the correct configuration at start
-                        if (m_ImageTrackingProvider != IntPtr.Zero)
+                        if (CurrentProvider != IntPtr.Zero)
                         {
-                            var sessionSubsystem = VisionOSSessionSubsystem.VisionOSProvider.Instance;
-                            sessionSubsystem.RemoveDataProvider(m_ImageTrackingProvider);
-                            m_ImageTrackingProvider = NativeApi_Image_Tracking.ar_image_tracking_provider_create(m_ImageTrackingConfiguration);
-                            sessionSubsystem.AddDataProvider(m_ImageTrackingProvider);
+                            var sessionSubsystem = VisionOSSessionSubsystem.VisionOSSessionProvider.Instance;
+                            sessionSubsystem.RequestRestart();
+                            sessionSubsystem.AddRequestedFeaturesAndAuthorizations(k_ImageTrackingFeature, RequiredAuthorizationType);
+                            CurrentProvider = NativeApi_Image_Tracking.ar_image_tracking_provider_create(m_ImageTrackingConfiguration);
                         }
                     }
                     else
@@ -202,8 +234,8 @@ namespace UnityEngine.XR.VisionOS
                     NativeApi_Utilities.HashSetToNativeArray(m_TempRemovedImages, ref m_RemovedImages);
 
                     var changes = new TrackableChanges<XRTrackedImage>(
-                        m_AddedImages.GetUnsafePtr(), m_TempAddedImages.Count, 
-                        m_UpdatedImages.GetUnsafePtr(), m_TempUpdatedImages.Count, 
+                        m_AddedImages.GetUnsafePtr(), m_TempAddedImages.Count,
+                        m_UpdatedImages.GetUnsafePtr(), m_TempUpdatedImages.Count,
                         m_RemovedImages.GetUnsafePtr(), m_TempRemovedImages.Count,
                         defaultTrackedImage, sizeof(BoundedPlane), allocator);
 
@@ -216,7 +248,7 @@ namespace UnityEngine.XR.VisionOS
                     m_TempRemovedImages.Clear();
                 }
             }
-            
+
             // TODO: Handle messaging for removal of requestedMaxNumberOfMovingImages
             public override int requestedMaxNumberOfMovingImages
             {
@@ -235,18 +267,19 @@ namespace UnityEngine.XR.VisionOS
 
             public override int currentMaxNumberOfMovingImages => 0;
         }
-        
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void RegisterDescriptor()
         {
             XRImageTrackingSubsystemDescriptor.Create(new XRImageTrackingSubsystemDescriptor.Cinfo
             {
                 id = imageTrackingSubsystemId,
-                providerType = typeof(VisionOSProvider),
+                providerType = typeof(VisionOSImageTrackingProvider),
                 subsystemTypeOverride = typeof(VisionOSImageTrackingSubsystem),
                 supportsMovingImages = true,
                 supportsMutableLibrary = true,
                 requiresPhysicalImageDimensions = true,
+
                 // TODO: Is image validation supported?
                 supportsImageValidation = true
             });

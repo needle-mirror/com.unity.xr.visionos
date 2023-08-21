@@ -1,7 +1,3 @@
-using System;
-using UnityEngine;
-// ReSharper disable InconsistentNaming
-
 namespace UnityEngine.XR.VisionOS
 {
     /// <summary>
@@ -9,34 +5,54 @@ namespace UnityEngine.XR.VisionOS
     /// </summary>
     enum AR_Plane_Classification
     {
-        /** Plane classification is currently unavailable. */
+        /// <summary>
+        /// Plane classification is currently unavailable.
+        /// </summary>
         Status_not_available = 0,
 
-        /** Tha classification of the plane has not yet been determined.  */
+        /// <summary>
+        /// The classification of the plane has not yet been determined.
+        /// </summary>
         Status_undetermined,
 
-        /** The plane classification is not any of the known classes. */
+        /// <summary>
+        /// The plane classification is not any of the known classes.
+        /// </summary>
         Status_unknown,
 
-        /** The classification is of type wall. */
+        /// <summary>
+        /// The classification is of type wall.
+        /// </summary>
         Wall,
 
-        /** The classification is of type floor. */
+        /// <summary>
+        /// The classification is of type floor.
+        /// </summary>
         Floor,
 
-        /** The classification is of type ceiling. */
+        /// <summary>
+        /// The classification is of type ceiling.
+        /// </summary>
         Ceiling,
 
-        /** The classification is of type table. */
+        /// <summary>
+        /// The classification is of type table.
+        /// </summary>
         Table,
 
-        /** The classification is of type seat. */
+        /// <summary>
+        /// The classification is of type seat.
+        /// </summary>
         Seat,
 
-        /** The classification is of type window. */
+        /// <summary>
+        /// The classification is of type window.
+        /// </summary>
         Window,
 
-        /** The classification is of type door. */
+        /// <summary>
+        /// The classification is of type door.
+        /// </summary>
         Door
     }
 }

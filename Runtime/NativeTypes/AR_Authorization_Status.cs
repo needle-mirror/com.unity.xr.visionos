@@ -1,6 +1,3 @@
-using UnityEngine;
-// ReSharper disable InconsistentNaming
-
 namespace UnityEngine.XR.VisionOS
 {
     /// <summary>
@@ -8,13 +5,19 @@ namespace UnityEngine.XR.VisionOS
     /// </summary>
     enum AR_Authorization_Status
     {
-        // The user has not yet granted permission.
-        Not_Determined,
+        /// <summary>
+        /// The user has not yet granted permission.
+        /// </summary>
+        ar_authorization_status_not_determined,
 
-        // The user has explicitly granted permission.
-        Allowed,
+        /// <summary>
+        /// The user has explicitly granted permission.
+        /// </summary>
+        ar_authorization_status_allowed,
 
-        // The user has explicitly denied permission.
-        Status_Denied
+        /// <summary>
+        /// The user has explicitly denied permission.
+        /// </summary>
+        ar_authorization_status_denied
     }
 }

@@ -60,6 +60,11 @@ const char* joint_names[] =
 #define EXPORT(RETURN_TYPE) EXTERNC RETURN_TYPE __attribute__ ((visibility("default")))  __attribute__((__used__))
 
 typedef void(*unity_ar_authorization_results_handler_t)(ar_authorization_results_t authorization_results, ar_error_t _Nullable error);
+
+typedef void(*unity_authorization_results_enumeration_step_callback_t)(ar_authorization_result_t authorization_result);
+
+typedef void(*unity_authorization_results_enumeration_completed_callback_t)();
+
 typedef void(*unity_ar_plane_detection_update_handler_t)(void* added_anchors, int added_anchor_count,
                                                          void* updated_anchors, int updated_anchor_count,
                                                          void* removed_anchors, int removed_anchor_count);
@@ -71,10 +76,12 @@ typedef void(*unity_ar_image_tracking_update_handler_t)(void* added_anchors, int
 
 typedef void(*unity_ar_hand_tracking_update_handler_t)(ar_hand_anchor_t hand_anchor_left, ar_hand_anchor_t hand_anchor_right);
 
-typedef void(*unity_ar_session_run_providers_completion_handler_t)(ar_data_providers_t data_providers,
+typedef void(*unity_ar_session_data_provider_state_change_handler_t)(ar_data_providers_t data_providers,
                                                                    ar_data_provider_state_t new_state,
                                                                    _Nullable ar_error_t error,
                                                                    _Nullable ar_data_provider_t failed_provider);
+
+typedef void(*unity_ar_authorization_update_handler_t)(ar_authorization_result_t authorization_result);
 
 typedef void(*unity_ar_world_tracking_update_handler_t)(void* added_anchors, int added_anchor_count,
                                                         void* updated_anchors, int updated_anchor_count,
@@ -83,6 +90,24 @@ typedef void(*unity_ar_world_tracking_update_handler_t)(void* added_anchors, int
 typedef void(*unity_ar_world_tracking_add_anchor_completion_handler_t)(ar_world_anchor_t world_anchor, bool successful, ar_error_t _Nullable error);
 typedef void(*unity_ar_world_tracking_remove_anchor_completion_handler_t)(ar_world_anchor_t world_anchor, bool successful, ar_error_t _Nullable error);
 
+EXPORT(void) UnityVisionOS_impl_ar_session_set_data_provider_state_change_handler(ar_session_t session, unity_ar_session_data_provider_state_change_handler_t data_provider_state_change_handler)
+{
+    ar_session_set_data_provider_state_change_handler(session, ^(ar_data_providers_t data_providers,
+                                                                 ar_data_provider_state_t new_state,
+                                                                 _Nullable ar_error_t error,
+                                                                 _Nullable ar_data_provider_t failed_provider)
+    {
+        data_provider_state_change_handler(data_providers, new_state, error, failed_provider);
+    });
+}
+
+EXPORT(void) UnityVisionOS_impl_ar_session_set_authorization_update_handler(ar_session_t session, unity_ar_authorization_update_handler_t authorization_update_handler)
+{
+    ar_session_set_authorization_update_handler(session, nullptr, ^(ar_authorization_result_t authorization_result)
+    {
+        authorization_update_handler(authorization_result);
+    });
+}
 
 EXPORT(void) UnityVisionOS_impl_ar_session_request_authorization(ar_session_t session,
     ar_authorization_type_t authorization_types, unity_ar_authorization_results_handler_t results_handler)
@@ -93,17 +118,14 @@ EXPORT(void) UnityVisionOS_impl_ar_session_request_authorization(ar_session_t se
     });
 }
 
-EXPORT(void) UnityVisionOS_impl_ar_session_set_data_provider_state_change_handler(ar_session_t session, unity_ar_session_run_providers_completion_handler_t run_providers_completion_handler)
+EXPORT(void) UnityVisionOS_impl_ar_session_query_authorization_results(ar_session_t session,
+    ar_authorization_type_t authorization_types, unity_ar_authorization_results_handler_t results_handler)
 {
-    ar_session_set_data_provider_state_change_handler(session, ^(ar_data_providers_t data_providers,
-                                                                 ar_data_provider_state_t new_state,
-                                                                 _Nullable ar_error_t error,
-                                                                 _Nullable ar_data_provider_t failed_provider)
+    ar_session_query_authorization_results(session, authorization_types, ^(ar_authorization_results_t authorization_results, ar_error_t _Nullable error)
     {
-        run_providers_completion_handler(data_providers, new_state, error, failed_provider);
+        results_handler(authorization_results, error);
     });
 }
-
 
 EXPORT(void) UnityVisionOS_impl_ar_plane_detection_provider_set_update_handler(ar_plane_detection_provider_t plane_detection_provider,
     unity_ar_plane_detection_update_handler_t plane_detection_update_handler)
@@ -202,10 +224,10 @@ EXPORT(void) UnityVisionOS_impl_ar_image_tracking_provider_set_update_handler(ar
 }
 
 EXPORT(void) UnityVisionOS_impl_ar_hand_tracking_provider_set_update_handler(ar_hand_tracking_provider_t hand_tracking_provider,
-    unity_ar_hand_tracking_update_handler_t plane_detection_update_handler)
+    unity_ar_hand_tracking_update_handler_t hand_tracking_update_handler)
 {
     ar_hand_tracking_provider_set_update_handler(hand_tracking_provider, nullptr, ^(ar_hand_anchor_t  _Nonnull hand_anchor_left, ar_hand_anchor_t  _Nonnull hand_anchor_right) {
-        plane_detection_update_handler(hand_anchor_left, hand_anchor_right);
+        hand_tracking_update_handler(hand_anchor_left, hand_anchor_right);
     });
 }
 
@@ -350,7 +372,7 @@ EXPORT(void) UnityVisionOS_impl_ar_world_tracking_provider_set_anchor_update_han
     {
         __block size_t added_anchor_count = ar_world_anchors_get_count(added_anchors);
         __block size_t enumerationCount = 0;
-        tmp_added_images.clear();
+        tmp_added_anchors.clear();
         if (added_anchor_count > 0)
         {
             ar_world_anchors_enumerate_anchors(added_anchors, ^bool(ar_world_anchor_t  _Nonnull world_anchor)
@@ -362,7 +384,7 @@ EXPORT(void) UnityVisionOS_impl_ar_world_tracking_provider_set_anchor_update_han
 
         __block size_t updated_anchor_count = ar_world_anchors_get_count(updated_anchors);
         enumerationCount = 0;
-        tmp_updated_images.clear();
+        tmp_updated_anchors.clear();
         if (updated_anchor_count > 0)
         {
             ar_world_anchors_enumerate_anchors(updated_anchors, ^bool(ar_world_anchor_t  _Nonnull world_anchor)
@@ -374,7 +396,7 @@ EXPORT(void) UnityVisionOS_impl_ar_world_tracking_provider_set_anchor_update_han
 
         __block size_t removed_anchor_count = ar_world_anchors_get_count(removed_anchors);
         enumerationCount = 0;
-        tmp_removed_images.clear();
+        tmp_removed_anchors.clear();
         if (removed_anchor_count > 0)
         {
             ar_world_anchors_enumerate_anchors(removed_anchors, ^bool(ar_world_anchor_t  _Nonnull world_anchor)
@@ -427,4 +449,54 @@ EXPORT(void) UnityVisionOS_impl_ar_world_tracking_provider_remove_anchor_with_id
     ar_world_tracking_provider_remove_anchor_with_identifier(world_tracking_provider, anchor_identifier, ^(ar_world_anchor_t world_anchor, bool successful, ar_error_t _Nullable error) {
         remove_anchor_completion_handler(world_anchor, successful, error);
     });
+}
+
+// TODO: Not sure why we can't call ar_anchor_get_origin_from_anchor_transform directly but it was giving back the same pointer you gave it
+EXPORT(float*) UnityVisionOS_impl_ar_plane_extent_get_plane_anchor_from_plane_extent_transform_to_float_array(ar_plane_extent_t plane_extent)
+{
+    simd_float4x4 worldMatrix = ar_plane_extent_get_plane_anchor_from_plane_extent_transform(plane_extent);
+    
+    // TODO: cast or something faster?
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            int index = i * 4 + j;
+            tmp_matrix_floats[index] = worldMatrix.columns[i][j];
+        }
+    }
+
+    //TODO: Why does ARKit sometimes give us 3,3 != 1?
+    // Suppress Assert(ValidTRS());
+    tmp_matrix_floats[15] = 1;
+
+    return tmp_matrix_floats;
+}
+
+EXPORT(void) UnityVisionOS_impl_ar_authorization_results_enumerate_results(ar_authorization_results_t authorization_results,
+    unity_authorization_results_enumeration_step_callback_t step, unity_authorization_results_enumeration_completed_callback_t completed)
+{
+    __block size_t result_count = ar_authorization_results_get_count(authorization_results);
+    __block auto enumerationCount = 0;
+    if (result_count > 0)
+    {
+        ar_authorization_results_enumerate_results(authorization_results, ^bool(ar_authorization_result_t authorization_result)
+        {
+            step(authorization_result);
+            auto moveNext = ++enumerationCount < result_count;
+            if (!moveNext)
+                completed();
+
+            return moveNext;
+        });
+    }
+}
+
+EXPORT(bool) UnityVisionOS_IsSimulator()
+{
+#if TARGET_OS_SIMULATOR
+    return true;
+#else
+    return false;
+#endif
 }

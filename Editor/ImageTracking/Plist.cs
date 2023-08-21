@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Xml;
 using UnityEngine;
 
@@ -9,9 +10,20 @@ namespace UnityEditor.XR.VisionOS
 {
     class Plist
     {
+        class PlistTextWriter : XmlTextWriter
+        {
+            public PlistTextWriter(string filename, Encoding encoding)
+                : base(filename, encoding) { }
+
+            public override void WriteDocType(string name, string pubid, string sysid, string subset)
+            {
+                WriteRaw("\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
+            }
+        }
+        
         public class Element
         {
-            XmlNode m_Node;
+            readonly XmlNode m_Node;
 
             public Element(XmlNode node) => m_Node = node ?? throw new ArgumentNullException(nameof(node));
 
@@ -32,21 +44,29 @@ namespace UnityEditor.XR.VisionOS
 
                     return value;
                 }
-            }
-
-            public Dictionary<string, Element> AsDictionary()
-            {
-                if (m_Node.Name != "dict")
-                    return null;
-
-                var dict = new Dictionary<string, Element>();
-                foreach (var key in EnumerateKeys(m_Node.ChildNodes))
+                set
                 {
-                    var value = key.NextSibling;
-                    dict[key.InnerText] = new Element(value);
-                }
+                    var xmlDocument = m_Node.OwnerDocument;
+                    if (xmlDocument == null)
+                    {
+                        Debug.LogError("Error processing Plist, node has no owner document.");
+                        return;
+                    }
 
-                return dict;
+                    var existingKey = EnumerateKeys(m_Node.ChildNodes).FirstOrDefault(k => k.InnerText == key);
+                    if (existingKey != null)
+                    {
+                        var existingValue = existingKey.NextSibling;
+                        m_Node.RemoveChild(existingKey);
+                        if (existingValue != null)
+                            m_Node.RemoveChild(existingValue);
+                    }
+
+                    var keyElement = xmlDocument.CreateElement("key");
+                    keyElement.InnerText = key;
+                    m_Node.AppendChild(keyElement);
+                    m_Node.AppendChild(value.m_Node);
+                }
             }
 
             public Element[] AsArray() => m_Node.Name == "array"
@@ -62,13 +82,6 @@ namespace UnityEditor.XR.VisionOS
 
         Plist(XmlDocument xmlDocument) =>
             m_XmlDocument = xmlDocument ?? throw new ArgumentNullException(nameof(xmlDocument));
-
-        public static Plist Load(StreamReader reader)
-        {
-            var xml = new XmlDocument();
-            xml.Load(reader);
-            return new Plist(xml);
-        }
 
         public static Plist ReadFromString(string contents)
         {
@@ -100,5 +113,22 @@ namespace UnityEditor.XR.VisionOS
 
         static IEnumerable<XmlNode> EnumerateKeys(XmlNodeList nodeList) =>
             EnumerateNodes(nodeList).Where(node => node.Name == "key");
+
+        public Element CreateElement(string name, string innerText = "")
+        {
+            var element = m_XmlDocument.CreateElement(name);
+            if (!string.IsNullOrEmpty(innerText))
+                element.InnerText = innerText;
+            
+            return new Element(element);
+        }
+
+        public void WriteToFile(string path)
+        {
+            var writer = new PlistTextWriter(path, Encoding.Default);
+            writer.Formatting = Formatting.Indented;
+            m_XmlDocument.WriteTo(writer);
+            writer.Flush();
+        }
     }
 }

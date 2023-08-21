@@ -22,19 +22,13 @@ namespace UnityEngine.XR.VisionOS
             [UsedImplicitly]
             public int count;
         }
-        
-#if UNITY_VISIONOS && !UNITY_EDITOR
-        const string k_LibraryName = "__Internal";
-#else
-        const string k_LibraryName = "arkit_stub";
-#endif
-        
+
         static readonly StringBuilder k_StringBuilder = new();
 
         internal IntPtr self { get; }
 
         const string k_ResourceGroupName = "ARReferenceImages";
-        
+
         // TODO: Pointers are not equivalent?
         //readonly Dictionary<IntPtr, XRReferenceImage> m_ReferenceImages = new();
         readonly Dictionary<string, XRReferenceImage> m_ReferenceImages = new();
@@ -55,12 +49,12 @@ namespace UnityEngine.XR.VisionOS
             var groupName = GetARResourceGroupName(library);
             return NativeApi_Image_Tracking.ar_reference_images_load_reference_images_in_group(Marshal.StringToHGlobalAnsi(groupName), bundle);
         }
-        
+
         // ReSharper disable InconsistentNaming
         static unsafe IntPtr GetCFBundleRef(XRReferenceImageLibrary library)
         {
             var mainBundle = GetMainBundle();
-            
+
             // If no data exists in the XRReferenceImageLibrary, then try to look it up in the main bundle
             if (!library.dataStore.TryGetValue(VisionOSPackageInfo.identifier, out var assetCatalogData))
             {
@@ -111,13 +105,14 @@ namespace UnityEngine.XR.VisionOS
         /// <summary>
         /// (Read Only) Whether image validation is supported. `True` on iOS 13 and later.
         /// </summary>
+
         // TODO: Does VisionOS support validation?
         protected override JobHandle ScheduleAddImageJobImpl(NativeSlice<byte> imageBytes, Vector2Int sizeInPixels, TextureFormat format, XRReferenceImage referenceImage, JobHandle inputDeps)
         {
             // TODO: add image
             throw new NotImplementedException();
         }
-        
+
         static readonly TextureFormat[] k_SupportedFormats =
         {
             TextureFormat.Alpha8,
@@ -147,52 +142,52 @@ namespace UnityEngine.XR.VisionOS
             var referenceImagePtr = NativeApi_Image_Tracking.UnityVisionOS_impl_get_reference_image_at_index(self, index);
             if (referenceImagePtr == IntPtr.Zero)
             {
-                Debug.LogError($"Couldn't find reference image at index {index}");
+                Debug.LogError($"Couldn't find AR reference image at index {index}");
                 return default;
             }
-            
+
             var imageNamePtr = NativeApi_Image_Tracking.ar_reference_image_get_name(referenceImagePtr);
             if (imageNamePtr == IntPtr.Zero)
             {
-                Debug.LogError($"Couldn't get name for reference image at index {index}");
+                Debug.LogError($"Couldn't get name for AR reference image at index {index}");
                 return default;
             }
-            
+
             var referenceImageName = Marshal.PtrToStringAnsi(imageNamePtr);
             if (string.IsNullOrEmpty(referenceImageName))
             {
-                Debug.LogError($"Couldn't get name for reference image at index {index}");
+                Debug.LogError($"Couldn't get name for AR reference image at index {index}");
                 return default;
             }
 
             if (!m_ReferenceImages.TryGetValue(referenceImageName, out var xrReferenceImage))
             {
                 if (!m_NameToGuid.TryGetValue(referenceImageName, out var imageGuid))
-                    Debug.LogError($"Could not find guid for reference image with name: {referenceImageName}");
+                    Debug.LogError($"Could not find guid for AR reference image with name: {referenceImageName}");
 
                 m_NameToTextureGuid.TryGetValue(referenceImageName, out var textureGuid);
                 var width = NativeApi_Image_Tracking.ar_reference_image_get_physical_width(referenceImagePtr);
                 var height = NativeApi_Image_Tracking.ar_reference_image_get_physical_height(referenceImagePtr);
-                
+
                 // TODO: Texture guid?
                 xrReferenceImage = new XRReferenceImage(imageGuid, textureGuid, new Vector2(width, height), referenceImageName, null);
                 m_ReferenceImages.Add(referenceImageName, xrReferenceImage);
             }
-            
+
             return xrReferenceImage;
         }
-        
+
         // TODO: Pointers are not equivalent?
         // public bool TryGetImageForPointer(IntPtr referenceImagePointer, out XRReferenceImage image)
         // {
         //     return m_ReferenceImages.TryGetValue(referenceImagePointer, out image);
         // }
-        
+
         public bool TryGetImageForName(string referenceImageName, out XRReferenceImage image)
         {
             return m_ReferenceImages.TryGetValue(referenceImageName, out image);
         }
-        
+
         //TODO: Reference ARFoundation InternalUtils?
         /// <summary>Given a <see cref="System.Guid"/>, resolves it into the equivalent SerializableGuid.</summary>
         /// <param name="guid">The guid to resolve.</param>
@@ -203,7 +198,7 @@ namespace UnityEngine.XR.VisionOS
             Decompose(guid, out var low, out var high);
             return new SerializableGuid(low, high);
         }
-        
+
         // From core-utils
         /// <summary>
         /// Decomposes a 16-byte <c>Guid</c> into two 8-byte <c>ulong</c>s.
@@ -219,11 +214,12 @@ namespace UnityEngine.XR.VisionOS
             high = BitConverter.ToUInt64(bytes, 8);
         }
 
-        [DllImport(k_LibraryName, EntryPoint = "CFBundleGetMainBundle")]
+        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "CFBundleGetMainBundle")]
         static extern IntPtr GetMainBundle();
-        
-        [DllImport(k_LibraryName, EntryPoint = "UnityVisionOS_impl_CreateFromCompiledAssetCatalog")]
+
+        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "UnityVisionOS_impl_CreateFromCompiledAssetCatalog")]
         static extern IntPtr CreateNSBundleFromCompiledAssetCatalog(string bundleIdentifier, NativeView car);
+
         // ReSharper restore InconsistentNaming
     }
 }

@@ -28,7 +28,7 @@ namespace UnityEngine.XR.VisionOS
         static readonly List<XRAnchorSubsystemDescriptor> k_AnchorSubsystemDescriptors = new();
 
 #if INCLUDE_UNITY_XR_HANDS
-        static List<XRHandSubsystemDescriptor> s_HandSubsystemDescriptors  = new();
+        static List<XRHandSubsystemDescriptor> s_HandSubsystemDescriptors = new();
 #endif
 
         /// <summary>
@@ -68,7 +68,7 @@ namespace UnityEngine.XR.VisionOS
         /// managed by this loader.
         /// </summary>
         public XRHandSubsystem handSubsystem => GetLoadedSubsystem<XRHandSubsystem>();
-        
+
         XRHandProviderUtility.SubsystemUpdater m_Updater;
 #endif
 
@@ -79,7 +79,7 @@ namespace UnityEngine.XR.VisionOS
         public override bool Initialize()
         {
             // TODO: #ifdef for runtime-only after removing macos stub
-            
+
             // TODO: Remove targetFrameRate setting or find a better place to put it (or make it optional?)
             Application.targetFrameRate = 90;
             CreateSubsystem<XRDisplaySubsystemDescriptor, XRDisplaySubsystem>(k_DisplaySubsystemDescriptors, k_DisplaySubsystemId);
@@ -89,16 +89,16 @@ namespace UnityEngine.XR.VisionOS
             CreateSubsystem<XRPlaneSubsystemDescriptor, XRPlaneSubsystem>(k_PlaneSubsystemDescriptors, VisionOSPlaneSubsystem.planeSubsystemId);
             CreateSubsystem<XRImageTrackingSubsystemDescriptor, XRImageTrackingSubsystem>(k_ImageTrackingSubsystemDescriptors, VisionOSImageTrackingSubsystem.imageTrackingSubsystemId);
             CreateSubsystem<XRAnchorSubsystemDescriptor, XRAnchorSubsystem>(k_AnchorSubsystemDescriptors, VisionOSAnchorSubsystem.anchorSubsystemId);
-            
+
 #if INCLUDE_UNITY_XR_HANDS
             CreateSubsystem<XRHandSubsystemDescriptor, XRHandSubsystem>(s_HandSubsystemDescriptors, VisionOSHandProvider.handSubsystemId);
             m_Updater = new XRHandProviderUtility.SubsystemUpdater(GetLoadedSubsystem<XRHandSubsystem>());
 #endif
-            
+
             var loadedSessionSubsystem = GetLoadedSubsystem<XRSessionSubsystem>();
             if (loadedSessionSubsystem == null)
             {
-                Debug.LogError("Failed to load session subsystem.");
+                Debug.LogError("Failed to load visionOS session subsystem.");
             }
 
             return loadedSessionSubsystem != null;
@@ -112,7 +112,7 @@ namespace UnityEngine.XR.VisionOS
         {
             StartSubsystem<XRDisplaySubsystem>();
             StartSubsystem<XRInputSubsystem>();
-            
+
             // TODO: #ifdef for runtime-only after removing macos stub
 #if INCLUDE_UNITY_XR_HANDS
             StartSubsystem<XRHandSubsystem>();
@@ -129,13 +129,13 @@ namespace UnityEngine.XR.VisionOS
         {
             StopSubsystem<XRDisplaySubsystem>();
             StopSubsystem<XRInputSubsystem>();
-            
+
             // TODO: #ifdef for runtime-only after removing macos stub
 #if INCLUDE_UNITY_XR_HANDS
             StopSubsystem<XRHandSubsystem>();
             m_Updater?.Stop();
 #endif
-            
+
             return true;
         }
 
@@ -152,7 +152,7 @@ namespace UnityEngine.XR.VisionOS
             DestroySubsystem<XRPlaneSubsystem>();
             DestroySubsystem<XRImageTrackingSubsystem>();
             DestroySubsystem<XRAnchorSubsystem>();
-            
+
 #if INCLUDE_UNITY_XR_HANDS
             DestroySubsystem<XRHandSubsystem>();
 #endif

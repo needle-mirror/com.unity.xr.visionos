@@ -1,21 +1,28 @@
-using UnityEngine;
-// ReSharper disable InconsistentNaming
+using System;
 
 namespace UnityEngine.XR.VisionOS
 {
     /// <summary>
     /// Types of authorization for ARKit data.
     /// </summary>
-    enum AR_Authorization_Type : long
+    [Flags]
+    enum AR_Authorization_Type : uint
     {
+        /// <summary>
+        /// No authorization required.
+        /// </summary>
         None = 0,
 
-        //Authorization type used when requesting hand tracking.
+        /// <summary>
+        /// Authorization type used when requesting hand tracking.
+        /// </summary>
         Hand_Tracking = 1 << 0,
-        /** Authorization type used when requesting:
-                - Plane detection
-                - Scene reconstruction
-            */
+
+        /// <summary>
+        /// Authorization type used when requesting:
+        /// - Plane detection
+        /// - Scene reconstruction
+        /// </summary>
         World_Sensing = 1 << 1
     }
 }

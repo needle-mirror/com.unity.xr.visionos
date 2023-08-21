@@ -4,21 +4,19 @@ using System.Runtime.InteropServices;
 using Unity.Collections;
 using UnityEngine.XR.ARSubsystems;
 
-// ReSharper disable InconsistentNaming
-
 namespace UnityEngine.XR.VisionOS
 {
     static class NativeApi_Utilities
     {
         static readonly IntPtr k_UuidPointer;
         static readonly IntPtr k_FloatArrayPointer;
-        
+
         static NativeApi_Utilities()
         {
             k_UuidPointer = Marshal.AllocHGlobal(Marshal.SizeOf<VisionOS_UUID>());
             k_FloatArrayPointer = Marshal.AllocHGlobal(sizeof(float) * 16);
         }
-        
+
         public static TrackableId GetTrackableId(IntPtr anchor)
         {
             NativeApi_Anchor.ar_anchor_get_identifier(anchor, k_UuidPointer);
@@ -32,7 +30,7 @@ namespace UnityEngine.XR.VisionOS
             Marshal.StructureToPtr(uuid, k_UuidPointer, true);
             return k_UuidPointer;
         }
-        
+
         public static Pose GetWorldPose(IntPtr anchor)
         {
             // TODO: For some reason this method was just returning the same pointer you gave it, so it needed to be wrapped in ObjC
@@ -40,15 +38,22 @@ namespace UnityEngine.XR.VisionOS
             var worldMatrix = Marshal.PtrToStructure<FloatArrayToMatrix4x4>(transformFloatArray);
             return new Pose(worldMatrix.GetPosition(), worldMatrix.GetRotation());
         }
-        
+
         public static IntPtr GetMatrixFloats(Pose pose)
         {
-            var matrix = Matrix4x4.TRS(pose.position, pose.rotation, Vector3.one);
+            // Convert pose to ARKit coordinate space
+            var position = pose.position;
+            position.z *= -1;
+            var rotation = pose.rotation;
+            rotation.z *= -1;
+            rotation.w *= -1;
+
+            var matrix = Matrix4x4.TRS(position, rotation, Vector3.one);
             var float2matrix = new FloatArrayToMatrix4x4(matrix);
             Marshal.StructureToPtr(float2matrix, k_FloatArrayPointer, true);
             return k_FloatArrayPointer;
         }
-        
+
         public static void DictionaryToNativeArray<T>(Dictionary<TrackableId, T> dictionary, ref NativeArray<T> array) where T : struct
         {
             var count = dictionary.Count;
@@ -64,7 +69,7 @@ namespace UnityEngine.XR.VisionOS
                 array[count++] = kvp.Value;
             }
         }
-            
+
         public static void HashSetToNativeArray<T>(HashSet<T> hashSet, ref NativeArray<T> array) where T : struct
         {
             var count = hashSet.Count;

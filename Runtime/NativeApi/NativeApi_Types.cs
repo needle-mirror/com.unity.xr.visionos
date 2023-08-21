@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
 using UnityEngine;
-// ReSharper disable InconsistentNaming
 
 namespace UnityEngine.XR.VisionOS
 {
@@ -9,7 +8,7 @@ namespace UnityEngine.XR.VisionOS
     {
         public ulong low;
         public ulong high;
-        
+
         public VisionOS_UUID(ulong low, ulong high)
         {
             this.low = low;
@@ -46,7 +45,7 @@ namespace UnityEngine.XR.VisionOS
             values[15] = matrix.m33;
         }
 
-        unsafe Matrix4x4 ToMatrix4x4()
+        public unsafe Matrix4x4 ToMatrix4x4()
         {
             // TODO: fast in-place conversion
             return new Matrix4x4(
@@ -86,7 +85,7 @@ namespace UnityEngine.XR.VisionOS
         /// </summary>
         /// <param name="matrix">Pointer to a simd_float4x4</param>
         /// <returns>Pointer to an array of floats which can be used to convert to Matrix4x4</returns>
-        [DllImport("__Internal", EntryPoint = "UnityVisionOS_impl_simd_float4x4_to_float_array")]
+        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "UnityVisionOS_impl_simd_float4x4_to_float_array")]
         public static extern IntPtr UnityVisionOS_impl_simd_float4x4_to_float_array(IntPtr matrix);
     }
 }

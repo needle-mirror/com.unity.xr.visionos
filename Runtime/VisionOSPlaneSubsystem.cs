@@ -18,15 +18,16 @@ namespace UnityEngine.XR.VisionOS
     {
         internal const string planeSubsystemId = "VisionOS-Plane";
 
-        class VisionOSProvider : Provider
+        class VisionOSPlaneProvider : Provider, IVisionOSProvider
         {
             const int k_InitialSize = 16;
-            static VisionOSProvider s_Instance;
-            
+            const Feature k_PlaneTrackingFeature = Feature.PlaneTracking;
+
+            static VisionOSPlaneProvider s_Instance;
+
             static readonly unsafe NativeApi_Plane_Detection.AR_Plane_Detection_Update_Handler k_PlaneDetectionUpdateHandler = PlaneDetectionUpdateHandler;
 
             IntPtr m_PlaneDetectionConfiguration;
-            IntPtr m_PlaneDetectionProvider;
             PlaneDetectionMode m_CurrentPlaneDetectionMode = PlaneDetectionMode.Horizontal | PlaneDetectionMode.Vertical;
 
             readonly Dictionary<TrackableId, BoundedPlane> m_TempAddedPlanes = new(k_InitialSize);
@@ -39,9 +40,44 @@ namespace UnityEngine.XR.VisionOS
 
             readonly Dictionary<TrackableId, IntPtr> m_GeometryPointers = new();
 
-            public VisionOSProvider()
+            public AR_Authorization_Type RequiredAuthorizationType => NativeApi_Plane_Detection.ar_plane_detection_provider_get_required_authorization_type();
+            public bool IsSupported => NativeApi_Plane_Detection.ar_plane_detection_provider_is_supported();
+            public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
+
+            /// <summary>
+            /// Get the current plane detection mode in use.
+            /// </summary>
+            public override PlaneDetectionMode currentPlaneDetectionMode => m_CurrentPlaneDetectionMode;
+
+            public VisionOSPlaneProvider()
             {
                 s_Instance = this;
+                VisionOSProviderRegistration.RegisterProvider(k_PlaneTrackingFeature, this);
+            }
+
+            public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
+            {
+                if (!IsSupported)
+                {
+                    Debug.LogWarning("Plane detection provider is not supported");
+                    provider = IntPtr.Zero;
+                    return false;
+                }
+
+                m_PlaneDetectionConfiguration = NativeApi_Plane_Detection.ar_plane_detection_configuration_create();
+                NativeApi_Plane_Detection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, (AR_Plane_Alignment)m_CurrentPlaneDetectionMode);
+
+                provider = NativeApi_Plane_Detection.ar_plane_detection_provider_create(m_PlaneDetectionConfiguration);
+                CurrentProvider = provider;
+                if (provider == IntPtr.Zero)
+                {
+                    Debug.LogWarning("Failed to create plane detection provider.");
+                    return false;
+                }
+
+                NativeApi_Plane_Detection.UnityVisionOS_impl_ar_plane_detection_provider_set_update_handler(provider, k_PlaneDetectionUpdateHandler);
+
+                return true;
             }
 
             public override void Destroy()
@@ -52,25 +88,23 @@ namespace UnityEngine.XR.VisionOS
                 m_TempAddedPlanes.Clear();
                 m_TempUpdatedPlanes.Clear();
                 m_TempRemovedPlanes.Clear();
+
+                VisionOSProviderRegistration.UnregisterProvider(k_PlaneTrackingFeature, this);
             }
 
             public override void Start()
             {
-                m_PlaneDetectionConfiguration = NativeApi_Plane_Detection.ar_plane_detection_configuration_create();
-                NativeApi_Plane_Detection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, (AR_Plane_Alignment)m_CurrentPlaneDetectionMode);
-
-                m_PlaneDetectionProvider = NativeApi_Plane_Detection.ar_plane_detection_provider_create(m_PlaneDetectionConfiguration);
-                NativeApi_Plane_Detection.UnityVisionOS_impl_ar_plane_detection_provider_set_update_handler(m_PlaneDetectionProvider, k_PlaneDetectionUpdateHandler);
-
-                VisionOSSessionSubsystem.VisionOSProvider.Instance.AddDataProvider(m_PlaneDetectionProvider);
+                VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.AddRequestedFeaturesAndAuthorizations(k_PlaneTrackingFeature, RequiredAuthorizationType);
             }
 
             public override void Stop()
             {
-                VisionOSSessionSubsystem.VisionOSProvider.Instance.RemoveDataProvider(m_PlaneDetectionProvider);
-                // TODO: Should we clear temp dictionaries here? Will re-starting add the same planes back?
+                VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.RemoveRequestedFeaturesAndAuthorizations(k_PlaneTrackingFeature, RequiredAuthorizationType);
+                m_TempAddedPlanes.Clear();
+                m_TempUpdatedPlanes.Clear();
+                m_TempRemovedPlanes.Clear();
             }
-            
+
             // ReSharper disable InconsistentNaming
             // TODO: Use IntPtr instead of void*?
             [MonoPInvokeCallback(typeof(NativeApi_Plane_Detection.AR_Plane_Detection_Update_Handler))]
@@ -119,19 +153,36 @@ namespace UnityEngine.XR.VisionOS
 
                 var trackableId = NativeApi_Utilities.GetTrackableId(planeAnchor);
                 var trackingState = isTracked ? TrackingState.Tracking : TrackingState.None;
-                var planeAlignment = (PlaneAlignment)alignment;
                 var planeClassification = AR_Plane_ClassificationToPlaneClassification(classification);
+                PlaneAlignment planeAlignment;
+                switch (alignment)
+                {
+                    case AR_Plane_Alignment.None:
+                        planeAlignment = PlaneAlignment.None;
+                        break;
+                    case AR_Plane_Alignment.Horizontal:
+                        // TODO: refactor FloatArrayToMatrix4x4 to avoid repeated matrix conversion
+                        // If y-component of second column is negative, plane is rotated upside-down
+                        planeAlignment = worldMatrix.ToMatrix4x4().m11 > 0 ? PlaneAlignment.HorizontalUp : PlaneAlignment.HorizontalDown;
+                        break;
+                    case AR_Plane_Alignment.Vertical:
+                        planeAlignment = PlaneAlignment.Vertical;
+                        break;
+                    default:
+                        planeAlignment = PlaneAlignment.None;
+                        Debug.LogError($"Unsupported plane alignment {alignment}");
+                        break;
+                }
 
                 var planeGeometry = NativeApi_Plane_Detection.ar_plane_anchor_get_geometry(planeAnchor);
                 var extents = NativeApi_Plane_Detection.ar_plane_geometry_get_plane_extent(planeGeometry);
                 var width = NativeApi_Plane_Detection.ar_plane_extent_get_width(extents);
                 var height = NativeApi_Plane_Detection.ar_plane_extent_get_height(extents);
                 var size = new Vector2(width, height);
-                
+
                 // Store geometry pointer for use in GetBoundary later on
                 m_GeometryPointers[trackableId] = planeGeometry;
 
-                // TODO: Is center always 0,0?
                 return new BoundedPlane(trackableId, TrackableId.invalidId, pose, Vector2.zero, size, planeAlignment, trackingState, planeAnchor, planeClassification);
             }
 
@@ -145,7 +196,7 @@ namespace UnityEngine.XR.VisionOS
                     var trackableId = boundedPlane.trackableId;
                     if (trackableId == TrackableId.invalidId)
                     {
-                        Debug.LogError($"Trying to add anchor with invalid trackable id: {boundedPlane.trackableId}");
+                        Debug.LogError($"Trying to add AR plane anchor with invalid trackable id: {boundedPlane.trackableId}");
                         continue;
                     }
 
@@ -174,9 +225,9 @@ namespace UnityEngine.XR.VisionOS
                     else
                         m_TempUpdatedPlanes[trackableId] = plane;
                 }
-                
+
                 planeAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(removed_anchors, removed_anchor_count, Allocator.None);
-                foreach(var plane in planeAnchors)
+                foreach (var plane in planeAnchors)
                 {
                     var trackableId = NativeApi_Utilities.GetTrackableId(plane);
                     var removed = m_TempAddedPlanes.Remove(trackableId);
@@ -190,12 +241,8 @@ namespace UnityEngine.XR.VisionOS
                         m_TempRemovedPlanes.Add(trackableId);
                 }
             }
-            // ReSharper restore InconsistentNaming
 
-            /// <summary>
-            /// Get the current plane detection mode in use.
-            /// </summary>
-            public override PlaneDetectionMode currentPlaneDetectionMode => m_CurrentPlaneDetectionMode;
+            // ReSharper restore InconsistentNaming
 
             public override unsafe void GetBoundary(
                 TrackableId trackableId,
@@ -204,7 +251,7 @@ namespace UnityEngine.XR.VisionOS
             {
                 if (!m_GeometryPointers.TryGetValue(trackableId, out var geometryPointer))
                 {
-                    Debug.LogError($"Trying to get boundary for {trackableId} but it does not exist in anchor dictionary");
+                    Debug.LogError($"Trying to get AR plane boundary for {trackableId} but it does not exist in anchor dictionary");
                     return;
                 }
 
@@ -212,7 +259,7 @@ namespace UnityEngine.XR.VisionOS
                 var vertexFormat = NativeApi_Scene_Reconstruction.ar_geometry_source_get_format(geometrySource);
                 if (vertexFormat != MTLVertexFormat.MTLVertexFormatFloat3)
                 {
-                    Debug.LogError($"Got a vertex format other than Float3 trying to get geometry for {trackableId}");
+                    Debug.LogError($"Got a vertex format other than Float3 trying to get AR plane geometry for {trackableId}");
                     return;
                 }
 
@@ -225,14 +272,14 @@ namespace UnityEngine.XR.VisionOS
                 {
                     var vertex = vertices[i];
                     boundary[i] = new Vector2(vertex.x, vertex.z);
-                }   
-                
+                }
+
                 var transformPositionsHandle = new TransformBoundaryPositionsJob
                 {
                     positionsIn = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Vector3>((void*)vertexBuffer, vertexCount, Allocator.None),
                     positionsOut = boundary
                 }.Schedule(vertexCount, 1);
-                
+
                 new FlipBoundaryWindingJob
                 {
                     positions = boundary
@@ -265,6 +312,7 @@ namespace UnityEngine.XR.VisionOS
                 public void Execute(int index)
                 {
                     positionsOut[index] = new Vector2(
+
                         // https://developer.apple.com/documentation/arkit/arplanegeometry/2941052-boundaryvertices?language=objc
                         // "The owning plane anchor's transform matrix defines the coordinate system for these points."
                         // It doesn't explicitly state the y component is zero, but that must be the case if the
@@ -274,7 +322,7 @@ namespace UnityEngine.XR.VisionOS
                         // Boundary vertices are in right-handed coordinates and clockwise winding order. To convert
                         // to left-handed, we flip the Z coordinate, but that also flips the winding, so we have to
                         // flip the winding back to clockwise by reversing the polygon index (j).
-                         positionsIn[index].x,
+                        positionsIn[index].x,
                         -positionsIn[index].z);
                 }
             }
@@ -290,8 +338,8 @@ namespace UnityEngine.XR.VisionOS
                     NativeApi_Utilities.HashSetToNativeArray(m_TempRemovedPlanes, ref m_RemovedPlanes);
 
                     var changes = new TrackableChanges<BoundedPlane>(
-                        m_AddedPlanes.GetUnsafePtr(), m_TempAddedPlanes.Count, 
-                        m_UpdatedPlanes.GetUnsafePtr(), m_TempUpdatedPlanes.Count, 
+                        m_AddedPlanes.GetUnsafePtr(), m_TempAddedPlanes.Count,
+                        m_UpdatedPlanes.GetUnsafePtr(), m_TempUpdatedPlanes.Count,
                         m_RemovedPlanes.GetUnsafePtr(), m_TempRemovedPlanes.Count,
                         defaultPlane, sizeof(BoundedPlane), allocator);
 
@@ -318,7 +366,7 @@ namespace UnityEngine.XR.VisionOS
                     // If configuration is null, we haven't started the subsystem yet. This is fine--we will use this plane detection mode when we start
                     if (m_PlaneDetectionConfiguration == IntPtr.Zero)
                         return;
-                    
+
                     // TODO: Do we need to restart the session when configurations change?
                     var nativeAlignment = (AR_Plane_Alignment)m_CurrentPlaneDetectionMode;
                     NativeApi_Plane_Detection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, nativeAlignment);
@@ -332,13 +380,15 @@ namespace UnityEngine.XR.VisionOS
             var cinfo = new XRPlaneSubsystemDescriptor.Cinfo
             {
                 id = planeSubsystemId,
-                providerType = typeof(VisionOSProvider),
+                providerType = typeof(VisionOSPlaneProvider),
                 subsystemTypeOverride = typeof(VisionOSPlaneSubsystem),
                 supportsHorizontalPlaneDetection = true,
+
                 // TODO: Does platform X always support vertical planes?
                 supportsVerticalPlaneDetection = true,
                 supportsArbitraryPlaneDetection = false,
                 supportsBoundaryVertices = true,
+
                 // TODO: Does platform X always support classification?
                 supportsClassification = true
             };

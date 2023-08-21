@@ -66,7 +66,7 @@ namespace UnityEditor.XR.VisionOS
                     }
                     catch
                     {
-                        Debug.LogErrorFormat("Failed to generate reference image at index {0} named '{1}' in library '{2}'.",
+                        Debug.LogErrorFormat("Failed to generate AR reference image at index {0} named '{1}' in library '{2}'.",
                             library.indexOf(referenceImage), referenceImage.name, AssetDatabase.GetAssetPath(library));
 
                         throw;

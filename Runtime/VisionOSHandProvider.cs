@@ -3,24 +3,57 @@ using System;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using UnityEngine;
+using UnityEngine.XR.ARSubsystems;
 using UnityEngine.XR.Hands;
 using UnityEngine.XR.Hands.ProviderImplementation;
 
 namespace UnityEngine.XR.VisionOS
 {
-    public class VisionOSHandProvider : XRHandSubsystemProvider
+    class VisionOSHandProvider : XRHandSubsystemProvider, IVisionOSProvider
     {
+        // TODO: Add HandTracking feature to future versions of AR Foundation
+        // Use Body3D as a proxy for now
+        const Feature k_HandFeatureProxy = Feature.Body3D;
         internal const string handSubsystemId = "VisionOS-Hands";
         const int k_JointNameCount = 28;
 
         string[] m_JointNames;
-        IntPtr m_HandTrackingConfiguration;
-        IntPtr m_HandTrackingProvider;
 
         XRHandSubsystem.UpdateSuccessFlags m_LastSuccessFlags = XRHandSubsystem.UpdateSuccessFlags.None;
 
-        public override unsafe void Start()
+        public AR_Authorization_Type RequiredAuthorizationType => NativeApi_Hand_Tracking.ar_hand_tracking_provider_get_required_authorization_type();
+        public bool IsSupported => NativeApi_Hand_Tracking.ar_hand_tracking_provider_is_supported();
+        public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
+
+        public VisionOSHandProvider()
         {
+            VisionOSProviderRegistration.RegisterProvider(k_HandFeatureProxy, this);
+        }
+
+        public override void Start()
+        {
+            VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.AddRequestedFeaturesAndAuthorizations(k_HandFeatureProxy, RequiredAuthorizationType);
+        }
+
+        public override void Stop()
+        {
+            VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.RemoveRequestedFeaturesAndAuthorizations(k_HandFeatureProxy, RequiredAuthorizationType);
+        }
+
+        public override void Destroy()
+        {
+            VisionOSProviderRegistration.UnregisterProvider(k_HandFeatureProxy, this);
+        }
+
+        public unsafe bool TryCreateNativeProvider(Feature features, out IntPtr provider)
+        {
+            if (!IsSupported)
+            {
+                Debug.LogWarning("Hand tracking provider is not supported");
+                provider = IntPtr.Zero;
+                return false;
+            }
+
             if (m_JointNames == null)
             {
                 var jointNames = NativeApi_Hand_Tracking.UnityVisionOS_impl_get_joint_names();
@@ -31,18 +64,16 @@ namespace UnityEngine.XR.VisionOS
                 }
             }
 
-            m_HandTrackingConfiguration = NativeApi_Hand_Tracking.ar_hand_tracking_configuration_create();
-            m_HandTrackingProvider = NativeApi_Hand_Tracking.ar_hand_tracking_provider_create(m_HandTrackingConfiguration);
-            VisionOSSessionSubsystem.VisionOSProvider.Instance.AddDataProvider(m_HandTrackingProvider);
-        }
+            var handTrackingConfiguration = NativeApi_Hand_Tracking.ar_hand_tracking_configuration_create();
+            provider = NativeApi_Hand_Tracking.ar_hand_tracking_provider_create(handTrackingConfiguration);
+            CurrentProvider = provider;
+            if (provider == IntPtr.Zero)
+            {
+                Debug.LogWarning("Failed to create hand tracking provider.");
+                return false;
+            }
 
-        public override void Stop()
-        {
-            VisionOSSessionSubsystem.VisionOSProvider.Instance.RemoveDataProvider(m_HandTrackingProvider);
-        }
-
-        public override void Destroy()
-        {
+            return true;
         }
 
         public override void GetHandLayout(NativeArray<bool> handJointsInLayout)
@@ -62,10 +93,13 @@ namespace UnityEngine.XR.VisionOS
             ref Pose rightHandRootPose,
             NativeArray<XRHandJoint> rightHandJoints)
         {
+            if (CurrentProvider == IntPtr.Zero)
+                return XRHandSubsystem.UpdateSuccessFlags.None;
+
             // TODO: Can we re-use these anchors? We should confirm that these are freed by ARC
             var leftHandAnchor = NativeApi_Hand_Tracking.ar_hand_anchor_create();
             var rightHandAnchor = NativeApi_Hand_Tracking.ar_hand_anchor_create();
-            var success = NativeApi_Hand_Tracking.ar_hand_tracking_provider_get_latest_anchors(m_HandTrackingProvider, leftHandAnchor, rightHandAnchor);
+            var success = NativeApi_Hand_Tracking.ar_hand_tracking_provider_get_latest_anchors(CurrentProvider, leftHandAnchor, rightHandAnchor);
 
             // get_latest_anchors will return false if we poll too quickly--in that case, return the last valid result
             if (!success)

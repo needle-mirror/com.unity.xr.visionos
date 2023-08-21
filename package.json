@@ -1,7 +1,7 @@
 {
   "name": "com.unity.xr.visionos",
   "displayName": "Apple visionOS XR Plugin",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "unity": "2022.3",
   "unityRelease": "5f1",
   "description": "Provides support for Apple visionOS XR features. This includes build post-processing code and the following subsystem implementations:\n  - XRSessionSubsystem\n  - XRDisplaySubsystem\n  - XRInputSubsystem\n  - XRMeshSubsystem\n  - XRPlaneSubsystem\n  - XRImageTrackingSubsystem\n  - XRAnchorSubsystem\n  - XRHandSubsystem",
@@ -12,13 +12,16 @@
     "com.unity.xr.arfoundation": "5.0.6",
     "com.unity.xr.management": "4.3.3"
   },
-  "upmCi": {
-    "footprint": "ee89154e641a3d1e14aa2226f2cf5c1e340f7e64"
+  "_upm": {
+    "changelog": "### Changed\n\n- Xcode beta 5 and visionOS beta 2 compatibility\n- Static libraries were rebuilt with Xcode Version 15.0 beta 2 (15A5161b).\n\n### Fixed\n\n- Fixed issues with AR mesh alignment.\n- Fixed issues with AR anchor position.\n- Fixed issues with AR authorization and session startup.\n- Fixed an issue where Plane alignment values would not match the values expected by AR Foundation."
   },
-  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.xr.visionos@0.1/manual/index.html",
+  "upmCi": {
+    "footprint": "c2a5f947dc2e88ca127b574c9da8988a3a7fcfd4"
+  },
+  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.xr.visionos@0.2/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/xr.sdk.visionos.git",
     "type": "git",
-    "revision": "6f85e02623300836b4fb251e7545bb75afe9b3e5"
+    "revision": "d18f34f82d8a49f631ee4501618ffb55fcff9682"
   }
 }

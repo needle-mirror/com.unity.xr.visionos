@@ -1,6 +1,4 @@
 using System;
-using UnityEngine;
-// ReSharper disable InconsistentNaming
 
 namespace UnityEngine.XR.VisionOS
 {
@@ -10,13 +8,19 @@ namespace UnityEngine.XR.VisionOS
     [Flags]
     enum AR_Plane_Alignment : long
     {
-        /** No plane alignment. */
-        None                   = 0,
+        /// <summary>
+        /// No plane alignment.
+        /// </summary>
+        None = 0,
 
-        /** Planes orthogonal to the gravity vector. */
-        Horizontal             = 1 << 0,
+        /// <summary>
+        /// Planes orthogonal to the gravity vector.
+        /// </summary>
+        Horizontal = 1 << 0,
 
-        /** Planes parallel to the gravity vector. */
-        Vertical               = 1 << 1
+        /// <summary>
+        /// Planes parallel to the gravity vector.
+        /// </summary>
+        Vertical = 1 << 1
     }
 }
