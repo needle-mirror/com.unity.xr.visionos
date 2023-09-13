@@ -27,21 +27,17 @@ namespace UnityEditor.XR.VisionOS
 
             public void OnPostprocessBuild(BuildReport report)
             {
-                if (!IsLoaderEnabled())
-                    return;
-
+                var isLoaderEnabled = IsLoaderEnabled();
+                var outputPath = report.summary.outputPath;
                 var settings = VisionOSSettings.currentSettings;
                 var appMode = settings.appMode;
-
-                var outputPath = report.summary.outputPath;
-                FilterPlist(outputPath, settings, appMode);
-                if (appMode == VisionOSSettings.AppMode.MR)
-                    return;
-
-                FilterXcodeProj(outputPath);
+                PatchIl2Cpp(outputPath);
+                FilterXcodeProj(outputPath, isLoaderEnabled, appMode);
+                if (isLoaderEnabled)
+                    FilterPlist(outputPath, settings, appMode);
             }
 
-            static void FilterXcodeProj(string outputPath)
+            static void FilterXcodeProj(string outputPath, bool isLoaderEnabled, VisionOSSettings.AppMode appMode)
             {
                 var xcodeProj = outputPath + "/Unity-iPhone.xcodeproj";
                 if (!Directory.Exists(xcodeProj))
@@ -50,15 +46,6 @@ namespace UnityEditor.XR.VisionOS
                 var xcodePbx = xcodeProj + "/project.pbxproj";
                 var pbx = new PBXProject();
                 pbx.ReadFromFile(xcodePbx);
-
-                // Add visionos_config header which exposes settings to native code
-                const string configHeader = "visionos_config.h";
-                File.WriteAllText(outputPath + "/" + configHeader,
-                    $"// Generated during Unity build by com.unity.xr.visionos {nameof(VisionOSBuildProcessor)}.{nameof(PostProcessor)}\n"
-                    + $"#define VISIONOS_SINGLE_PASS {(VisionOSSettings.currentSettings.renderMode == RenderMode.SinglePassInstanced ? "1" : "0")}\n"
-                    + $"#define VISIONOS_SIMULATOR {(VisionOSSettings.currentSettings.deviceTarget == VisionOSSettings.DeviceTarget.Simulator ? "1" : "0")}\n");
-
-                pbx.AddFile(outputPath + "/" + configHeader, configHeader);
 
                 var unityMainTargetGuid = pbx.GetUnityMainTargetGuid();
                 var unityFrameworkTargetGuid = pbx.GetUnityFrameworkTargetGuid();
@@ -78,13 +65,25 @@ namespace UnityEditor.XR.VisionOS
                 pbx.UpdateBuildProperty(unityMainTargetGuid, cFlagsSettingName, cFlagsAddValues, null);
                 pbx.UpdateBuildProperty(unityFrameworkTargetGuid, cFlagsSettingName, cFlagsAddValues, null);
 
-                // Remove main.mm which is replaced by swift trampoline
-                pbx.RemoveFile(pbx.FindFileGuidByProjectPath("MainApp/main.mm"));
+                if (isLoaderEnabled && appMode == VisionOSSettings.AppMode.VR)
+                {
+                    // Add visionos_config header which exposes settings to native code
+                    const string configHeader = "visionos_config.h";
+                    File.WriteAllText(outputPath + "/" + configHeader,
+                        $"// Generated during Unity build by com.unity.xr.visionos {nameof(VisionOSBuildProcessor)}.{nameof(PostProcessor)}\n"
+                        + $"#define VISIONOS_SINGLE_PASS {(VisionOSSettings.currentSettings.renderMode == RenderMode.SinglePassInstanced ? "1" : "0")}\n"
+                        + $"#define VISIONOS_SIMULATOR {(VisionOSSettings.currentSettings.deviceTarget == VisionOSSettings.DeviceTarget.Simulator ? "1" : "0")}\n");
 
-                // Move swift trampoline files from UnityFramework to UnityMain
-                const string pluginPath = "Libraries/ARM64/Packages/com.unity.xr.visionos/Runtime/visionos";
-                BuildFileWithUnityTarget(pbx, $"{pluginPath}/UnityMain.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
-                BuildFileWithUnityTarget(pbx, $"{pluginPath}/UnityLibrary.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
+                    pbx.AddFile(outputPath + "/" + configHeader, configHeader);
+
+                    // Remove main.mm which is replaced by swift trampoline
+                    pbx.RemoveFile(pbx.FindFileGuidByProjectPath("MainApp/main.mm"));
+
+                    // Move swift trampoline files from UnityFramework to UnityMain
+                    const string pluginPath = "Libraries/ARM64/Packages/com.unity.xr.visionos/Runtime/Plugins/visionos";
+                    BuildFileWithUnityTarget(pbx, $"{pluginPath}/UnityMain.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
+                    BuildFileWithUnityTarget(pbx, $"{pluginPath}/UnityLibrary.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
+                }
 
                 pbx.WriteToFile(xcodePbx);
             }
@@ -123,6 +122,23 @@ namespace UnityEditor.XR.VisionOS
                     plist.root[k_WorldSensingUsageDescriptionKey] = plist.CreateElement("string", worldSensingUsage);
 
                 plist.WriteToFile(plistPath);
+            }
+
+            static void PatchIl2Cpp(string outputPath)
+            {
+                // Only 2022.3.9f1 can be patched to work with Xcode 15b8. Earlier versions will not work, and later versions do not require the patch
+                if (Application.unityVersion != "2022.3.9f1")
+                    return;
+
+                const string patchesDirectory = "Packages/com.unity.xr.visionos/Patches~";
+                if (!Directory.Exists(patchesDirectory))
+                    return;
+
+                const string patchFileName = "Bee.Toolchain.Xcode.dll";
+                const string il2CppPath = "Il2CppOutputProject/IL2CPP/build/deploy_arm64";
+                var destFileName = Path.Combine(outputPath, il2CppPath, patchFileName);
+                var sourceFileName = Path.Combine(patchesDirectory, patchFileName);
+                File.Copy(sourceFileName, destFileName, true);
             }
         }
 #endif

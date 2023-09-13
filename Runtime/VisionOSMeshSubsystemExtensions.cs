@@ -23,22 +23,22 @@ namespace UnityEngine.XR.VisionOS
         public static unsafe NativeArray<ARMeshClassification> GetFaceClassifications(this XRMeshSubsystem subsystem, TrackableId meshId, Allocator allocator)
         {
             var meshAnchor = GetMeshAnchorForMeshId(meshId);
-            var geometry = NativeApi_Scene_Reconstruction.ar_mesh_anchor_get_geometry(meshAnchor);
-            var classifications = NativeApi_Scene_Reconstruction.ar_mesh_geometry_get_classification(geometry);
+            var geometry = NativeApi.SceneReconstruction.ar_mesh_anchor_get_geometry(meshAnchor);
+            var classifications = NativeApi.SceneReconstruction.ar_mesh_geometry_get_classification(geometry);
             var numClassifications = 0;
             if (classifications != IntPtr.Zero)
             {
-                numClassifications = NativeApi_Scene_Reconstruction.ar_geometry_source_get_count(classifications);
+                numClassifications = NativeApi.SceneReconstruction.ar_geometry_source_get_count(classifications);
             }
 
             var meshClassifications = new NativeArray<ARMeshClassification>(numClassifications, allocator);
             if (classifications != IntPtr.Zero)
             {
-                var format = NativeApi_Scene_Reconstruction.ar_geometry_source_get_format(classifications);
+                var format = NativeApi.SceneReconstruction.ar_geometry_source_get_format(classifications);
                 if (format != MTLVertexFormat.MTLVertexFormatUChar)
                     throw new InvalidOperationException($"Unexpected vertex format {format} getting mesh classifications. Only {nameof(MTLVertexFormat.MTLVertexFormatUChar)} is supported");
 
-                var buffer = NativeApi_Scene_Reconstruction.UnityVisionOS_impl_ar_geometry_source_get_buffer(classifications);
+                var buffer = NativeApi.SceneReconstruction.UnityVisionOS_impl_ar_geometry_source_get_buffer(classifications);
                 var tmp = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<ARMeshClassification>((void*)buffer, numClassifications, Allocator.None);
                 meshClassifications.CopyFrom(tmp);
             }
@@ -69,7 +69,7 @@ namespace UnityEngine.XR.VisionOS
                 enabled ? AR_Scene_Reconstruction_Mode.Classification : AR_Scene_Reconstruction_Mode.Default);
         }
 
-        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "UnityVisionOS_GetMeshAnchorForMeshId")]
+        [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "UnityVisionOS_GetMeshAnchorForMeshId")]
         static extern IntPtr GetMeshAnchorForMeshId(TrackableId trackableId);
     }
 }

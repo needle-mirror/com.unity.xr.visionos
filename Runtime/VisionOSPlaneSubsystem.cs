@@ -25,7 +25,7 @@ namespace UnityEngine.XR.VisionOS
 
             static VisionOSPlaneProvider s_Instance;
 
-            static readonly unsafe NativeApi_Plane_Detection.AR_Plane_Detection_Update_Handler k_PlaneDetectionUpdateHandler = PlaneDetectionUpdateHandler;
+            static readonly unsafe NativeApi.PlaneDetection.AR_Plane_Detection_Update_Handler k_PlaneDetectionUpdateHandler = PlaneDetectionUpdateHandler;
 
             IntPtr m_PlaneDetectionConfiguration;
             PlaneDetectionMode m_CurrentPlaneDetectionMode = PlaneDetectionMode.Horizontal | PlaneDetectionMode.Vertical;
@@ -38,10 +38,11 @@ namespace UnityEngine.XR.VisionOS
             NativeArray<BoundedPlane> m_UpdatedPlanes = new(k_InitialSize, Allocator.Persistent);
             NativeArray<TrackableId> m_RemovedPlanes = new(k_InitialSize, Allocator.Persistent);
 
-            readonly Dictionary<TrackableId, IntPtr> m_GeometryPointers = new();
+            readonly Dictionary<TrackableId, NativeArray<Vector3>> m_Boundaries = new();
 
-            public AR_Authorization_Type RequiredAuthorizationType => NativeApi_Plane_Detection.ar_plane_detection_provider_get_required_authorization_type();
-            public bool IsSupported => NativeApi_Plane_Detection.ar_plane_detection_provider_is_supported();
+            public AR_Authorization_Type RequiredAuthorizationType => NativeApi.PlaneDetection.ar_plane_detection_provider_get_required_authorization_type();
+            public bool IsSupported => NativeApi.PlaneDetection.ar_plane_detection_provider_is_supported();
+            public bool ShouldBeActive => running;
             public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
 
             /// <summary>
@@ -64,10 +65,10 @@ namespace UnityEngine.XR.VisionOS
                     return false;
                 }
 
-                m_PlaneDetectionConfiguration = NativeApi_Plane_Detection.ar_plane_detection_configuration_create();
-                NativeApi_Plane_Detection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, (AR_Plane_Alignment)m_CurrentPlaneDetectionMode);
+                m_PlaneDetectionConfiguration = NativeApi.PlaneDetection.ar_plane_detection_configuration_create();
+                NativeApi.PlaneDetection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, (AR_Plane_Alignment)m_CurrentPlaneDetectionMode);
 
-                provider = NativeApi_Plane_Detection.ar_plane_detection_provider_create(m_PlaneDetectionConfiguration);
+                provider = NativeApi.PlaneDetection.ar_plane_detection_provider_create(m_PlaneDetectionConfiguration);
                 CurrentProvider = provider;
                 if (provider == IntPtr.Zero)
                 {
@@ -75,7 +76,7 @@ namespace UnityEngine.XR.VisionOS
                     return false;
                 }
 
-                NativeApi_Plane_Detection.UnityVisionOS_impl_ar_plane_detection_provider_set_update_handler(provider, k_PlaneDetectionUpdateHandler);
+                NativeApi.PlaneDetection.UnityVisionOS_impl_ar_plane_detection_provider_set_update_handler(provider, k_PlaneDetectionUpdateHandler);
 
                 return true;
             }
@@ -92,14 +93,10 @@ namespace UnityEngine.XR.VisionOS
                 VisionOSProviderRegistration.UnregisterProvider(k_PlaneTrackingFeature, this);
             }
 
-            public override void Start()
-            {
-                VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.AddRequestedFeaturesAndAuthorizations(k_PlaneTrackingFeature, RequiredAuthorizationType);
-            }
+            public override void Start() { }
 
             public override void Stop()
             {
-                VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.RemoveRequestedFeaturesAndAuthorizations(k_PlaneTrackingFeature, RequiredAuthorizationType);
                 m_TempAddedPlanes.Clear();
                 m_TempUpdatedPlanes.Clear();
                 m_TempRemovedPlanes.Clear();
@@ -107,7 +104,7 @@ namespace UnityEngine.XR.VisionOS
 
             // ReSharper disable InconsistentNaming
             // TODO: Use IntPtr instead of void*?
-            [MonoPInvokeCallback(typeof(NativeApi_Plane_Detection.AR_Plane_Detection_Update_Handler))]
+            [MonoPInvokeCallback(typeof(NativeApi.PlaneDetection.AR_Plane_Detection_Update_Handler))]
             static unsafe void PlaneDetectionUpdateHandler(void* added_anchors, int added_anchor_count,
                 void* updated_anchors, int updated_anchor_count, void* removed_anchors, int removed_anchor_count)
             {
@@ -142,16 +139,16 @@ namespace UnityEngine.XR.VisionOS
 
             BoundedPlane GetBoundedPlane(IntPtr planeAnchor)
             {
-                var alignment = NativeApi_Plane_Detection.ar_plane_anchor_get_alignment(planeAnchor);
-                var classification = NativeApi_Plane_Detection.ar_plane_anchor_get_plane_classification(planeAnchor);
-                var isTracked = NativeApi_Anchor.ar_trackable_anchor_is_tracked(planeAnchor);
+                var alignment = NativeApi.PlaneDetection.ar_plane_anchor_get_alignment(planeAnchor);
+                var classification = NativeApi.PlaneDetection.ar_plane_anchor_get_plane_classification(planeAnchor);
+                var isTracked = NativeApi.Anchor.ar_trackable_anchor_is_tracked(planeAnchor);
 
                 // TODO: For some reason this method was just returning the same pointer you gave it, so it needed to be wrapped in ObjC
-                var transformFloatArray = NativeApi_Anchor.UnityVisionOS_impl_ar_anchor_get_origin_from_anchor_transform_to_float_array(planeAnchor);
+                var transformFloatArray = NativeApi.Anchor.UnityVisionOS_impl_ar_anchor_get_origin_from_anchor_transform_to_float_array(planeAnchor);
                 var worldMatrix = Marshal.PtrToStructure<FloatArrayToMatrix4x4>(transformFloatArray);
                 var pose = new Pose(worldMatrix.GetPosition(), worldMatrix.GetRotation());
 
-                var trackableId = NativeApi_Utilities.GetTrackableId(planeAnchor);
+                var trackableId = NativeApi.Utilities.GetTrackableId(planeAnchor);
                 var trackingState = isTracked ? TrackingState.Tracking : TrackingState.None;
                 var planeClassification = AR_Plane_ClassificationToPlaneClassification(classification);
                 PlaneAlignment planeAlignment;
@@ -174,14 +171,28 @@ namespace UnityEngine.XR.VisionOS
                         break;
                 }
 
-                var planeGeometry = NativeApi_Plane_Detection.ar_plane_anchor_get_geometry(planeAnchor);
-                var extents = NativeApi_Plane_Detection.ar_plane_geometry_get_plane_extent(planeGeometry);
-                var width = NativeApi_Plane_Detection.ar_plane_extent_get_width(extents);
-                var height = NativeApi_Plane_Detection.ar_plane_extent_get_height(extents);
+                var planeGeometry = NativeApi.PlaneDetection.ar_plane_anchor_get_geometry(planeAnchor);
+                var extents = NativeApi.PlaneDetection.ar_plane_geometry_get_plane_extent(planeGeometry);
+                var width = NativeApi.PlaneDetection.ar_plane_extent_get_width(extents);
+                var height = NativeApi.PlaneDetection.ar_plane_extent_get_height(extents);
                 var size = new Vector2(width, height);
 
-                // Store geometry pointer for use in GetBoundary later on
-                m_GeometryPointers[trackableId] = planeGeometry;
+                var geometrySource = NativeApi.PlaneDetection.ar_plane_geometry_get_mesh_vertices(planeGeometry);
+                var vertexFormat = NativeApi.SceneReconstruction.ar_geometry_source_get_format(geometrySource);
+                if (vertexFormat == MTLVertexFormat.MTLVertexFormatFloat3)
+                {
+                    var vertexCount = NativeApi.SceneReconstruction.ar_geometry_source_get_count(geometrySource);
+                    var vertexBuffer = NativeApi.SceneReconstruction.UnityVisionOS_impl_ar_geometry_source_get_buffer(geometrySource);
+                    unsafe
+                    {
+                        var boundaryArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Vector3>((void*)vertexBuffer, vertexCount, Allocator.None);
+                        m_Boundaries[trackableId] = boundaryArray;
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"Got a vertex format other than Float3 trying to get AR plane geometry for {trackableId}");
+                }
 
                 return new BoundedPlane(trackableId, TrackableId.invalidId, pose, Vector2.zero, size, planeAlignment, trackingState, planeAnchor, planeClassification);
             }
@@ -229,12 +240,16 @@ namespace UnityEngine.XR.VisionOS
                 planeAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(removed_anchors, removed_anchor_count, Allocator.None);
                 foreach (var plane in planeAnchors)
                 {
-                    var trackableId = NativeApi_Utilities.GetTrackableId(plane);
+                    var trackableId = NativeApi.Utilities.GetTrackableId(plane);
                     var removed = m_TempAddedPlanes.Remove(trackableId);
                     removed |= m_TempUpdatedPlanes.Remove(trackableId);
 
                     // Try removing from m_GeometryPointers anyway, but don't take that into account for tracking changes
-                    m_GeometryPointers.Remove(trackableId);
+                    if (m_Boundaries.TryGetValue(trackableId, out var boundaryArray))
+                    {
+                        boundaryArray.Dispose();
+                        m_Boundaries.Remove(trackableId);
+                    }
 
                     // Only add to removed planes if we have already acquired this plane (i.e. it does not exist in the other temp dictionaries)
                     if (!removed)
@@ -249,34 +264,17 @@ namespace UnityEngine.XR.VisionOS
                 Allocator allocator,
                 ref NativeArray<Vector2> boundary)
             {
-                if (!m_GeometryPointers.TryGetValue(trackableId, out var geometryPointer))
+                if (!m_Boundaries.TryGetValue(trackableId, out var boundaryArray))
                 {
                     Debug.LogError($"Trying to get AR plane boundary for {trackableId} but it does not exist in anchor dictionary");
                     return;
                 }
 
-                var geometrySource = NativeApi_Plane_Detection.ar_plane_geometry_get_mesh_vertices(geometryPointer);
-                var vertexFormat = NativeApi_Scene_Reconstruction.ar_geometry_source_get_format(geometrySource);
-                if (vertexFormat != MTLVertexFormat.MTLVertexFormatFloat3)
-                {
-                    Debug.LogError($"Got a vertex format other than Float3 trying to get AR plane geometry for {trackableId}");
-                    return;
-                }
-
-                var vertexCount = NativeApi_Scene_Reconstruction.ar_geometry_source_get_count(geometrySource);
-                var vertexBuffer = NativeApi_Scene_Reconstruction.UnityVisionOS_impl_ar_geometry_source_get_buffer(geometrySource);
-
-                var vertices = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Vector3>((void*)vertexBuffer, vertexCount, Allocator.None);
+                var vertexCount = boundaryArray.Length;
                 CreateOrResizeNativeArrayIfNecessary(vertexCount, allocator, ref boundary);
-                for (var i = 0; i < vertexCount; i++)
-                {
-                    var vertex = vertices[i];
-                    boundary[i] = new Vector2(vertex.x, vertex.z);
-                }
-
                 var transformPositionsHandle = new TransformBoundaryPositionsJob
                 {
-                    positionsIn = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Vector3>((void*)vertexBuffer, vertexCount, Allocator.None),
+                    positionsIn = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Vector3>(boundaryArray.GetUnsafePtr(), vertexCount, Allocator.None),
                     positionsOut = boundary
                 }.Schedule(vertexCount, 1);
 
@@ -284,6 +282,9 @@ namespace UnityEngine.XR.VisionOS
                 {
                     positions = boundary
                 }.Schedule(transformPositionsHandle).Complete();
+
+                m_Boundaries.Remove(trackableId);
+                boundaryArray.Dispose();
             }
 
             struct FlipBoundaryWindingJob : IJob
@@ -333,9 +334,9 @@ namespace UnityEngine.XR.VisionOS
             {
                 try
                 {
-                    NativeApi_Utilities.DictionaryToNativeArray(m_TempAddedPlanes, ref m_AddedPlanes);
-                    NativeApi_Utilities.DictionaryToNativeArray(m_TempUpdatedPlanes, ref m_UpdatedPlanes);
-                    NativeApi_Utilities.HashSetToNativeArray(m_TempRemovedPlanes, ref m_RemovedPlanes);
+                    NativeApi.Utilities.DictionaryToNativeArray(m_TempAddedPlanes, ref m_AddedPlanes);
+                    NativeApi.Utilities.DictionaryToNativeArray(m_TempUpdatedPlanes, ref m_UpdatedPlanes);
+                    NativeApi.Utilities.HashSetToNativeArray(m_TempRemovedPlanes, ref m_RemovedPlanes);
 
                     var changes = new TrackableChanges<BoundedPlane>(
                         m_AddedPlanes.GetUnsafePtr(), m_TempAddedPlanes.Count,
@@ -369,7 +370,7 @@ namespace UnityEngine.XR.VisionOS
 
                     // TODO: Do we need to restart the session when configurations change?
                     var nativeAlignment = (AR_Plane_Alignment)m_CurrentPlaneDetectionMode;
-                    NativeApi_Plane_Detection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, nativeAlignment);
+                    NativeApi.PlaneDetection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, nativeAlignment);
                 }
             }
         }

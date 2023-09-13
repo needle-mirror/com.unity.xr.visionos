@@ -67,7 +67,9 @@ struct MyApp: App {
             let configuration = UnityContentConfiguration(singlePass: singlePass, enableFoveation: false)
             CompositorLayer(configuration:configuration) { layerRenderer in
                 unityClass?.perform(Selector(("setLayerRenderer:")), with: layerRenderer)
-                unityClass?.perform(Selector(("setImmersiveSpaceReady")))
+
+                let unityBridge = NSClassFromString("UnityVisionOSNativeBridge") as? NSObject.Type
+                unityBridge?.perform(Selector(("setImmersiveSpaceReady")))
             }
         }.immersionStyle(selection: $immersionStyle, in: .full)
     }

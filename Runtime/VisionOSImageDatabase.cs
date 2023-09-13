@@ -39,7 +39,7 @@ namespace UnityEngine.XR.VisionOS
         {
             if (library == null)
             {
-                return NativeApi_Image_Tracking.ar_reference_images_create();
+                return NativeApi.ImageTracking.ar_reference_images_create();
             }
 
             var bundle = GetCFBundleRef(library);
@@ -47,7 +47,7 @@ namespace UnityEngine.XR.VisionOS
                 throw new InvalidOperationException($"Could not create reference image library '{library.name}'. Unable to create resource bundle.");
 
             var groupName = GetARResourceGroupName(library);
-            return NativeApi_Image_Tracking.ar_reference_images_load_reference_images_in_group(Marshal.StringToHGlobalAnsi(groupName), bundle);
+            return NativeApi.ImageTracking.ar_reference_images_load_reference_images_in_group(Marshal.StringToHGlobalAnsi(groupName), bundle);
         }
 
         // ReSharper disable InconsistentNaming
@@ -135,18 +135,18 @@ namespace UnityEngine.XR.VisionOS
             return GetReferenceImage(index);
         }
 
-        public override int count => NativeApi_Image_Tracking.ar_reference_images_get_count(self);
+        public override int count => NativeApi.ImageTracking.ar_reference_images_get_count(self);
 
         XRReferenceImage GetReferenceImage(int index)
         {
-            var referenceImagePtr = NativeApi_Image_Tracking.UnityVisionOS_impl_get_reference_image_at_index(self, index);
+            var referenceImagePtr = NativeApi.ImageTracking.UnityVisionOS_impl_get_reference_image_at_index(self, index);
             if (referenceImagePtr == IntPtr.Zero)
             {
                 Debug.LogError($"Couldn't find AR reference image at index {index}");
                 return default;
             }
 
-            var imageNamePtr = NativeApi_Image_Tracking.ar_reference_image_get_name(referenceImagePtr);
+            var imageNamePtr = NativeApi.ImageTracking.ar_reference_image_get_name(referenceImagePtr);
             if (imageNamePtr == IntPtr.Zero)
             {
                 Debug.LogError($"Couldn't get name for AR reference image at index {index}");
@@ -166,8 +166,8 @@ namespace UnityEngine.XR.VisionOS
                     Debug.LogError($"Could not find guid for AR reference image with name: {referenceImageName}");
 
                 m_NameToTextureGuid.TryGetValue(referenceImageName, out var textureGuid);
-                var width = NativeApi_Image_Tracking.ar_reference_image_get_physical_width(referenceImagePtr);
-                var height = NativeApi_Image_Tracking.ar_reference_image_get_physical_height(referenceImagePtr);
+                var width = NativeApi.ImageTracking.ar_reference_image_get_physical_width(referenceImagePtr);
+                var height = NativeApi.ImageTracking.ar_reference_image_get_physical_height(referenceImagePtr);
 
                 // TODO: Texture guid?
                 xrReferenceImage = new XRReferenceImage(imageGuid, textureGuid, new Vector2(width, height), referenceImageName, null);
@@ -214,10 +214,10 @@ namespace UnityEngine.XR.VisionOS
             high = BitConverter.ToUInt64(bytes, 8);
         }
 
-        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "CFBundleGetMainBundle")]
+        [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "CFBundleGetMainBundle")]
         static extern IntPtr GetMainBundle();
 
-        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "UnityVisionOS_impl_CreateFromCompiledAssetCatalog")]
+        [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "UnityVisionOS_impl_CreateFromCompiledAssetCatalog")]
         static extern IntPtr CreateNSBundleFromCompiledAssetCatalog(string bundleIdentifier, NativeView car);
 
         // ReSharper restore InconsistentNaming

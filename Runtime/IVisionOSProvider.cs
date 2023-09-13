@@ -19,6 +19,11 @@ namespace UnityEngine.XR.VisionOS
         bool IsSupported { get; }
 
         /// <summary>
+        /// Whether this data provider should be active
+        /// </summary>
+        bool ShouldBeActive { get; }
+
+        /// <summary>
         /// The current <see cref="IntPtr"/> for the native data provider.
         /// </summary>
         IntPtr CurrentProvider { get; }

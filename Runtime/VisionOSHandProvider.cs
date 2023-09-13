@@ -21,8 +21,9 @@ namespace UnityEngine.XR.VisionOS
 
         XRHandSubsystem.UpdateSuccessFlags m_LastSuccessFlags = XRHandSubsystem.UpdateSuccessFlags.None;
 
-        public AR_Authorization_Type RequiredAuthorizationType => NativeApi_Hand_Tracking.ar_hand_tracking_provider_get_required_authorization_type();
-        public bool IsSupported => NativeApi_Hand_Tracking.ar_hand_tracking_provider_is_supported();
+        public AR_Authorization_Type RequiredAuthorizationType => NativeApi.HandTracking.ar_hand_tracking_provider_get_required_authorization_type();
+        public bool IsSupported => NativeApi.HandTracking.ar_hand_tracking_provider_is_supported();
+        public bool ShouldBeActive => running;
         public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
 
         public VisionOSHandProvider()
@@ -30,15 +31,9 @@ namespace UnityEngine.XR.VisionOS
             VisionOSProviderRegistration.RegisterProvider(k_HandFeatureProxy, this);
         }
 
-        public override void Start()
-        {
-            VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.AddRequestedFeaturesAndAuthorizations(k_HandFeatureProxy, RequiredAuthorizationType);
-        }
+        public override void Start() { }
 
-        public override void Stop()
-        {
-            VisionOSSessionSubsystem.VisionOSSessionProvider.Instance.RemoveRequestedFeaturesAndAuthorizations(k_HandFeatureProxy, RequiredAuthorizationType);
-        }
+        public override void Stop() { }
 
         public override void Destroy()
         {
@@ -56,7 +51,7 @@ namespace UnityEngine.XR.VisionOS
 
             if (m_JointNames == null)
             {
-                var jointNames = NativeApi_Hand_Tracking.UnityVisionOS_impl_get_joint_names();
+                var jointNames = NativeApi.HandTracking.UnityVisionOS_impl_get_joint_names();
                 m_JointNames = new string[k_JointNameCount];
                 for (var i = 0; i < k_JointNameCount; i++)
                 {
@@ -64,8 +59,8 @@ namespace UnityEngine.XR.VisionOS
                 }
             }
 
-            var handTrackingConfiguration = NativeApi_Hand_Tracking.ar_hand_tracking_configuration_create();
-            provider = NativeApi_Hand_Tracking.ar_hand_tracking_provider_create(handTrackingConfiguration);
+            var handTrackingConfiguration = NativeApi.HandTracking.ar_hand_tracking_configuration_create();
+            provider = NativeApi.HandTracking.ar_hand_tracking_provider_create(handTrackingConfiguration);
             CurrentProvider = provider;
             if (provider == IntPtr.Zero)
             {
@@ -97,9 +92,9 @@ namespace UnityEngine.XR.VisionOS
                 return XRHandSubsystem.UpdateSuccessFlags.None;
 
             // TODO: Can we re-use these anchors? We should confirm that these are freed by ARC
-            var leftHandAnchor = NativeApi_Hand_Tracking.ar_hand_anchor_create();
-            var rightHandAnchor = NativeApi_Hand_Tracking.ar_hand_anchor_create();
-            var success = NativeApi_Hand_Tracking.ar_hand_tracking_provider_get_latest_anchors(CurrentProvider, leftHandAnchor, rightHandAnchor);
+            var leftHandAnchor = NativeApi.HandTracking.ar_hand_anchor_create();
+            var rightHandAnchor = NativeApi.HandTracking.ar_hand_anchor_create();
+            var success = NativeApi.HandTracking.ar_hand_tracking_provider_get_latest_anchors(CurrentProvider, leftHandAnchor, rightHandAnchor);
 
             // get_latest_anchors will return false if we poll too quickly--in that case, return the last valid result
             if (!success)
@@ -113,11 +108,11 @@ namespace UnityEngine.XR.VisionOS
 
         void GetHandData(ref Pose rootPose, ref XRHandSubsystem.UpdateSuccessFlags successFlags, NativeArray<XRHandJoint> jointArray, IntPtr handAnchor, Handedness handedness)
         {
-            var isTracked = NativeApi_Anchor.ar_trackable_anchor_is_tracked(handAnchor);
+            var isTracked = NativeApi.Anchor.ar_trackable_anchor_is_tracked(handAnchor);
             if (!isTracked)
                 return;
 
-            var worldTransform = NativeApi_Anchor.ar_anchor_get_origin_from_anchor_transform(handAnchor);
+            var worldTransform = NativeApi.Anchor.ar_anchor_get_origin_from_anchor_transform(handAnchor);
             var convertedMatrix = NativeApi_Types.UnityVisionOS_impl_simd_float4x4_to_float_array(worldTransform);
             var worldMatrix = Marshal.PtrToStructure<FloatArrayToMatrix4x4>(convertedMatrix);
             var wristPosition = worldMatrix.GetPosition();
@@ -128,12 +123,12 @@ namespace UnityEngine.XR.VisionOS
                 ? XRHandSubsystem.UpdateSuccessFlags.LeftHandRootPose
                 : XRHandSubsystem.UpdateSuccessFlags.RightHandRootPose;
 
-            var skeleton = NativeApi_Hand_Tracking.ar_hand_anchor_get_skeleton(handAnchor);
+            var skeleton = NativeApi.HandTracking.ar_hand_anchor_get_skeleton(handAnchor);
             for (var jointID = XRHandJointID.BeginMarker; jointID < XRHandJointID.EndMarker; jointID++)
             {
                 var index = jointID.ToIndex();
                 var name = m_JointNames[index];
-                var jointIsTracked = NativeApi_Skeleton.ar_skeleton_is_joint_tracked(skeleton, name);
+                var jointIsTracked = NativeApi.Skeleton.ar_skeleton_is_joint_tracked(skeleton, name);
                 var trackingState = jointIsTracked ? XRHandJointTrackingState.Pose : XRHandJointTrackingState.None;
                 if (jointID == XRHandJointID.Palm)
                     trackingState = XRHandJointTrackingState.WillNeverBeValid;
@@ -141,7 +136,7 @@ namespace UnityEngine.XR.VisionOS
                 var pose = Pose.identity;
                 if (jointIsTracked)
                 {
-                    var jointTransformPtr = NativeApi_Skeleton.ar_skeleton_get_skeleton_root_transform_for_joint(skeleton, name);
+                    var jointTransformPtr = NativeApi.Skeleton.ar_skeleton_get_skeleton_root_transform_for_joint(skeleton, name);
                     convertedMatrix = NativeApi_Types.UnityVisionOS_impl_simd_float4x4_to_float_array(jointTransformPtr);
                     var jointMatrix = Marshal.PtrToStructure<FloatArrayToMatrix4x4>(convertedMatrix);
                     var jointPosition = wristPosition + wristRotation * jointMatrix.GetPosition();

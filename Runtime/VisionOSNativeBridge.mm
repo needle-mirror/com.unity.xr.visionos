@@ -22,6 +22,8 @@ static std::vector<ar_world_anchor_t> tmp_updated_anchors;
 static std::vector<ar_world_anchor_t> tmp_removed_anchors;
 static float* tmp_matrix_floats = new float[16];
 
+bool s_ImmersiveSpaceReady;
+
 const char* joint_names[] =
 {
     ar_hand_skeleton_joint_name_wrist,
@@ -92,7 +94,7 @@ typedef void(*unity_ar_world_tracking_remove_anchor_completion_handler_t)(ar_wor
 
 EXPORT(void) UnityVisionOS_impl_ar_session_set_data_provider_state_change_handler(ar_session_t session, unity_ar_session_data_provider_state_change_handler_t data_provider_state_change_handler)
 {
-    ar_session_set_data_provider_state_change_handler(session, ^(ar_data_providers_t data_providers,
+    ar_session_set_data_provider_state_change_handler_with_queue(session, nullptr, ^(ar_data_providers_t data_providers,
                                                                  ar_data_provider_state_t new_state,
                                                                  _Nullable ar_error_t error,
                                                                  _Nullable ar_data_provider_t failed_provider)
@@ -223,14 +225,6 @@ EXPORT(void) UnityVisionOS_impl_ar_image_tracking_provider_set_update_handler(ar
     });
 }
 
-EXPORT(void) UnityVisionOS_impl_ar_hand_tracking_provider_set_update_handler(ar_hand_tracking_provider_t hand_tracking_provider,
-    unity_ar_hand_tracking_update_handler_t hand_tracking_update_handler)
-{
-    ar_hand_tracking_provider_set_update_handler(hand_tracking_provider, nullptr, ^(ar_hand_anchor_t  _Nonnull hand_anchor_left, ar_hand_anchor_t  _Nonnull hand_anchor_right) {
-        hand_tracking_update_handler(hand_anchor_left, hand_anchor_right);
-    });
-}
-
 EXPORT(void*) UnityVisionOS_impl_ar_geometry_source_get_buffer(ar_geometry_source_t geometry_source)
 {
     id<MTLBuffer> buffer = ar_geometry_source_get_buffer(geometry_source);
@@ -241,7 +235,7 @@ EXPORT(void*) UnityVisionOS_impl_ar_geometry_source_get_buffer(ar_geometry_sourc
 EXPORT(float*) UnityVisionOS_impl_ar_anchor_get_origin_from_anchor_transform_to_float_array(ar_anchor_t anchor)
 {
     simd_float4x4 worldMatrix = ar_anchor_get_origin_from_anchor_transform(anchor);
-    
+
     // TODO: cast or something faster?
     for (int i = 0; i < 4; i++)
     {
@@ -301,7 +295,7 @@ EXPORT(ar_reference_image_t) UnityVisionOS_impl_get_reference_image_at_index(ar_
             return ++enumerationCount < reference_image_count;
         });
     }
-    
+
     return found_reference_image;
 }
 
@@ -359,7 +353,7 @@ EXPORT(CFBundleRef) UnityVisionOS_impl_CreateFromCompiledAssetCatalog(const char
     CFURLRef bundleURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, (__bridge CFStringRef)bundlePath, kCFURLPOSIXPathStyle, true);
     CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, bundleURL);
     CFRelease(bundleURL);
-    
+
     // TODO: Release bundle
     return bundle;
 }
@@ -431,8 +425,8 @@ EXPORT(ar_world_anchor_t) UnityVisionOS_impl_ar_world_anchor_create_with_transfo
     matrix.columns[3][1] = transform[13];
     matrix.columns[3][2] = transform[14];
     matrix.columns[3][3] = transform[15];
-    
-    return ar_world_anchor_create_with_transform(matrix);
+
+    return ar_world_anchor_create_with_origin_from_anchor_transform(matrix);
 }
 
 EXPORT(void) UnityVisionOS_impl_ar_world_tracking_provider_add_anchor(ar_world_tracking_provider_t world_tracking_provider,
@@ -449,28 +443,6 @@ EXPORT(void) UnityVisionOS_impl_ar_world_tracking_provider_remove_anchor_with_id
     ar_world_tracking_provider_remove_anchor_with_identifier(world_tracking_provider, anchor_identifier, ^(ar_world_anchor_t world_anchor, bool successful, ar_error_t _Nullable error) {
         remove_anchor_completion_handler(world_anchor, successful, error);
     });
-}
-
-// TODO: Not sure why we can't call ar_anchor_get_origin_from_anchor_transform directly but it was giving back the same pointer you gave it
-EXPORT(float*) UnityVisionOS_impl_ar_plane_extent_get_plane_anchor_from_plane_extent_transform_to_float_array(ar_plane_extent_t plane_extent)
-{
-    simd_float4x4 worldMatrix = ar_plane_extent_get_plane_anchor_from_plane_extent_transform(plane_extent);
-    
-    // TODO: cast or something faster?
-    for (int i = 0; i < 4; i++)
-    {
-        for (int j = 0; j < 4; j++)
-        {
-            int index = i * 4 + j;
-            tmp_matrix_floats[index] = worldMatrix.columns[i][j];
-        }
-    }
-
-    //TODO: Why does ARKit sometimes give us 3,3 != 1?
-    // Suppress Assert(ValidTRS());
-    tmp_matrix_floats[15] = 1;
-
-    return tmp_matrix_floats;
 }
 
 EXPORT(void) UnityVisionOS_impl_ar_authorization_results_enumerate_results(ar_authorization_results_t authorization_results,
@@ -500,3 +472,23 @@ EXPORT(bool) UnityVisionOS_IsSimulator()
     return false;
 #endif
 }
+
+EXPORT(bool) UnityVisionOS_IsImmersiveSpaceReady()
+{
+    return s_ImmersiveSpaceReady;
+}
+
+@interface UnityVisionOSNativeBridge : NSObject
+
++ (void)setImmersiveSpaceReady;
+
+@end
+
+@implementation UnityVisionOSNativeBridge
+
++ (void)setImmersiveSpaceReady
+{
+    s_ImmersiveSpaceReady = true;
+}
+
+@end

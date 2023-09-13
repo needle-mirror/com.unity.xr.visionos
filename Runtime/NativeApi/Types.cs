@@ -1,6 +1,5 @@
 using System;
 using System.Runtime.InteropServices;
-using UnityEngine;
 
 namespace UnityEngine.XR.VisionOS
 {
@@ -85,7 +84,7 @@ namespace UnityEngine.XR.VisionOS
         /// </summary>
         /// <param name="matrix">Pointer to a simd_float4x4</param>
         /// <returns>Pointer to an array of floats which can be used to convert to Matrix4x4</returns>
-        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "UnityVisionOS_impl_simd_float4x4_to_float_array")]
+        [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "UnityVisionOS_impl_simd_float4x4_to_float_array")]
         public static extern IntPtr UnityVisionOS_impl_simd_float4x4_to_float_array(IntPtr matrix);
     }
 }

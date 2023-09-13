@@ -7,8 +7,9 @@ namespace UnityEngine.XR.VisionOS
 {
     class VisionOSMeshProvider : IVisionOSProvider
     {
-        public AR_Authorization_Type RequiredAuthorizationType => NativeApi_Scene_Reconstruction.ar_scene_reconstruction_provider_get_required_authorization_type();
-        public bool IsSupported => NativeApi_Scene_Reconstruction.ar_scene_reconstruction_provider_is_supported();
+        public AR_Authorization_Type RequiredAuthorizationType => NativeApi.SceneReconstruction.ar_scene_reconstruction_provider_get_required_authorization_type();
+        public bool IsSupported => NativeApi.SceneReconstruction.ar_scene_reconstruction_provider_is_supported();
+        public bool ShouldBeActive => GetMeshSubsystemStatus() == SubsystemStatus.Started;
         public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
 
         public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
@@ -35,15 +36,10 @@ namespace UnityEngine.XR.VisionOS
             return true;
         }
 
-        internal SubsystemStatus GetSubsystemStatus()
-        {
-            return GetMeshSubsystemStatus();
-        }
-
-        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "UnityVisionOS_CreateSceneReconstructionProvider")]
+        [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "UnityVisionOS_CreateSceneReconstructionProvider")]
         static extern IntPtr CreateSceneReconstructionProvider(AR_Scene_Reconstruction_Mode mode);
 
-        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "UnityVisionOS_GetMeshSubsystemStatus")]
+        [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "UnityVisionOS_GetMeshSubsystemStatus")]
         static extern SubsystemStatus GetMeshSubsystemStatus();
     }
 }

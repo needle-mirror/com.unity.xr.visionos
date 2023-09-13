@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using AOT;
 using Unity.Collections;
 using UnityEngine;
@@ -17,15 +18,27 @@ namespace UnityEngine.XR.VisionOS
 
         internal class VisionOSSessionProvider : Provider
         {
+            // Must match UnityXRNativeSession and kUnityXRNativeSessionVersion in UnityXRNativePtrs.h
+            // ReSharper disable NotAccessedField.Local
+            struct XRNativeSession
+            {
+                public int version;
+                public IntPtr sessionPtr;
+            }
+            // ReSharper restore NotAccessedField.Local
+
+            // ReSharper disable once InconsistentNaming
+            const int kUnityXRNativeSessionVersion = 1;
+
             // TODO: How to get back to instance from callbacks?
             // TODO: How to connect subsystems together without singleton?
-            static readonly NativeApi_Session.AR_Session_Data_Provider_State_Change_Handler k_DataProviderStateChangeHandler = DataProviderStateChangeHandler;
-            static readonly NativeApi_Session.AR_Authorization_Update_Handler k_AuthorizationUpdateHandler = AuthorizationUpdateHandler;
-            static readonly NativeApi_Session.AR_Authorization_Results_Handler k_QueryAuthorizationResultsHandler = QueryAuthorizationResultsHandler;
-            static readonly NativeApi_Authorization.Authorization_Results_Enumeration_Completed_Callback k_QueryAuthorizationResultsHanEnumerationCompletedCallback = QueryAuthorizationResultsEnumerationCompletedCallback;
-            static readonly NativeApi_Session.AR_Authorization_Results_Handler k_RequestAuthorizationResultsHandler = RequestAuthorizationResultsHandler;
-            static readonly NativeApi_Authorization.Authorization_Results_Enumeration_Completed_Callback k_RequestAuthorizationResultsHanEnumerationCompletedCallback = RequestAuthorizationResultsEnumerationCompletedCallback;
-            static readonly NativeApi_Authorization.Authorization_Results_Enumeration_Step_Callback k_EnumerateAuthorizationStepCallback = EnumerateAuthorizationStepCallback;
+            static readonly NativeApi.Session.AR_Session_Data_Provider_State_Change_Handler k_DataProviderStateChangeHandler = DataProviderStateChangeHandler;
+            static readonly NativeApi.Session.AR_Authorization_Update_Handler k_AuthorizationUpdateHandler = AuthorizationUpdateHandler;
+            static readonly NativeApi.Session.AR_Authorization_Results_Handler k_QueryAuthorizationResultsHandler = QueryAuthorizationResultsHandler;
+            static readonly NativeApi.Authorization.Authorization_Results_Enumeration_Completed_Callback k_QueryAuthorizationResultsHanEnumerationCompletedCallback = QueryAuthorizationResultsEnumerationCompletedCallback;
+            static readonly NativeApi.Session.AR_Authorization_Results_Handler k_RequestAuthorizationResultsHandler = RequestAuthorizationResultsHandler;
+            static readonly NativeApi.Authorization.Authorization_Results_Enumeration_Completed_Callback k_RequestAuthorizationResultsHanEnumerationCompletedCallback = RequestAuthorizationResultsEnumerationCompletedCallback;
+            static readonly NativeApi.Authorization.Authorization_Results_Enumeration_Step_Callback k_EnumerateAuthorizationStepCallback = EnumerateAuthorizationStepCallback;
 
             const float k_StartupTimeout = 5;
 
@@ -41,13 +54,15 @@ namespace UnityEngine.XR.VisionOS
 
             public static VisionOSSessionProvider Instance { get; private set; }
 
-            readonly IntPtr m_Self;
+            readonly IntPtr m_ARSession;
+            GCHandle m_NativeSessionHandle;
             IntPtr m_ProviderCollection;
 
             bool m_ProviderStateCallbackReceived;
             float m_StartTime = Mathf.Infinity;
             Configuration? m_CurrentConfiguration;
             Feature m_RequestedFeatures;
+            AR_Scene_Reconstruction_Mode m_SceneReconstructionMode;
             bool m_TimeoutWarningRaised;
             bool m_RestartRequested;
             bool m_AwaitingAuthorization;
@@ -60,34 +75,37 @@ namespace UnityEngine.XR.VisionOS
 
             public override Feature requestedFeatures => m_RequestedFeatures;
 
+            public override IntPtr nativePtr { get; } = IntPtr.Zero;
+
             public VisionOSSessionProvider()
             {
                 Instance = this;
-                m_Self = NativeApi_Session.ar_session_create();
+                m_ARSession = NativeApi.Session.ar_session_create();
+                var nativeSession = new XRNativeSession
+                {
+                    version = kUnityXRNativeSessionVersion,
+                    sessionPtr = m_ARSession
+                };
 
-                NativeApi_Session.UnityVisionOS_impl_ar_session_set_data_provider_state_change_handler(m_Self, k_DataProviderStateChangeHandler);
-                NativeApi_Session.UnityVisionOS_impl_ar_session_set_authorization_update_handler(m_Self, k_AuthorizationUpdateHandler);
+                m_NativeSessionHandle = GCHandle.Alloc(nativeSession, GCHandleType.Pinned);
+                nativePtr = GCHandle.ToIntPtr(m_NativeSessionHandle);
+
+                NativeApi.Session.UnityVisionOS_impl_ar_session_set_data_provider_state_change_handler(m_ARSession, k_DataProviderStateChangeHandler);
+                NativeApi.Session.UnityVisionOS_impl_ar_session_set_authorization_update_handler(m_ARSession, k_AuthorizationUpdateHandler);
 
                 VisionOSProviderRegistration.RegisterProvider(k_MeshingFeature, m_MeshProvider);
                 VisionOSProviderRegistration.RegisterProvider(k_WorldTrackingFeature, m_WorldTrackingProvider);
-
-                // TODO: What should request world tracking feature/authorization?
-                AddRequestedFeaturesAndAuthorizations(k_WorldTrackingFeature, m_WorldTrackingProvider.RequiredAuthorizationType);
-
-                PollMeshSubsystemStatus();
             }
 
             public override void Start()
             {
                 m_StartTime = Time.realtimeSinceStartup;
                 m_TimeoutWarningRaised = false;
-                PollMeshSubsystemStatus();
             }
 
             public override void Update(XRSessionUpdateParams updateParams, Configuration configuration)
             {
                 s_LastUpdateTime = Time.realtimeSinceStartup;
-                PollMeshSubsystemStatus();
 
                 // Check if authorization needs to be requested
                 if (!CheckAuthorization())
@@ -117,10 +135,10 @@ namespace UnityEngine.XR.VisionOS
 #endif
 
                 if (m_CurrentConfiguration.HasValue)
-                    NativeApi_Session.ar_session_stop(m_Self);
+                    NativeApi.Session.ar_session_stop(m_ARSession);
 
                 var features = configuration.features;
-                m_ProviderCollection = NativeApi_Data_Provider.ar_data_providers_create();
+                m_ProviderCollection = NativeApi.DataProvider.ar_data_providers_create();
                 foreach (var kvp in VisionOSProviderRegistration.EnumerateProviders())
                 {
                     // Do not attempt to create provider if not supported
@@ -146,13 +164,31 @@ namespace UnityEngine.XR.VisionOS
                     }
 
                     Debug.Log($"Adding AR data provider for feature {feature}");
-                    NativeApi_Data_Provider.ar_data_providers_add_data_provider(m_ProviderCollection, providerPointer);
+                    NativeApi.DataProvider.ar_data_providers_add_data_provider(m_ProviderCollection, providerPointer);
                 }
 
                 m_CurrentConfiguration = configuration;
 
                 Debug.Log("Running AR session.");
-                NativeApi_Session.ar_session_run(m_Self, m_ProviderCollection);
+                NativeApi.Session.ar_session_run(m_ARSession, m_ProviderCollection);
+            }
+
+            void CalculateFeaturesAndAuthorizations()
+            {
+                m_RequestedAuthorizations = AR_Authorization_Type.None;
+                m_RequestedFeatures = Feature.None;
+                foreach (var kvp in VisionOSProviderRegistration.EnumerateProviders())
+                {
+                    var provider = kvp.Value;
+                    if (!provider.ShouldBeActive)
+                        continue;
+
+                    m_RequestedFeatures |= kvp.Key;
+                    m_RequestedAuthorizations |= provider.RequiredAuthorizationType;
+                }
+
+                if (m_SceneReconstructionMode == AR_Scene_Reconstruction_Mode.Classification)
+                    m_RequestedFeatures |= Feature.MeshClassification;
             }
 
             bool CheckAuthorization()
@@ -170,7 +206,7 @@ namespace UnityEngine.XR.VisionOS
                         m_AwaitingAuthorization = true;
                     }
 
-                    NativeApi_Session.UnityVisionOS_impl_ar_session_query_authorization_results(m_Self, m_RequestedAuthorizations, k_QueryAuthorizationResultsHandler);
+                    NativeApi.Session.UnityVisionOS_impl_ar_session_query_authorization_results(m_ARSession, m_RequestedAuthorizations, k_QueryAuthorizationResultsHandler);
                 }
 
                 return !m_AwaitingAuthorization;
@@ -185,9 +221,13 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Stop()
             {
-                PollMeshSubsystemStatus();
                 m_ProviderStateCallbackReceived = false;
-                NativeApi_Session.ar_session_stop(m_Self);
+                NativeApi.Session.ar_session_stop(m_ARSession);
+            }
+
+            public override void Destroy()
+            {
+                m_NativeSessionHandle.Free();
             }
 
             public override void OnApplicationResume()
@@ -196,7 +236,7 @@ namespace UnityEngine.XR.VisionOS
                 {
                     // Restart session, which was paused by the system
                     Debug.Log("Resuming AR session after pause.");
-                    NativeApi_Session.ar_session_run(m_Self, m_ProviderCollection);
+                    NativeApi.Session.ar_session_run(m_ARSession, m_ProviderCollection);
                 }
             }
 
@@ -207,35 +247,12 @@ namespace UnityEngine.XR.VisionOS
 
             public override NativeArray<ConfigurationDescriptor> GetConfigurationDescriptors(Allocator allocator)
             {
+                CalculateFeaturesAndAuthorizations();
+
                 var descriptors = new NativeArray<ConfigurationDescriptor>(1, allocator);
                 var descriptor = new ConfigurationDescriptor(IntPtr.Zero, m_RequestedFeatures, 0);
                 descriptors[0] = descriptor;
                 return descriptors;
-            }
-
-            void PollMeshSubsystemStatus()
-            {
-                var meshSubsystemStatus = m_MeshProvider.GetSubsystemStatus();
-                if (meshSubsystemStatus == SubsystemStatus.Started)
-                {
-                    AddRequestedFeaturesAndAuthorizations(k_MeshingFeature, m_MeshProvider.RequiredAuthorizationType);
-                }
-                else
-                {
-                    RemoveRequestedFeaturesAndAuthorizations(k_MeshingFeature, m_MeshProvider.RequiredAuthorizationType);
-                }
-            }
-
-            public void AddRequestedFeaturesAndAuthorizations(Feature features, AR_Authorization_Type authorizations)
-            {
-                m_RequestedFeatures |= features;
-                m_RequestedAuthorizations |= authorizations;
-            }
-
-            public void RemoveRequestedFeaturesAndAuthorizations(Feature features, AR_Authorization_Type authorizations)
-            {
-                m_RequestedFeatures &= ~features;
-                m_RequestedAuthorizations &= ~authorizations;
             }
 
             public void RequestRestart()
@@ -244,7 +261,7 @@ namespace UnityEngine.XR.VisionOS
             }
 
             // ReSharper disable InconsistentNaming
-            [MonoPInvokeCallback(typeof(NativeApi_Session.AR_Session_Data_Provider_State_Change_Handler))]
+            [MonoPInvokeCallback(typeof(NativeApi.Session.AR_Session_Data_Provider_State_Change_Handler))]
             static void DataProviderStateChangeHandler(IntPtr data_providers, AR_Data_Provider_State new_state, IntPtr error, IntPtr failed_data_provider)
             {
                 if (failed_data_provider != IntPtr.Zero || error != IntPtr.Zero)
@@ -262,7 +279,7 @@ namespace UnityEngine.XR.VisionOS
                     var errorCodeString = "Unknown";
                     if (error != IntPtr.Zero)
                     {
-                        var errorCode = (AR_Session_Error_Code)NativeApi_Error.ar_error_get_error_code(error);
+                        var errorCode = (AR_Session_Error_Code)NativeApi.Error.ar_error_get_error_code(error);
                         errorCodeString = errorCode.ToString();
                     }
 
@@ -278,7 +295,7 @@ namespace UnityEngine.XR.VisionOS
 
             // ReSharper restore InconsistentNaming
 
-            [MonoPInvokeCallback(typeof(NativeApi_Session.AR_Authorization_Update_Handler))]
+            [MonoPInvokeCallback(typeof(NativeApi.Session.AR_Authorization_Update_Handler))]
             static void AuthorizationUpdateHandler(IntPtr authorizationResult)
             {
                 if (Instance == null)
@@ -296,8 +313,8 @@ namespace UnityEngine.XR.VisionOS
 
             void ProcessAuthorizationResult(IntPtr authorizationResult)
             {
-                var resultType = NativeApi_Authorization.ar_authorization_result_get_authorization_type(authorizationResult);
-                var resultStatus = NativeApi_Authorization.ar_authorization_result_get_status(authorizationResult);
+                var resultType = NativeApi.Authorization.ar_authorization_result_get_authorization_type(authorizationResult);
+                var resultStatus = NativeApi.Authorization.ar_authorization_result_get_status(authorizationResult);
                 Debug.Log($"AR authorization result - Type: {resultType} Status: {resultStatus}");
 
                 switch (resultStatus)
@@ -317,12 +334,12 @@ namespace UnityEngine.XR.VisionOS
                 }
             }
 
-            [MonoPInvokeCallback(typeof(NativeApi_Session.AR_Authorization_Results_Handler))]
+            [MonoPInvokeCallback(typeof(NativeApi.Session.AR_Authorization_Results_Handler))]
             static void QueryAuthorizationResultsHandler(IntPtr authorizationResults, IntPtr error)
             {
                 if (error != IntPtr.Zero)
                 {
-                    var errorCode = NativeApi_Error.ar_error_get_error_code(error);
+                    var errorCode = NativeApi.Error.ar_error_get_error_code(error);
                     Debug.LogError($"Error trying to query AR authorization. Error code: {errorCode}");
 
                     // TODO: Not sure how to interpret error code--just log it for now
@@ -334,11 +351,11 @@ namespace UnityEngine.XR.VisionOS
                     return;
                 }
 
-                NativeApi_Authorization.UnityVisionOS_impl_ar_authorization_results_enumerate_results(authorizationResults,
+                NativeApi.Authorization.UnityVisionOS_impl_ar_authorization_results_enumerate_results(authorizationResults,
                     k_EnumerateAuthorizationStepCallback, k_QueryAuthorizationResultsHanEnumerationCompletedCallback);
             }
 
-            [MonoPInvokeCallback(typeof(NativeApi_Authorization.Authorization_Results_Enumeration_Completed_Callback))]
+            [MonoPInvokeCallback(typeof(NativeApi.Authorization.Authorization_Results_Enumeration_Completed_Callback))]
             static void QueryAuthorizationResultsEnumerationCompletedCallback()
             {
                 Instance.RequestAuthorizationIfNeeded();
@@ -349,7 +366,7 @@ namespace UnityEngine.XR.VisionOS
                 if (NeedAuthorizationRequest())
                 {
                     Debug.Log($"New AR authorization required. Requesting authorization for {m_RequestedAuthorizations}.");
-                    NativeApi_Session.UnityVisionOS_impl_ar_session_request_authorization(m_Self, m_RequestedAuthorizations, k_RequestAuthorizationResultsHandler);
+                    NativeApi.Session.UnityVisionOS_impl_ar_session_request_authorization(m_ARSession, m_RequestedAuthorizations, k_RequestAuthorizationResultsHandler);
                 }
                 else
                 {
@@ -360,12 +377,12 @@ namespace UnityEngine.XR.VisionOS
                 m_StartTime = s_LastUpdateTime;
             }
 
-            [MonoPInvokeCallback(typeof(NativeApi_Session.AR_Authorization_Results_Handler))]
+            [MonoPInvokeCallback(typeof(NativeApi.Session.AR_Authorization_Results_Handler))]
             static void RequestAuthorizationResultsHandler(IntPtr authorizationResults, IntPtr error)
             {
                 if (error != IntPtr.Zero)
                 {
-                    var errorCode = NativeApi_Error.ar_error_get_error_code(error);
+                    var errorCode = NativeApi.Error.ar_error_get_error_code(error);
                     Debug.LogError($"Error trying to request AR authorization. Error code: {errorCode}");
 
                     // TODO: Not sure how to interpret error code--just log it for now
@@ -377,18 +394,18 @@ namespace UnityEngine.XR.VisionOS
                     return;
                 }
 
-                NativeApi_Authorization.UnityVisionOS_impl_ar_authorization_results_enumerate_results(authorizationResults,
+                NativeApi.Authorization.UnityVisionOS_impl_ar_authorization_results_enumerate_results(authorizationResults,
                     k_EnumerateAuthorizationStepCallback, k_RequestAuthorizationResultsHanEnumerationCompletedCallback);
             }
 
-            [MonoPInvokeCallback(typeof(NativeApi_Authorization.Authorization_Results_Enumeration_Completed_Callback))]
+            [MonoPInvokeCallback(typeof(NativeApi.Authorization.Authorization_Results_Enumeration_Completed_Callback))]
             static void RequestAuthorizationResultsEnumerationCompletedCallback()
             {
                 Instance.m_AwaitingAuthorization = false;
                 Instance.m_StartTime = s_LastUpdateTime;
             }
 
-            [MonoPInvokeCallback(typeof(NativeApi_Authorization.Authorization_Results_Enumeration_Step_Callback))]
+            [MonoPInvokeCallback(typeof(NativeApi.Authorization.Authorization_Results_Enumeration_Step_Callback))]
             static void EnumerateAuthorizationStepCallback(IntPtr authorizationResult)
             {
                 Instance.ProcessAuthorizationResult(authorizationResult);
@@ -396,15 +413,12 @@ namespace UnityEngine.XR.VisionOS
 
             public AR_Scene_Reconstruction_Mode GetSceneReconstructionMode()
             {
-                return (m_RequestedFeatures & Feature.MeshClassification) == 0 ? AR_Scene_Reconstruction_Mode.Default : AR_Scene_Reconstruction_Mode.Classification;
+                return m_SceneReconstructionMode;
             }
 
-            public void SetSceneReconstructionMode(AR_Scene_Reconstruction_Mode classification)
+            public void SetSceneReconstructionMode(AR_Scene_Reconstruction_Mode mode)
             {
-                if (classification == AR_Scene_Reconstruction_Mode.Classification)
-                    AddRequestedFeaturesAndAuthorizations(Feature.MeshClassification, AR_Authorization_Type.None);
-                else
-                    RemoveRequestedFeaturesAndAuthorizations(Feature.MeshClassification, AR_Authorization_Type.None);
+                m_SceneReconstructionMode = mode;
             }
         }
 

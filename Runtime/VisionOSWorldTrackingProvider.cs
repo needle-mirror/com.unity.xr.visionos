@@ -10,8 +10,11 @@ namespace UnityEngine.XR.VisionOS
         internal static VisionOSWorldTrackingProvider Instance { get; private set; }
         internal event Action<IntPtr> OnCreated;
 
-        public AR_Authorization_Type RequiredAuthorizationType => NativeApi_World_Tracking.ar_world_tracking_provider_get_required_authorization_type();
-        public bool IsSupported => NativeApi_World_Tracking.ar_world_tracking_provider_is_supported();
+        public AR_Authorization_Type RequiredAuthorizationType => NativeApi.WorldTracking.ar_world_tracking_provider_get_required_authorization_type();
+        public bool IsSupported => NativeApi.WorldTracking.ar_world_tracking_provider_is_supported();
+
+        public bool ShouldBeActive => GetTrackingSubsystemStatus() == SubsystemStatus.Started;
+
         public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
 
         public VisionOSWorldTrackingProvider()
@@ -40,7 +43,10 @@ namespace UnityEngine.XR.VisionOS
             return true;
         }
 
-        [DllImport(NativeApi_Constants.LibraryName, EntryPoint = "UnityVisionOS_CreateWorldTrackingProvider")]
+        [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "UnityVisionOS_CreateWorldTrackingProvider")]
         static extern IntPtr CreateWorldTrackingProvider();
+
+        [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "UnityVisionOS_GetTrackingSubsystemStatus")]
+        static extern SubsystemStatus GetTrackingSubsystemStatus();
     }
 }
