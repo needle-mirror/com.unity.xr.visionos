@@ -136,7 +136,7 @@ namespace UnityEngine.XR.VisionOS
                 var pose = Pose.identity;
                 if (jointIsTracked)
                 {
-                    var jointTransformPtr = NativeApi.Skeleton.ar_skeleton_get_skeleton_root_transform_for_joint(skeleton, name);
+                    var jointTransformPtr = NativeApi.Skeleton.ar_skeleton_get_anchor_from_joint_transform_for_joint(skeleton, name);
                     convertedMatrix = NativeApi_Types.UnityVisionOS_impl_simd_float4x4_to_float_array(jointTransformPtr);
                     var jointMatrix = Marshal.PtrToStructure<FloatArrayToMatrix4x4>(convertedMatrix);
                     var jointPosition = wristPosition + wristRotation * jointMatrix.GetPosition();
