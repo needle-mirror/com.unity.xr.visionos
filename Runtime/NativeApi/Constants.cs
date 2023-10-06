@@ -11,7 +11,7 @@
             /// Library name to be used for DllImport attributes
             /// </summary>
 #if UNITY_VISIONOS && !UNITY_EDITOR
-        public const string LibraryName = "__Internal";
+            public const string LibraryName = "__Internal";
 #else
             public const string LibraryName = "libUnityVisionOSMock";
 #endif

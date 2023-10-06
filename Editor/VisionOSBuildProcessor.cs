@@ -31,7 +31,7 @@ namespace UnityEditor.XR.VisionOS
         class LinkerProcessor : IUnityLinkerProcessor
         {
             public int callbackOrder => 0;
-            
+
             public string GenerateAdditionalLinkXmlFile(BuildReport report, UnityLinkerBuildPipelineData data)
             {
                 return Path.GetFullPath(AssetDatabase.GUIDToAssetPath("bdb2b35a4686f4d8ca0540be9862764d"));

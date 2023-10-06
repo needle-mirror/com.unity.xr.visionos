@@ -2,13 +2,6 @@
 #include "IUnityInterface.h"
 #import <CompositorServices/CompositorServices.h>
 
-#if __has_include("visionos_config.h")
-#include "visionos_config.h"
-#else
-#define VISIONOS_SINGLE_PASS 1
-#define VISIONOS_SIMULATOR 0
-#endif
-
 #define EXPORT(RETURN_TYPE) RETURN_TYPE __attribute__ ((visibility("default")))  __attribute__((__used__))
 
 #ifdef __cplusplus
@@ -47,7 +40,11 @@ void ObjC_SetCPLayer(cp_layer_renderer_t layer);
 
 + (NSNumber*)getSinglePass
 {
-    return @(VISIONOS_SINGLE_PASS);
+#if TARGET_OS_SIMULATOR
+    return @(0);
+#else
+    return @(1);
+#endif
 }
 
 @end

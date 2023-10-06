@@ -22,12 +22,12 @@ namespace UnityEngine.XR.VisionOS
             public static extern IntPtr ar_hand_anchor_create();
 
             /// <summary>
-            /// Get the skeleton of hand anchor.
+            /// Get the hand skeleton of hand anchor.
             /// </summary>
             /// <param name="hand_anchor">Hand anchor.</param>
             /// <returns>The skeleton.</returns>
-            [DllImport(Constants.LibraryName, EntryPoint = "ar_hand_anchor_get_skeleton")]
-            public static extern IntPtr ar_hand_anchor_get_skeleton(IntPtr hand_anchor);
+            [DllImport(Constants.LibraryName, EntryPoint = "ar_hand_anchor_get_hand_skeleton")]
+            public static extern IntPtr ar_hand_anchor_get_hand_skeleton(IntPtr hand_anchor);
 
             /// <summary>
             /// Create hand tracking configuration.
@@ -76,14 +76,6 @@ namespace UnityEngine.XR.VisionOS
             [DllImport(Constants.LibraryName,
                 EntryPoint = "ar_hand_tracking_provider_get_required_authorization_type")]
             public static extern AR_Authorization_Type ar_hand_tracking_provider_get_required_authorization_type();
-
-
-            /// <summary>
-            /// Get the list of joint names supported by ARKit. Assume there are 27 of them, and they align with XRJointID
-            /// </summary>
-            /// <returns>Pointer to a list of C strings containing the joint names.</returns>
-            [DllImport(Constants.LibraryName, EntryPoint = "UnityVisionOS_impl_get_joint_names")]
-            public static extern unsafe byte** UnityVisionOS_impl_get_joint_names();
         }
     }
 }

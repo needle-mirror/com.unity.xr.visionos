@@ -7,6 +7,17 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2023-10-06
+
+## [Unreleased]
+
+### Added
+- PolySpatial now supports Xcode 15.1 beta 1 and visionOS 1.0 beta 4
+
+### Removed
+
+- Removed `VisionOSSettings.renderMode`, `VisionOSSettings.deviceTarget`, and related `visionos_config.h` file that was generated during builds. The XR plugin will automatically switch between single-pass and multi-pass rendering depending on whether the app was built for the visionOS simulator or a device.
+
 ## [0.3.3] - 2023-09-28
 
 ### Changed

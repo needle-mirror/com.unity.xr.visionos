@@ -4,7 +4,6 @@ using System.IO;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.iOS.Xcode;
-using RenderMode = UnityEngine.XR.VisionOS.RenderMode;
 #endif
 
 namespace UnityEditor.XR.VisionOS
@@ -19,6 +18,23 @@ namespace UnityEditor.XR.VisionOS
         const string k_SupportsMultipleScenesKey = "UIApplicationSupportsMultipleScenes";
         const string k_HandsTrackingUsageDescriptionKey = "NSHandsTrackingUsageDescription";
         const string k_WorldSensingUsageDescriptionKey = "NSWorldSensingUsageDescription";
+
+        const string k_KeyboardClassPath = "Classes/UI/Keyboard.mm";
+        const string k_KeyboardClassSearchString = @"- (BOOL)textViewShouldBeginEditing:(UITextView*)view
+{
+#if !PLATFORM_TVOS
+    view.inputAccessoryView = viewToolbar;
+#endif
+    return YES;
+}";
+
+        const string k_KeyboardClassReplaceString = @"- (BOOL)textViewShouldBeginEditing:(UITextView*)view
+{
+#if !PLATFORM_TVOS && !PLATFORM_VISIONOS
+    view.inputAccessoryView = viewToolbar;
+#endif
+    return YES;
+}";
 
         class PostProcessor : IPostprocessBuildWithReport
         {
@@ -39,9 +55,16 @@ namespace UnityEditor.XR.VisionOS
 
             static void FilterXcodeProj(string outputPath, bool isLoaderEnabled, VisionOSSettings.AppMode appMode)
             {
+#if UNITY_2022_3_9 || UNITY_2022_3_10
                 var xcodeProj = outputPath + "/Unity-iPhone.xcodeproj";
+#else
+                var xcodeProj = outputPath + "/Unity-VisionOS.xcodeproj";
+#endif
                 if (!Directory.Exists(xcodeProj))
+                {
+                    Debug.LogError($"Failed to find Xcode project at path {xcodeProj}");
                     return;
+                }
 
                 var xcodePbx = xcodeProj + "/project.pbxproj";
                 var pbx = new PBXProject();
@@ -53,34 +76,33 @@ namespace UnityEditor.XR.VisionOS
                 // Swift version 5 is required for swift trampoline
                 pbx.SetBuildProperty(unityMainTargetGuid, "SWIFT_VERSION", "5.0");
 
+#if UNITY_2022_3_9 || UNITY_2022_3_10
                 // Use legacy ld64 linker to work around sdk platform mismatch errors
                 const string ldFlagsSettingName = "OTHER_LDFLAGS";
                 var ldFlagsAddValues = new[] { "-Wl", "-ld64" };
                 pbx.UpdateBuildProperty(unityMainTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
                 pbx.UpdateBuildProperty(unityFrameworkTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
+#endif
 
                 // Add legacy TARGET_OS_XR define which was renamed to TARGET_OS_VISION to fix builds on earlier Unity versions
                 const string cFlagsSettingName = "OTHER_CFLAGS";
-                var cFlagsAddValues = new[] { "-DTARGET_OS_XR" };
+                var cFlagsAddValues = new[] { "-DTARGET_OS_XR=1" };
                 pbx.UpdateBuildProperty(unityMainTargetGuid, cFlagsSettingName, cFlagsAddValues, null);
                 pbx.UpdateBuildProperty(unityFrameworkTargetGuid, cFlagsSettingName, cFlagsAddValues, null);
 
+                // Patch Keyboard.mm to work around inputAccessoryView being unavailable
+                var keyboardClassPath = Path.Combine(outputPath, k_KeyboardClassPath);
+                var keyboardClassContents = File.ReadAllText(keyboardClassPath);
+                keyboardClassContents = keyboardClassContents.Replace(k_KeyboardClassSearchString, k_KeyboardClassReplaceString);
+                File.WriteAllText(keyboardClassPath, keyboardClassContents);
+
                 if (isLoaderEnabled && appMode == VisionOSSettings.AppMode.VR)
                 {
-                    // Add visionos_config header which exposes settings to native code
-                    const string configHeader = "visionos_config.h";
-                    File.WriteAllText(outputPath + "/" + configHeader,
-                        $"// Generated during Unity build by com.unity.xr.visionos {nameof(VisionOSBuildProcessor)}.{nameof(PostProcessor)}\n"
-                        + $"#define VISIONOS_SINGLE_PASS {(VisionOSSettings.currentSettings.renderMode == RenderMode.SinglePassInstanced ? "1" : "0")}\n"
-                        + $"#define VISIONOS_SIMULATOR {(VisionOSSettings.currentSettings.deviceTarget == VisionOSSettings.DeviceTarget.Simulator ? "1" : "0")}\n");
-
-                    pbx.AddFile(outputPath + "/" + configHeader, configHeader);
-
                     // Remove main.mm which is replaced by swift trampoline
                     pbx.RemoveFile(pbx.FindFileGuidByProjectPath("MainApp/main.mm"));
 
                     // Move swift trampoline files from UnityFramework to UnityMain
-                    const string pluginPath = "Libraries/ARM64/Packages/com.unity.xr.visionos/Runtime/Plugins/visionos";
+                    const string pluginPath = "Libraries/com.unity.xr.visionos/Runtime/Plugins/visionos";
                     BuildFileWithUnityTarget(pbx, $"{pluginPath}/UnityMain.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
                     BuildFileWithUnityTarget(pbx, $"{pluginPath}/UnityLibrary.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
                 }

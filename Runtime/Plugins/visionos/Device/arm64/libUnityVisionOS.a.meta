@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 31a255c0055c4a15972595cc4d76ae7f
+guid: 8f774e7d949e4bf8aa6e21a92d09e2a1
 PluginImporter:
   externalObjects: {}
   serializedVersion: 2
@@ -17,10 +17,10 @@ PluginImporter:
       enabled: 0
       settings:
         Exclude Android: 1
-        Exclude Editor: 0
+        Exclude Editor: 1
         Exclude Linux64: 1
-        Exclude OSXUniversal: 0
-        Exclude VisionOS: 1
+        Exclude OSXUniversal: 1
+        Exclude VisionOS: 0
         Exclude Win: 1
         Exclude Win64: 1
         Exclude iOS: 1
@@ -38,11 +38,11 @@ PluginImporter:
   - first:
       Editor: Editor
     second:
-      enabled: 1
+      enabled: 0
       settings:
         CPU: AnyCPU
         DefaultValueInitialized: true
-        OS: OSX
+        OS: AnyOS
   - first:
       Facebook: Win
     second:
@@ -64,7 +64,7 @@ PluginImporter:
   - first:
       Standalone: OSXUniversal
     second:
-      enabled: 1
+      enabled: 0
       settings:
         CPU: AnyCPU
   - first:
@@ -82,12 +82,12 @@ PluginImporter:
   - first:
       VisionOS: VisionOS
     second:
-      enabled: 0
+      enabled: 1
       settings:
         AddToEmbeddedBinaries: false
         CPU: ARM64
         CompileFlags: 
-        FrameworkDependencies: 
+        FrameworkDependencies: ARKit;CompositorServices;
   - first:
       iPhone: iOS
     second:

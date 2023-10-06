@@ -6,7 +6,9 @@
         "Unity.XR.ARSubsystems",
         "Unity.XR.ARSubsystems.Editor",
         "Unity.XR.Management",
-        "Unity.XR.Management.Editor"
+        "Unity.XR.Management.Editor",
+        "Unity.PolySpatial",
+        "Unity.PolySpatial.Editor"
     ],
     "includePlatforms": [
         "Editor"
@@ -17,6 +19,17 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+      {
+        "name": "com.unity.polyspatial",
+        "expression": "0.1.0",
+        "define": "UNITY_HAS_POLYSPATIAL"
+      },
+      {
+        "name": "com.unity.polyspatial.visionos",
+        "expression": "0.1.0",
+        "define": "UNITY_HAS_POLYSPATIAL_VISIONOS"
+      }
+    ],
     "noEngineReferences": false
 }

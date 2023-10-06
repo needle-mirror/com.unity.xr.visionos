@@ -1,7 +1,11 @@
 using System;
 using UnityEngine;
 using UnityEngine.XR.Management;
-using RenderMode = UnityEngine.XR.VisionOS.RenderMode;
+#if UNITY_HAS_POLYSPATIAL
+using Unity.PolySpatial;
+using UnityEditor.PolySpatial;
+using UnityEditor.PolySpatial.Internals;
+#endif
 
 namespace UnityEditor.XR.VisionOS
 {
@@ -13,45 +17,16 @@ namespace UnityEditor.XR.VisionOS
     public class VisionOSSettings : ScriptableObject
     {
         const string k_SettingsKey = "UnityEditor.XR.VisionOS.VisionOSSettings";
+
         const string k_HandTrackingUsageTooltip = "Provide a brief description of what hand tracking will be used for." +
             "This will be shown to users in a dialog asking them to allow authorization when hand tracking is requested." +
-            "This description will be added to the Info.plist file of the generated visionOS Player Xcode project.";
+            "This description will be added to the Info.plist file of the generated visionOS Player Xcode project. If your " +
+            "application does not use hand tracking, you can safely leave this field blank.";
 
         const string k_WorldSensingUsageTooltip = "Provide a brief description of what world sensing (planes, meshes, images)" +
             "will be used for. This will be shown to users in a dialog asking them to allow authorization when world sensing" +
-            " is requested. This description will be added to the Info.plist file of the generated visionOS Player Xcode project.";
-
-        /// <summary>
-        /// Type of device to target.
-        /// </summary>
-        public enum DeviceTarget
-        {
-            /// <summary>
-            /// Device
-            /// </summary>
-            Device,
-            /// <summary>
-            /// Simulator
-            /// </summary>
-            Simulator,
-        }
-
-        /// <summary>
-        /// Device to target.
-        /// </summary>
-        [SerializeField, Tooltip("Device to target.")]
-        DeviceTarget m_DeviceTarget;
-
-        /// <summary>
-        /// Targeted device.
-        /// </summary>
-        public DeviceTarget deviceTarget => m_DeviceTarget;
-
-        /// <summary>
-        /// Stereo rendering mode.
-        /// </summary>
-        [SerializeField, Tooltip("Stereo rendering mode.")]
-        RenderMode m_RenderMode = RenderMode.SinglePassInstanced;
+            " is requested. This description will be added to the Info.plist file of the generated visionOS Player Xcode project. If your " +
+            "application does not use world sensing, you can safely leave this field blank.";
 
         /// <summary>
         /// Which mode the app will use: MR or VR.
@@ -59,58 +34,26 @@ namespace UnityEditor.XR.VisionOS
         public enum AppMode
         {
             /// <summary>
+            /// Virtual Reality - Full Immersive Space
+            /// </summary>
+            [InspectorName("Virtual Reality - Fully Immersive Space")]
+            VR,
+
+            /// <summary>
             /// Mixed Reality - Volume or Immersive Space
             /// </summary>
             [InspectorName("Mixed Reality - Volume or Immersive Space")]
             MR,
-
-            /// <summary>
-            /// Virtual Reality - Full Immersive Space
-            /// </summary>
-            [InspectorName("Virtual Reality - Fully Immersive Space")]
-            VR
         }
 
         [SerializeField, Tooltip("Initial mode of the app.")]
-        AppMode m_AppMode = AppMode.MR;
-
-        /// <summary>
-        /// Volume Mode.
-        /// This should match QuantumVolumeCameraMode
-        /// </summary>
-        public enum VolumeMode
-        {
-            /// <summary>
-            /// A bounded app, which displays its contents in a volume.
-            /// </summary>
-            Bounded,
-
-            /// <summary>
-            /// An unbounded app, which displays its contents in an immersive space.
-            /// </summary>
-            Unbounded
-        }
-
-        [SerializeField]
-        VolumeMode m_VolumeMode = VolumeMode.Bounded;
-
-        [SerializeField]
-        Vector3 m_VolumeDimensions = Vector3.one;
+        AppMode m_AppMode = AppMode.VR;
 
         [SerializeField, Tooltip(k_HandTrackingUsageTooltip)]
         string m_HandsTrackingUsageDescription;
-        
+
         [SerializeField, Tooltip(k_WorldSensingUsageTooltip)]
         string m_WorldSensingUsageDescription;
-
-        /// <summary>
-        /// Stereo rendering mode.
-        /// </summary>
-        public RenderMode renderMode
-        {
-            get => m_RenderMode;
-            set => m_RenderMode = value;
-        }
 
         /// <summary>
         /// App mode.
@@ -122,24 +65,6 @@ namespace UnityEditor.XR.VisionOS
         }
 
         /// <summary>
-        /// Volume mode.
-        /// </summary>
-        public VolumeMode volumeMode
-        {
-            get => m_VolumeMode;
-            set => m_VolumeMode = value;
-        }
-
-        /// <summary>
-        /// Volume mode.
-        /// </summary>
-        public Vector3 volumeDimensions
-        {
-            get => m_VolumeDimensions;
-            set => m_VolumeDimensions = value;
-        }
-        
-        /// <summary>
         /// Hands tracking usage description (added to Info.plist).
         /// </summary>
         public string handsTrackingUsageDescription
@@ -147,7 +72,7 @@ namespace UnityEditor.XR.VisionOS
             get => m_HandsTrackingUsageDescription;
             set => m_HandsTrackingUsageDescription = value;
         }
-        
+
         /// <summary>
         /// World sensing usage description (added to Info.plist).
         /// </summary>

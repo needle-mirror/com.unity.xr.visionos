@@ -24,40 +24,6 @@ static float* tmp_matrix_floats = new float[16];
 
 bool s_ImmersiveSpaceReady;
 
-const char* joint_names[] =
-{
-    ar_hand_skeleton_joint_name_wrist,
-    // Palm is not supported, but included to pad out the list so it matches OpenXR
-    "Palm",
-    ar_hand_skeleton_joint_name_thumb_knuckle,
-    ar_hand_skeleton_joint_name_thumb_intermediate_base,
-    ar_hand_skeleton_joint_name_thumb_intermediate_tip,
-    ar_hand_skeleton_joint_name_thumb_tip,
-    ar_hand_skeleton_joint_name_index_finger_metacarpal,
-    ar_hand_skeleton_joint_name_index_finger_knuckle,
-    ar_hand_skeleton_joint_name_index_finger_intermediate_base,
-    ar_hand_skeleton_joint_name_index_finger_intermediate_tip,
-    ar_hand_skeleton_joint_name_index_finger_tip,
-    ar_hand_skeleton_joint_name_middle_finger_metacarpal,
-    ar_hand_skeleton_joint_name_middle_finger_knuckle,
-    ar_hand_skeleton_joint_name_middle_finger_intermediate_base,
-    ar_hand_skeleton_joint_name_middle_finger_intermediate_tip,
-    ar_hand_skeleton_joint_name_middle_finger_tip,
-    ar_hand_skeleton_joint_name_ring_finger_metacarpal,
-    ar_hand_skeleton_joint_name_ring_finger_knuckle,
-    ar_hand_skeleton_joint_name_ring_finger_intermediate_base,
-    ar_hand_skeleton_joint_name_ring_finger_intermediate_tip,
-    ar_hand_skeleton_joint_name_ring_finger_tip,
-    ar_hand_skeleton_joint_name_little_finger_metacarpal,
-    ar_hand_skeleton_joint_name_little_finger_knuckle,
-    ar_hand_skeleton_joint_name_little_finger_intermediate_base,
-    ar_hand_skeleton_joint_name_little_finger_intermediate_tip,
-    ar_hand_skeleton_joint_name_little_finger_tip,
-    // Forearm joints are not supported, but include them just in case
-    ar_hand_skeleton_joint_name_forearm_wrist,
-    ar_hand_skeleton_joint_name_forearm_arm
-};
-
 #define EXTERNC extern "C"
 #define EXPORT(RETURN_TYPE) EXTERNC RETURN_TYPE __attribute__ ((visibility("default")))  __attribute__((__used__))
 
@@ -94,7 +60,7 @@ typedef void(*unity_ar_world_tracking_remove_anchor_completion_handler_t)(ar_wor
 
 EXPORT(void) UnityVisionOS_impl_ar_session_set_data_provider_state_change_handler(ar_session_t session, unity_ar_session_data_provider_state_change_handler_t data_provider_state_change_handler)
 {
-    ar_session_set_data_provider_state_change_handler_with_queue(session, nullptr, ^(ar_data_providers_t data_providers,
+    ar_session_set_data_provider_state_change_handler(session, nullptr, ^(ar_data_providers_t data_providers,
                                                                  ar_data_provider_state_t new_state,
                                                                  _Nullable ar_error_t error,
                                                                  _Nullable ar_data_provider_t failed_provider)
@@ -270,12 +236,6 @@ EXPORT(float*) UnityVisionOS_impl_simd_float4x4_to_float_array(simd_float4x4 mat
     tmp_matrix_floats[15] = 1;
 
     return tmp_matrix_floats;
-}
-
-// Return a fixed-size array of 28 joint names that line up with hand subsystem
-EXPORT(const char**) UnityVisionOS_impl_get_joint_names()
-{
-    return joint_names;
 }
 
 EXPORT(ar_reference_image_t) UnityVisionOS_impl_get_reference_image_at_index(ar_reference_images_t reference_images, int index)

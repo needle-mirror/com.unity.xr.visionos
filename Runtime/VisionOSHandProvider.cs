@@ -15,9 +15,6 @@ namespace UnityEngine.XR.VisionOS
         // Use Body3D as a proxy for now
         const Feature k_HandFeatureProxy = Feature.Body3D;
         internal const string handSubsystemId = "VisionOS-Hands";
-        const int k_JointNameCount = 28;
-
-        string[] m_JointNames;
 
         XRHandSubsystem.UpdateSuccessFlags m_LastSuccessFlags = XRHandSubsystem.UpdateSuccessFlags.None;
 
@@ -40,23 +37,13 @@ namespace UnityEngine.XR.VisionOS
             VisionOSProviderRegistration.UnregisterProvider(k_HandFeatureProxy, this);
         }
 
-        public unsafe bool TryCreateNativeProvider(Feature features, out IntPtr provider)
+        public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
         {
             if (!IsSupported)
             {
                 Debug.LogWarning("Hand tracking provider is not supported");
                 provider = IntPtr.Zero;
                 return false;
-            }
-
-            if (m_JointNames == null)
-            {
-                var jointNames = NativeApi.HandTracking.UnityVisionOS_impl_get_joint_names();
-                m_JointNames = new string[k_JointNameCount];
-                for (var i = 0; i < k_JointNameCount; i++)
-                {
-                    m_JointNames[i] = Marshal.PtrToStringAnsi((IntPtr)jointNames[i]);
-                }
             }
 
             var handTrackingConfiguration = NativeApi.HandTracking.ar_hand_tracking_configuration_create();
@@ -123,20 +110,27 @@ namespace UnityEngine.XR.VisionOS
                 ? XRHandSubsystem.UpdateSuccessFlags.LeftHandRootPose
                 : XRHandSubsystem.UpdateSuccessFlags.RightHandRootPose;
 
-            var skeleton = NativeApi.HandTracking.ar_hand_anchor_get_skeleton(handAnchor);
+            var handSkeleton = NativeApi.HandTracking.ar_hand_anchor_get_hand_skeleton(handAnchor);
             for (var jointID = XRHandJointID.BeginMarker; jointID < XRHandJointID.EndMarker; jointID++)
             {
                 var index = jointID.ToIndex();
-                var name = m_JointNames[index];
-                var jointIsTracked = NativeApi.Skeleton.ar_skeleton_is_joint_tracked(skeleton, name);
-                var trackingState = jointIsTracked ? XRHandJointTrackingState.Pose : XRHandJointTrackingState.None;
-                if (jointID == XRHandJointID.Palm)
-                    trackingState = XRHandJointTrackingState.WillNeverBeValid;
-
                 var pose = Pose.identity;
+                XRHandJointTrackingState trackingState;
+                if (jointID == XRHandJointID.Palm)
+                {
+                    trackingState = XRHandJointTrackingState.WillNeverBeValid;
+                    jointArray[index] = CreateJoint(handedness, trackingState, jointID, pose);
+                    continue;
+                }
+
+                var jointName = GetJointNameForJointID(jointID);
+                var joint = NativeApi.HandSkeleton.ar_hand_skeleton_get_joint_named(handSkeleton, jointName);
+                var jointIsTracked = NativeApi.SkeletonJoint.ar_skeleton_joint_is_tracked(joint);
+                trackingState = jointIsTracked ? XRHandJointTrackingState.Pose : XRHandJointTrackingState.None;
+
                 if (jointIsTracked)
                 {
-                    var jointTransformPtr = NativeApi.Skeleton.ar_skeleton_get_anchor_from_joint_transform_for_joint(skeleton, name);
+                    var jointTransformPtr = NativeApi.SkeletonJoint.ar_skeleton_joint_get_anchor_from_joint_transform(joint);
                     convertedMatrix = NativeApi_Types.UnityVisionOS_impl_simd_float4x4_to_float_array(jointTransformPtr);
                     var jointMatrix = Marshal.PtrToStructure<FloatArrayToMatrix4x4>(convertedMatrix);
                     var jointPosition = wristPosition + wristRotation * jointMatrix.GetPosition();
@@ -148,13 +142,17 @@ namespace UnityEngine.XR.VisionOS
                         : XRHandSubsystem.UpdateSuccessFlags.RightHandJoints;
                 }
 
-#if INCLUDE_UNITY_XR_HANDS_1_1
-                var joint = XRHandProviderUtility.CreateJoint(handedness, trackingState, jointID, pose);
-#else
-                var joint = XRHandProviderUtility.CreateJoint(trackingState, jointID, pose);
-#endif
-                jointArray[index] = joint;
+                jointArray[index] = CreateJoint(handedness, trackingState, jointID, pose);
             }
+        }
+
+        static XRHandJoint CreateJoint(Handedness handedness, XRHandJointTrackingState trackingState, XRHandJointID id, Pose pose)
+        {
+#if INCLUDE_UNITY_XR_HANDS_1_1
+            return XRHandProviderUtility.CreateJoint(handedness, trackingState, id, pose);
+#else
+            return XRHandProviderUtility.CreateJoint(trackingState, id, pose);
+#endif
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -167,6 +165,71 @@ namespace UnityEngine.XR.VisionOS
             };
 
             XRHandSubsystemDescriptor.Register(handsSubsystemCinfo);
+        }
+
+        static AR_Skeleton_Joint_Name GetJointNameForJointID(XRHandJointID jointID)
+        {
+            switch (jointID)
+            {
+                case XRHandJointID.Invalid:
+                    throw new ArgumentException("Cannot map invalid joint ID to Joint Name");
+                case XRHandJointID.Wrist:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_wrist;
+                case XRHandJointID.Palm:
+                    throw new ArgumentException("VisionOS does not support the palm joint");
+                case XRHandJointID.ThumbMetacarpal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_thumb_knuckle;
+                case XRHandJointID.ThumbProximal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_thumb_intermediate_base;
+                case XRHandJointID.ThumbDistal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_thumb_intermediate_tip;
+                case XRHandJointID.ThumbTip:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_thumb_tip;
+                case XRHandJointID.IndexMetacarpal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_index_finger_metacarpal;
+                case XRHandJointID.IndexProximal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_index_finger_knuckle;
+                case XRHandJointID.IndexIntermediate:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_index_finger_intermediate_base;
+                case XRHandJointID.IndexDistal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_index_finger_intermediate_tip;
+                case XRHandJointID.IndexTip:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_index_finger_tip;
+                case XRHandJointID.MiddleMetacarpal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_middle_finger_metacarpal;
+                case XRHandJointID.MiddleProximal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_middle_finger_knuckle;
+                case XRHandJointID.MiddleIntermediate:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_middle_finger_intermediate_base;
+                case XRHandJointID.MiddleDistal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_middle_finger_intermediate_tip;
+                case XRHandJointID.MiddleTip:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_middle_finger_tip;
+                case XRHandJointID.RingMetacarpal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_ring_finger_metacarpal;
+                case XRHandJointID.RingProximal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_ring_finger_knuckle;
+                case XRHandJointID.RingIntermediate:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_ring_finger_intermediate_base;
+                case XRHandJointID.RingDistal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_ring_finger_intermediate_tip;
+                case XRHandJointID.RingTip:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_ring_finger_tip;
+                case XRHandJointID.LittleMetacarpal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_little_finger_metacarpal;
+                case XRHandJointID.LittleProximal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_little_finger_knuckle;
+                case XRHandJointID.LittleIntermediate:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_little_finger_intermediate_base;
+                case XRHandJointID.LittleDistal:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_little_finger_intermediate_tip;
+                case XRHandJointID.LittleTip:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_little_finger_tip;
+                case XRHandJointID.EndMarker:
+                    throw new ArgumentException("EndMarker is not a valid joint ID");
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(jointID), jointID, null);
+            }
         }
     }
 }
