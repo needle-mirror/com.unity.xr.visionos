@@ -7,6 +7,13 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2023-10-13
+
+## [0.4.2] - 2023-10-12
+
+## Fixed
+- Fixed an issue where VR builds would only render to the left eye in device builds when using the built-in pipeline.
+
 ## [0.4.1] - 2023-10-06
 
 ## [Unreleased]
@@ -17,6 +24,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Removed
 
 - Removed `VisionOSSettings.renderMode`, `VisionOSSettings.deviceTarget`, and related `visionos_config.h` file that was generated during builds. The XR plugin will automatically switch between single-pass and multi-pass rendering depending on whether the app was built for the visionOS simulator or a device.
+
+### Fixed
+
+- Fixed an issue where VR builds would only render to the left eye in device builds when using the built-in pipeline.
 
 ## [0.3.3] - 2023-09-28
 
