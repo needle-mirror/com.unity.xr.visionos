@@ -58,6 +58,10 @@ typedef void(*unity_ar_world_tracking_update_handler_t)(void* added_anchors, int
 typedef void(*unity_ar_world_tracking_add_anchor_completion_handler_t)(ar_world_anchor_t world_anchor, bool successful, ar_error_t _Nullable error);
 typedef void(*unity_ar_world_tracking_remove_anchor_completion_handler_t)(ar_world_anchor_t world_anchor, bool successful, ar_error_t _Nullable error);
 
+typedef void(*unity_spatial_input_event_callback)(int eventCount, const void* eventsPtr);
+
+unity_spatial_input_event_callback s_OnInputEvent = nullptr;
+
 EXPORT(void) UnityVisionOS_impl_ar_session_set_data_provider_state_change_handler(ar_session_t session, unity_ar_session_data_provider_state_change_handler_t data_provider_state_change_handler)
 {
     ar_session_set_data_provider_state_change_handler(session, nullptr, ^(ar_data_providers_t data_providers,
@@ -436,6 +440,28 @@ EXPORT(bool) UnityVisionOS_IsSimulator()
 EXPORT(bool) UnityVisionOS_IsImmersiveSpaceReady()
 {
     return s_ImmersiveSpaceReady;
+}
+
+EXPORT(void) UnityVisionOS_SetUpInputEventHandler(unity_spatial_input_event_callback callback)
+{
+    s_OnInputEvent = callback;
+}
+
+EXPORT(void) UnityVisionOS_OnInputEvent(int eventCount, void* eventsPointer)
+{
+    if (s_OnInputEvent == nullptr)
+    {
+        NSLog(@"Error: Received an input event without callback being set.");
+        return;
+    }
+
+    if (eventsPointer == nullptr)
+    {
+        NSLog(@"Error: Received null pointer for input events.");
+        return;
+    }
+
+    s_OnInputEvent(eventCount, eventsPointer);
 }
 
 @interface UnityVisionOSNativeBridge : NSObject

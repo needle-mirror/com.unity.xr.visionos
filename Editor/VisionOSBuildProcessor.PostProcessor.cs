@@ -76,13 +76,20 @@ namespace UnityEditor.XR.VisionOS
                 // Swift version 5 is required for swift trampoline
                 pbx.SetBuildProperty(unityMainTargetGuid, "SWIFT_VERSION", "5.0");
 
-#if UNITY_2022_3_9 || UNITY_2022_3_10
-                // Use legacy ld64 linker to work around sdk platform mismatch errors
                 const string ldFlagsSettingName = "OTHER_LDFLAGS";
-                var ldFlagsAddValues = new[] { "-Wl", "-ld64" };
+                var ldFlagsAddValues = new[]
+                {
+                    // Explicitly export the UnityVisionOS_OnInputEvent so it can be called from Swift code
+                    "-Wl,-exported_symbol,_UnityVisionOS_OnInputEvent",
+#if UNITY_2022_3_9 || UNITY_2022_3_10
+                    // Use legacy ld64 linker to work around sdk platform mismatch errors
+                    "-Wl",
+                    "-ld64"
+#endif
+                };
+
                 pbx.UpdateBuildProperty(unityMainTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
                 pbx.UpdateBuildProperty(unityFrameworkTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
-#endif
 
                 // Add legacy TARGET_OS_XR define which was renamed to TARGET_OS_VISION to fix builds on earlier Unity versions
                 const string cFlagsSettingName = "OTHER_CFLAGS";

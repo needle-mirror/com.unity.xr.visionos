@@ -1,16 +1,17 @@
 #if INCLUDE_UNITY_INPUT_SYSTEM
+using System;
 using UnityEngine.InputSystem.Layouts;
 using UnityEngine.InputSystem.XR;
 using UnityEngine.XR.ARSubsystems;
-
-using Inputs = UnityEngine.InputSystem.InputSystem;
 
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
-namespace UnityEngine.XR.VisionOS
+namespace UnityEngine.XR.VisionOS.InputDevices
 {
+    using InputSystem = UnityEngine.InputSystem.InputSystem;
+
 #if UNITY_EDITOR
     [InitializeOnLoad]
 #endif
@@ -26,11 +27,20 @@ namespace UnityEngine.XR.VisionOS
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void RegisterLayouts()
         {
-            Inputs.RegisterLayout<HandheldARInputDevice>(
+            InputSystem.RegisterLayout<HandheldARInputDevice>(
                 matches: new InputDeviceMatcher()
                     .WithInterface(XRUtilities.InterfaceMatchAnyVersion)
                     .WithProduct("(visionOS)")
                 );
+
+            InputSystem.RegisterLayout<XRHMD>(
+                matches: new InputDeviceMatcher()
+                    .WithInterface(XRUtilities.InterfaceMatchAnyVersion)
+                    .WithProduct("(visionOS)")
+            );
+
+            InputSystem.RegisterLayout<VisionOSSpatialPointerControl>(name: VisionOSSpatialPointerState.LayoutName);
+            InputSystem.RegisterLayout<VisionOSSpatialPointerDevice>();
         }
     }
 }

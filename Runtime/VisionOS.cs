@@ -17,20 +17,20 @@ namespace UnityEngine.XR.VisionOS
 
         /// <summary>
         /// Set the range of values used for depth sorting.
-        /// These values should match Camera.nearClipPlane and Camera.farClipPlane 
+        /// These values should match Camera.nearClipPlane and Camera.farClipPlane
         /// </summary>
         /// <param name="near">The value for the near clipping plane.</param>
         /// <param name="far">The value for the far clipping plane.</param>
         [DllImport(k_LibraryName, EntryPoint = "SetDepthRange")]
         public static extern void SetDepthRange(float near, float far);
-        
+
         /// <summary>
         /// Return true if the app is running in the visionOS Simulator.
         /// Treat the Editor as running in simulator.
         /// </summary>
         [DllImport(k_LibraryName, EntryPoint = "UnityVisionOS_IsSimulator")]
         public static extern bool IsSimulator();
-        
+
         /// <summary>
         /// Determine whether the immersive space for the app is ready.
         /// </summary>
@@ -40,7 +40,7 @@ namespace UnityEngine.XR.VisionOS
 #else
         /// <summary>
         /// Set the range of values used for depth sorting.
-        /// These values should match Camera.nearClipPlane and Camera.farClipPlane 
+        /// These values should match Camera.nearClipPlane and Camera.farClipPlane
         /// </summary>
         /// <param name="near">The value for the near clipping plane.</param>
         /// <param name="far">The value for the far clipping plane.</param>
@@ -73,7 +73,7 @@ namespace UnityEngine.XR.VisionOS
             return true;
 #else
             return false;
-#endif 
+#endif
         }
 #endif
     }

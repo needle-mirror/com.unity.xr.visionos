@@ -16,10 +16,6 @@ namespace UnityEngine.XR.VisionOS
 
             [DllImport(Constants.LibraryName, EntryPoint = "ar_hand_skeleton_get_joint_named")]
             public static extern IntPtr ar_hand_skeleton_get_joint_named(IntPtr hand_skeleton, AR_Skeleton_Joint_Name joint_name);
-
-            [DllImport(Constants.LibraryName, EntryPoint = "ar_skeleton_joint_is_tracked")]
-            public static extern bool ar_skeleton_joint_is_tracked(IntPtr joint);
-
         }
     }
 }

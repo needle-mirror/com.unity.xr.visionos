@@ -7,6 +7,21 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2023-10-26
+
+### Added
+- `VisionOSSpatialPointerDevice` for pinch/gaze input support in VR mode.
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [0.4.3] - 2023-10-13
 
 ## [0.4.2] - 2023-10-12
@@ -16,10 +31,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.4.1] - 2023-10-06
 
-## [Unreleased]
-
 ### Added
 - PolySpatial now supports Xcode 15.1 beta 1 and visionOS 1.0 beta 4
+- Project Validation rules for Linear Color Space, ARSession + ARInputManager components, and cameras generating depth textures inside of the VisionOS XR package
 
 ### Removed
 
