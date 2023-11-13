@@ -10,7 +10,7 @@
         public struct VisionOSSpatialPointerState : IInputStateTypeInfo
         {
             public const string LayoutName = "VisionOSSpatialPointer";
-            public const int SizeInBytes = 60;
+            public const int SizeInBytes = 81; // 77+4
 
             public static FourCC Format => new('V', 'O', 'P', 'S');
 
@@ -26,25 +26,37 @@
             [FieldOffset(16)] //4+12
             public Vector3 startRayDirection;
 
-            [InputControl(displayName = "Device Position", noisy = true, dontReset = true)]
+            [InputControl(displayName = "Start Ray Rotation", noisy = true, dontReset = true)]
             [FieldOffset(28)] //16+12
+            public Quaternion startRayRotation;
+
+            [InputControl(displayName = "Device Position", noisy = true, dontReset = true)]
+            [FieldOffset(44)] //28+16
             public Vector3 devicePosition;
 
             [InputControl(displayName = "Device Rotation", noisy = true, dontReset = true)]
-            [FieldOffset(40)] //28+12
+            [FieldOffset(56)] //44+12
             public Quaternion deviceRotation;
 
             [InputControl(displayName = "Modifier Keys", layout = "Integer", synthetic = true)]
-            [FieldOffset(56)] //40+16
+            [FieldOffset(72)] //56+16
             public ushort modifierKeys;
 
             [InputControl(name = "kind", displayName = "Kind", layout = "Integer", synthetic = true)]
-            [FieldOffset(58)] //56+2
+            [FieldOffset(74)] //72+2
             public byte kindId;
 
             [InputControl(name = "phase", displayName = "Phase", layout = "TouchPhase", synthetic = true)]
-            [FieldOffset(59)] //58+1
+            [FieldOffset(75)] //74+1
             public byte phaseId;
+
+            [InputControl(name = "isTracked", displayName = "IsTracked", layout = "Button", synthetic = true)]
+            [FieldOffset(76)] //75+1
+            public bool isTracked;
+
+            [InputControl(name = "trackingState", displayName = "TrackingState", layout = "Integer", synthetic = true)]
+            [FieldOffset(77)] //76+1
+            public InputTrackingState trackingState;
 
             public VisionOSSpatialPointerKind Kind
             {

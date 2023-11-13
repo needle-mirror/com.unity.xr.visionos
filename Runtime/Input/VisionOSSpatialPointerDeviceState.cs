@@ -17,11 +17,14 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         [InputControl(name = "primarySpatialPointer", displayName = "Primary Spatial Pointer", layout = VisionOSSpatialPointerState.LayoutName, synthetic = true)]
         [InputControl(name = "startRayOrigin", useStateFrom = "primarySpatialPointer/startRayOrigin", layout = "Vector3")]
         [InputControl(name = "startRayDirection", useStateFrom = "primarySpatialPointer/startRayDirection", layout = "Vector3")]
+        [InputControl(name = "startRayRotation", useStateFrom = "primarySpatialPointer/startRayRotation", layout = "Quaternion")]
         [InputControl(name = "devicePosition", useStateFrom = "primarySpatialPointer/devicePosition", layout = "Vector3")]
         [InputControl(name = "deviceRotation", useStateFrom = "primarySpatialPointer/deviceRotation", layout = "Quaternion")]
         [InputControl(name = "kind", useStateFrom = "primarySpatialPointer/kind", layout = "Integer")]
         [InputControl(name = "phase", useStateFrom = "primarySpatialPointer/phase", layout = "Integer")]
         [InputControl(name = "modifierKeys", useStateFrom = "primarySpatialPointer/modifierKeys", layout = "Integer")]
+        [InputControl(name = "trackingState", useStateFrom = "primarySpatialPointer/trackingState", layout = "Integer")]
+        [InputControl(name = "isTracked", useStateFrom = "primarySpatialPointer/isTracked", layout = "Button")]
         [FieldOffset(0)]
         public fixed byte primarySpatialPointerData[VisionOSSpatialPointerState.SizeInBytes];
 

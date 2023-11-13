@@ -116,13 +116,19 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         void ProcessEvent(VisionOSSpatialPointerEvent inputEvent)
         {
             var state = GetPointerId(inputEvent.interactionId);
-            state.phaseId = (byte)inputEvent.phase;
+            var phase = inputEvent.phase;
+            state.phaseId = (byte)phase;
             state.startRayOrigin = inputEvent.rayOrigin;
-            state.startRayDirection = inputEvent.rayDirection;
+            var rayDirection = inputEvent.rayDirection;
+            state.startRayDirection = rayDirection;
+            state.startRayRotation = rayDirection == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(rayDirection);
             state.kindId = (byte)inputEvent.kind;
             state.modifierKeys = (ushort)inputEvent.modifierKeys;
             state.devicePosition = inputEvent.devicePosition;
             state.deviceRotation = inputEvent.deviceRotation;
+            var isTracked = phase == VisionOSSpatialPointerPhase.Began || phase == VisionOSSpatialPointerPhase.Moved;
+            state.isTracked = isTracked;
+            state.trackingState = isTracked ? InputTrackingState.Position | InputTrackingState.Rotation : InputTrackingState.None;
             InputSystem.QueueStateEvent(m_PointerDevice, state);
         }
     }

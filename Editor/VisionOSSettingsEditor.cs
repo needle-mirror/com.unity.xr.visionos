@@ -39,7 +39,7 @@ namespace UnityEditor.XR.VisionOS
                 // TODO: Enable/disable hand tracking
                 EditorGUILayout.PropertyField(m_HandsTrackingUsageDescriptionProperty);
                 if (isLoaderEnabled && string.IsNullOrEmpty(m_HandsTrackingUsageDescriptionProperty.stringValue))
-                    EditorGUILayout.HelpBox(VisionOSBuildProcessor.HandTrackingUsageWarning, MessageType.Warning);
+                    EditorGUILayout.HelpBox(VisionOSBuildProcessor.HandTrackingUsageWarning, MessageType.Error);
 
                 EditorGUILayout.PropertyField(m_WorldSensingUsageDescriptionProperty);
                 if (isLoaderEnabled && string.IsNullOrEmpty(m_WorldSensingUsageDescriptionProperty.stringValue))

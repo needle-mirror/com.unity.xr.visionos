@@ -1,74 +1,140 @@
-using System.Linq;
 using Unity.XR.CoreUtils.Editor;
 using UnityEditor.XR.Management;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.VisionOS;
+using UnityObject = UnityEngine.Object;
+
 #if UNITY_HAS_URP
 using UnityEngine.Rendering.Universal;
 #endif
 
 namespace UnityEditor.XR.VisionOS
 {
+    [InitializeOnLoad]
     static class VisionOSProjectValidation
     {
         const string k_VisionOS = "VisionOS";
+        const string k_ARSessionMessageVR = "An ARSession component is required to be active in the scene.";
+        const string k_ARSessionMessageMR = "An ARSession component is required to be active in the scene to provide access to ARKit features.";
 
-        const BuildTargetGroup k_VisionOSBuildTarget = BuildTargetGroup.VisionOS; 
+        const BuildTargetGroup k_VisionOSBuildTarget = BuildTargetGroup.VisionOS;
 
-        [InitializeOnLoadMethod]
-        static void AddValidationRules()
+        static readonly BuildValidationRule[] k_Rules;
+
+        static VisionOSProjectValidation()
         {
-            var buildTargetRules = new BuildValidationRule[]
+            k_Rules = new BuildValidationRule[]
             {
-                new BuildValidationRule()
+                new ()
                 {
                     Message = "The Color Space inside Player Settings must be set to Linear.",
                     Category = k_VisionOS,
                     Error = true,
                     CheckPredicate = () => PlayerSettings.colorSpace == ColorSpace.Linear,
-                    FixIt = () => PlayerSettings.colorSpace = ColorSpace.Linear,
-                    IsRuleEnabled = VisionOSBuildProcessor.IsLoaderEnabled
+                    FixIt = () => PlayerSettings.colorSpace = ColorSpace.Linear
                 },
 
-                new BuildValidationRule()
+                new ()
                 {
-                    Message = "An ARSession component is required to be active in the scene.",
+                    Message = k_ARSessionMessageVR,
                     Category = k_VisionOS,
                     Error = true,
-                    CheckPredicate = () => Object.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include) != null,
+                    CheckPredicate = () =>
+                    {
+                        var thisRule = k_Rules?[1];
+                        if (thisRule != null)
+                        {
+                            var isVR = CheckAppMode(VisionOSSettings.AppMode.VR);
+                            thisRule.Error = isVR;
+                            thisRule.Message = isVR ? k_ARSessionMessageVR : k_ARSessionMessageMR;
+                        }
+
+                        return UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include) != null;
+                    },
                     FixIt = () => CreateARSession(),
                     IsRuleEnabled = VisionOSBuildProcessor.IsLoaderEnabled
                 },
 
-                new BuildValidationRule()
+                new ()
+                {
+                    Message = "The ARSession component requires the Apple visionOS plug-in to be enabled in the XR Plug-in Management.",
+                    FixItMessage = "Enable the Apple visionOS plug-in",
+                    Category = k_VisionOS,
+                    CheckPredicate = VisionOSBuildProcessor.IsLoaderEnabled,
+                    FixIt = EnableVisionOSLoader,
+                    IsRuleEnabled = () => UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include) != null
+                },
+
+                new ()
                 {
                     Message = "An ARInputManager component is required to be active in the scene.",
                     Category = k_VisionOS,
                     Error = true,
-                    CheckPredicate = () => Object.FindAnyObjectByType<ARInputManager>(FindObjectsInactive.Include) != null,
+                    CheckPredicate = () => UnityObject.FindAnyObjectByType<ARInputManager>(FindObjectsInactive.Include) != null,
                     FixIt = CreateARInputManager,
-                    IsRuleEnabled = VisionOSBuildProcessor.IsLoaderEnabled
+                    IsRuleEnabled = () => VisionOSBuildProcessor.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
                 },
 #if UNITY_HAS_URP
-                new BuildValidationRule()
+                new ()
                 {
                     Message = "Each camera must generate a depth texture.",
                     Category = k_VisionOS,
                     Error = true,
                     CheckPredicate = IsCamerasDepthTextureDisabled,
                     FixIt = SetCamerasDepthTextureToEnabled,
-                    IsRuleEnabled = VisionOSBuildProcessor.IsLoaderEnabled
+                    IsRuleEnabled = () => VisionOSBuildProcessor.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
                 },
 #endif
+                new ()
+                {
+                    Message = "Hand Tracking Usage Description (in the Apple visionOS settings) is required to automatically start the Hands subsystem.",
+                    FixItMessage = "Update the Hand Tracking Usage Description",
+                    Category = k_VisionOS,
+                    Error = true,
+                    CheckPredicate = () => VisionOSSettings.currentSettings == null ||
+                                           !string.IsNullOrEmpty(VisionOSSettings.currentSettings.handsTrackingUsageDescription),
+                    FixItAutomatic = false,
+                    FixIt = () => SettingsService.OpenProjectSettings("Project/XR Plug-in Management/Apple visionOS"),
+                    IsRuleEnabled = VisionOSBuildProcessor.IsLoaderEnabled
+                },
+
+                new ()
+                {
+                    Message = "World Sensing features (images, planes or meshes) are disabled. If your app uses world sensing, you need to add a " +
+                              "World Sensing Usage Description in the Apple visionOS settings.",
+                    FixItMessage = "Update the World Sensing Usage Description",
+                    Category = k_VisionOS,
+                    Error = false,
+                    CheckPredicate = () => VisionOSSettings.currentSettings == null ||
+                                           !string.IsNullOrEmpty(VisionOSSettings.currentSettings.worldSensingUsageDescription),
+                    FixItAutomatic = false,
+                    FixIt = () => SettingsService.OpenProjectSettings("Project/XR Plug-in Management/Apple visionOS"),
+                    IsRuleEnabled = VisionOSBuildProcessor.IsLoaderEnabled
+                },
+                new ()
+                {
+                    Message = "Splash screen is not yet supported for visionOS. If the splash screen is enabled, you may have errors when building or when " +
+                              "running your application in the simulator or in the device.",
+                    FixItMessage = "Disable the splash screen",
+                    Category = k_VisionOS,
+                    Error = true,
+                    CheckPredicate = () =>  !PlayerSettings.SplashScreen.show,
+                    FixIt = () => PlayerSettings.SplashScreen.show = false
+                },
             };
 
-            BuildValidator.AddRules(k_VisionOSBuildTarget, buildTargetRules);
+            BuildValidator.AddRules(k_VisionOSBuildTarget, k_Rules);
+        }
+
+        static bool CheckAppMode(VisionOSSettings.AppMode mode)
+        {
+            return VisionOSSettings.currentSettings != null && VisionOSSettings.currentSettings.appMode == mode;
         }
 
         static GameObject CreateARSession()
         {
-            var arSession = Object.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include);
+            var arSession = UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include);
             if (arSession != null)
                 return arSession.gameObject;
 
@@ -90,7 +156,7 @@ namespace UnityEditor.XR.VisionOS
             if (UniversalRenderPipeline.asset == null)
                 return;
 
-            var cameras = Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var cameras = UnityObject.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var camera in cameras)
             {
                 var cameraData = camera.GetUniversalAdditionalCameraData();
@@ -108,7 +174,7 @@ namespace UnityEditor.XR.VisionOS
             if (UniversalRenderPipeline.asset == null)
                 return true;
 
-            var cameras = Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var cameras = UnityObject.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var camera in cameras)
             {
                 var cameraData = camera.GetUniversalAdditionalCameraData();
@@ -119,5 +185,32 @@ namespace UnityEditor.XR.VisionOS
             return true;
         }
 #endif
+
+        static void EnableVisionOSLoader()
+        {
+            var visionOSLoaderGUIDs = AssetDatabase.FindAssets($"t:{nameof(VisionOSLoader)}");
+            if (visionOSLoaderGUIDs.Length == 0)
+                return;
+
+            var visionOSLoader = AssetDatabase.LoadAssetAtPath<VisionOSLoader>(AssetDatabase.GUIDToAssetPath(visionOSLoaderGUIDs[0]));
+            if (visionOSLoader == null)
+                return;
+
+            var visionOSXRSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(
+                BuildPipeline.GetBuildTargetGroup(BuildTarget.VisionOS));
+
+            if (visionOSXRSettings == null)
+                return;
+
+            var manager = visionOSXRSettings.Manager;
+            if (manager == null)
+                return;
+
+            if (manager.TryAddLoader(visionOSLoader))
+            {
+                EditorUtility.SetDirty(manager);
+                AssetDatabase.SaveAssetIfDirty(manager);
+            }
+        }
     }
 }

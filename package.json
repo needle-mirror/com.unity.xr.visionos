@@ -1,27 +1,39 @@
 {
   "name": "com.unity.xr.visionos",
   "displayName": "Apple visionOS XR Plugin",
-  "version": "0.5.0",
+  "version": "0.6.2",
   "unity": "2022.3",
-  "unityRelease": "9f1",
-  "description": "Provides support for Apple visionOS XR features. This includes build post-processing code and the following subsystem implementations:\n  - XRSessionSubsystem\n  - XRDisplaySubsystem\n  - XRInputSubsystem\n  - XRMeshSubsystem\n  - XRPlaneSubsystem\n  - XRImageTrackingSubsystem\n  - XRAnchorSubsystem\n  - XRHandSubsystem",
+  "unityRelease": "11f1",
+  "description": "Provides support for Apple visionOS XR features. This includes build post-processing code and the following subsystem implementations:\n  - XRSessionSubsystem\n  - XRDisplaySubsystem\n  - XRInputSubsystem\n  - XRMeshSubsystem\n  - XRPlaneSubsystem\n  - XRImageTrackingSubsystem\n  - XRAnchorSubsystem\n  - XRHandSubsystem\nUnity PolySpatial and visionOS support is only available to Unity Pro, Unity Enterprise, and Unity Industry users. Learn more about these plans at unity.com/pricing.",
   "keywords": [
     "xreditorsubsystem"
   ],
   "dependencies": {
-    "com.unity.xr.arfoundation": "5.0.7",
+    "com.unity.xr.arfoundation": "5.1.0",
     "com.unity.xr.management": "4.3.3"
   },
   "_upm": {
-    "changelog": "### Added\n- `VisionOSSpatialPointerDevice` for pinch/gaze input support in VR mode.\n\n### Changed\n\n### Deprecated\n\n### Removed\n\n### Fixed\n\n### Security"
+    "changelog": "### Added\n\n### Changed\n\n### Deprecated\n\n### Removed\n\n### Fixed\n\n### Security"
   },
   "upmCi": {
-    "footprint": "60b8638c2592e3fec6e855130f8636db9b128cf2"
+    "footprint": "eff289920e2031242f80040d26d91bfe38fd9c6e"
   },
-  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.xr.visionos@0.5/manual/index.html",
+  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.xr.visionos@0.6/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/quantum.git",
     "type": "git",
-    "revision": "563b6ef49598724e6c4f624b194447d1cb537faf"
-  }
+    "revision": "d865d526b87f703ed1b9f4dd1dc7828188ea75c5"
+  },
+  "samples": [
+    {
+      "displayName": "VR Sample - Built-in",
+      "description": "A sample scene and supporting assets for the built-in render pipeline demonstrating VR features.",
+      "path": "Samples~/VRSampleBuiltin"
+    },
+    {
+      "displayName": "VR Sample - URP",
+      "description": "A sample scene and supporting assets for the Universal Render Pipeline demonstrating VR features.",
+      "path": "Samples~/VRSampleURP"
+    }
+  ]
 }

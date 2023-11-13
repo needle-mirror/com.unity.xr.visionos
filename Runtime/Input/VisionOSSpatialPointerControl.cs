@@ -20,6 +20,8 @@ namespace UnityEngine.XR.VisionOS.InputDevices
 
         public Vector3Control startRayDirection { get; set; }
 
+        public QuaternionControl startRayRotation { get; set; }
+
         public Vector3Control devicePosition { get; set; }
 
         public QuaternionControl deviceRotation { get; set; }
@@ -27,6 +29,10 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         public IntegerControl kind { get; set; }
 
         public TouchPhaseControl phase { get; set; }
+
+        public IntegerControl trackingState { get; set; }
+
+        public ButtonControl isTracked { get; set; }
 
         public bool isInProgress
         {
@@ -52,10 +58,13 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             interactionId = GetChildControl<IntegerControl>("interactionId");
             startRayOrigin = GetChildControl<Vector3Control>("startRayOrigin");
             startRayDirection = GetChildControl<Vector3Control>("startRayDirection");
+            startRayRotation = GetChildControl<QuaternionControl>("startRayRotation");
             devicePosition = GetChildControl<Vector3Control>("devicePosition");
             deviceRotation = GetChildControl<QuaternionControl>("deviceRotation");
             kind = GetChildControl<IntegerControl>("kind");
             phase = GetChildControl<TouchPhaseControl>("phase");
+            trackingState = GetChildControl<IntegerControl>("trackingState");
+            isTracked = GetChildControl<ButtonControl>("isTracked");
 
             base.FinishSetup();
         }

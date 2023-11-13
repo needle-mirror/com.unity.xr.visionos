@@ -34,7 +34,7 @@
             "define": "UNITY_HAS_POLYSPATIAL_VISIONOS"
         },
         {
-            "name": "com.unity.render-pipelines.core",
+            "name": "com.unity.render-pipelines.universal",
             "expression": "0.1.0",
             "define": "UNITY_HAS_URP"
         }

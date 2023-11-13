@@ -272,11 +272,11 @@ class UnitySwiftUIAppDelegate: NSObject, UIApplicationDelegate
 
         super.init()
 
-//        let api = QuantumRealityKitAccess.getApiData()
-//        let size = QuantumRealityKitAccess.getApiSize()
-//        SetQuantumNativeAPIImplementation(api, size)
+//        let api = PolySpatialRealityKitAccess.getApiData()
+//        let size = PolySpatialRealityKitAccess.getApiSize()
+//        SetPolySpatialNativeAPIImplementation(api, size)
 //
-//        QuantumRealityKitAccess.register()
+//        PolySpatialRealityKitAccess.register()
     }
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
