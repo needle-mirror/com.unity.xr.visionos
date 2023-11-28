@@ -1,7 +1,7 @@
 {
   "name": "com.unity.xr.visionos",
   "displayName": "Apple visionOS XR Plugin",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "unity": "2022.3",
   "unityRelease": "11f1",
   "description": "Provides support for Apple visionOS XR features. This includes build post-processing code and the following subsystem implementations:\n  - XRSessionSubsystem\n  - XRDisplaySubsystem\n  - XRInputSubsystem\n  - XRMeshSubsystem\n  - XRPlaneSubsystem\n  - XRImageTrackingSubsystem\n  - XRAnchorSubsystem\n  - XRHandSubsystem\nUnity PolySpatial and visionOS support is only available to Unity Pro, Unity Enterprise, and Unity Industry users. Learn more about these plans at unity.com/pricing.",
@@ -13,16 +13,16 @@
     "com.unity.xr.management": "4.3.3"
   },
   "_upm": {
-    "changelog": "### Added\n\n### Changed\n\n### Deprecated\n\n### Removed\n\n### Fixed\n\n### Security"
+    "changelog": "### Added\n\n### Changed\n- Changed license check modal option from \"See Pricing\" to \"Learn about a 30-day trial\".\n\n### Deprecated\n\n### Removed\n\n### Fixed\n\n### Security"
   },
   "upmCi": {
-    "footprint": "eff289920e2031242f80040d26d91bfe38fd9c6e"
+    "footprint": "c2f4362a9a158b54ae507bb6e454ccc7dafe18c4"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.xr.visionos@0.6/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/quantum.git",
     "type": "git",
-    "revision": "d865d526b87f703ed1b9f4dd1dc7828188ea75c5"
+    "revision": "81e2894f340510275c7a62c85782cc27bfcd2142"
   },
   "samples": [
     {

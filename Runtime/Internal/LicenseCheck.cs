@@ -18,9 +18,8 @@ namespace UnityEngine.XR.VisionOS.Internal
         static string k_LicenseCheckTitle = "Pro License Required";
         static string k_LicenseCheckMessage = "Unity PolySpatial and visionOS XR support is only available to Unity Pro, Unity Enterprise, and Unity Industry users. These packages will be uninstalled. Learn more about Unity plans at unity.com/pricing.";
         static string k_OkButton = "Ok";
-        static string k_SeePricingButton = "See Pricing";
-        static string k_PricingUrl = "https://unity.com/pricing";
-        static string k_DialogOptOutKey = "com.unity.polyspatial.procheck";
+        static string k_SeePricingButton = "Learn about a 30-day trial";
+        static string k_PricingUrl = "https://unity.com/pages/pro-free-trial";
 
         static string[] k_PackagesToRemove = new[]{
             "com.unity.xr.visionos",
@@ -63,29 +62,20 @@ namespace UnityEngine.XR.VisionOS.Internal
                 throw new Exception(k_LicenseCheckMessage);
             }
 
-            // If the user set the ignore bit on the dialog, then we need to log an error at least
-            // if for no other reason than as a reminder of what happened and why.
-            if (EditorPrefs.GetBool("com.unity.polyspatial.procheck", false))
+            // If they want to see pricing then we need to send them to the Unity page for that. The pricing button is
+            // actually the "cancel" button and will return false if selected.
+            var wantsToSeePricing = !EditorUtility.DisplayDialog(
+                k_LicenseCheckTitle,
+                k_LicenseCheckMessage,
+                k_OkButton,
+                k_SeePricingButton);
+            if (wantsToSeePricing)
             {
-                Debug.LogError(k_LicenseCheckMessage);
+                Application.OpenURL(k_PricingUrl);
             }
-            else
-            {
-                // Either option will still remove packages, but if they want to see pricing then we need
-                // to send them to the Unity page for that. The pricing button is actually the "cancel" button
-                // and will return false if selected.
-                var wantsToSeePricing = !EditorUtility.DisplayDialog(
-                    k_LicenseCheckTitle,
-                    k_LicenseCheckMessage,
-                    k_OkButton,
-                    k_SeePricingButton,
-                    DialogOptOutDecisionType.ForThisMachine,
-                    k_DialogOptOutKey);
-                if (wantsToSeePricing)
-                {
-                    Application.OpenURL(k_PricingUrl);
-                }
-            }
+
+            // Log an error as a reminder of what happened and why.
+            Debug.LogError(k_LicenseCheckMessage);
 
             var addAndRemove = PackageManagerClient.AddAndRemove(null, k_PackagesToRemove);
             if (addAndRemove.Status == StatusCode.Failure)
