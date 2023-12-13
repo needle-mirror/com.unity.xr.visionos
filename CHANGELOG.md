@@ -7,6 +7,33 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2023-12-13
+
+### Added
+- Added a step to the build pre-processor which disables splash screen on visionOS player builds.
+- Enabled foveated rendering for VR builds on Unity 2022.3.16f1 and above.
+- Added extension method `TryGetVisionOSRotation` to `XRHandJoint` when using the `UnityEngine.XR.VisionOS` namespace. If you depended on the rotations reported before this version, use this `TryGetVisionOSRotaiton` instead of the rotation reported from `XRHandJoint.TryGetPose`.
+
+### Changed
+- Changed the platforms behavior to report rotations of hand joints through `XRHandSubsystem` that align more closely with OpenXR's rotations. If you depended on the previous reporting of rotations, use the rotation reported by `TryGetVisionOSRotation`, a new extension method to `XRHandJoint`.
+- All packages now require 2022.3.15f1 and later (rather than 2022.3.11fa and later) to pick up fixes for various memory leaks made in 15f1.
+
+### Deprecated
+
+### Removed
+- Support for Unity versions earlier than 2022.3.11f1.
+- Removed gray "Loading..." window in VR builds. VR apps now launch directly into the immersive space.
+
+### Fixed
+- Fixed a linker error in Xcode when building the visionOS player with App Mode set to VR, but the visionOS loader is not enabled.
+- Fixed a memory leak in `VisionOSHandProvider`.
+- Fixed a memory leak caused by using particle systems in VR mode.
+- Implemented lifecycle management. Unity now suspends and resumes properly when the home menu is brought forward.
+- Fixed an issue where closing the gray "Loading..." window would mute audio.
+- Fixed an issue where spatial audio would use the gray "Loading..." window as its source location.
+
+### Security
+
 ## [0.6.3] - 2023-11-28
 
 ### Added

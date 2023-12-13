@@ -80,5 +80,19 @@ import UnityFramework
         UnityLibrary.instance = nil;
     }
 
+    public func didBecomeActive() {
+        unityFramework.appController().applicationDidBecomeActive(UIApplication.shared)
+    }
 
+    public func willResignActive() {
+        unityFramework.appController().applicationWillResignActive(UIApplication.shared)
+    }
+
+    public func didEnterBackground() {        
+        unityFramework.appController().applicationDidEnterBackground(UIApplication.shared)
+    }
+
+    public func willEnterForeground() {
+        unityFramework.appController().applicationWillEnterForeground(UIApplication.shared)
+    }
 }

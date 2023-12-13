@@ -37,11 +37,7 @@ namespace UnityEditor.XR.VisionOS
 #if UNITY_VISIONOS
         public void WriteAndAddToPBXProject(PBXProject project, string pathToBuiltProject)
         {
-#if UNITY_2022_3_9 || UNITY_2022_3_10
-            const string unityTargetName = "Unity-iPhone";
-#else
             const string unityTargetName = "Unity-VisionOS";
-#endif
 
             var relativePathToAssetCatalog = Path.Combine(unityTargetName, name + ".xcassets");
             var fullPathToAssetCatalog = Path.Combine(pathToBuiltProject, relativePathToAssetCatalog);

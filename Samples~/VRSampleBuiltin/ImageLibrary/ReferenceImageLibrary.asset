@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 848409ee8ba454f42a5ddff137688a27, type: 3}
   m_Name: ReferenceImageLibrary
   m_EditorClassIdentifier: 
-  m_GuidLow: 4996301612140226338
-  m_GuidHigh: 11200685283119820456
+  m_GuidLow: 5097530616948055400
+  m_GuidHigh: 6650713430635353737
   m_DataStore:
     m_Storage: []
   m_Images:
   - m_SerializedGuid:
-      m_GuidLow: 5137524896398667563
-      m_GuidHigh: 3016130656397480627
+      m_GuidLow: 5060945719953457924
+      m_GuidHigh: 8628163561983860637
     m_SerializedTextureGuid:
       m_GuidLow: 1509471418886112101
       m_GuidHigh: 5817320125690470458
@@ -28,8 +28,8 @@ MonoBehaviour:
     m_Name: one
     m_Texture: {fileID: 2800000, guid: 094fc365b84214f23ae08234d545bb50, type: 3}
   - m_SerializedGuid:
-      m_GuidLow: 4978971701070869852
-      m_GuidHigh: 12591602569775636386
+      m_GuidLow: 5065224441252023145
+      m_GuidHigh: 16245772683112823211
     m_SerializedTextureGuid:
       m_GuidLow: 4909150582538069303
       m_GuidHigh: 11755466198774271528

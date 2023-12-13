@@ -53,7 +53,6 @@ namespace UnityEditor.XR.VisionOS
 
                 ShowUsageDescriptionFields();
 
-#if !(UNITY_2022_3_9 || UNITY_2022_3_10)
                 switch (PlayerSettings.VisionOS.sdkVersion)
                 {
                     case VisionOSSdkVersion.Device:
@@ -63,7 +62,6 @@ namespace UnityEditor.XR.VisionOS
                         EditorGUILayout.HelpBox("When building for visionOS Simulator SDK, Multi-Pass rendering will be used.", MessageType.Info);
                         break;
                 }
-#endif
             }
             else if (appMode == VisionOSSettings.AppMode.MR)
             {

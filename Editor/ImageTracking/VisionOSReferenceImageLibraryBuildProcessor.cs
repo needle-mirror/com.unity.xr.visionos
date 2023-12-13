@@ -143,11 +143,7 @@ namespace UnityEditor.XR.VisionOS
                 // Read in the PBXProject
                 var project = new PBXProject();
 
-#if UNITY_2022_3_9 || UNITY_2022_3_10
-                var pbxProjectPath = PBXProject.GetPBXProjectPath(buildOutputPath);
-#else
                 var pbxProjectPath = Path.Combine(buildOutputPath, "Unity-VisionOS.xcodeproj/project.pbxproj");
-#endif
 
                 project.ReadFromString(File.ReadAllText(pbxProjectPath));
 

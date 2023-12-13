@@ -15,6 +15,8 @@ namespace UnityEngine.XR.VisionOS
         // Use Body3D as a proxy for now
         const Feature k_HandFeatureProxy = Feature.Body3D;
         internal const string handSubsystemId = "VisionOS-Hands";
+        static readonly Quaternion k_LeftHandAligment = Quaternion.AngleAxis(-90f, Vector3.up) * Quaternion.AngleAxis(180f, Vector3.right);
+        static readonly Quaternion k_RightHandAlignment = Quaternion.AngleAxis(-90f, Vector3.up);
 
         XRHandSubsystem.UpdateSuccessFlags m_LastSuccessFlags = XRHandSubsystem.UpdateSuccessFlags.None;
 
@@ -22,6 +24,9 @@ namespace UnityEngine.XR.VisionOS
         public bool IsSupported => NativeApi.HandTracking.ar_hand_tracking_provider_is_supported();
         public bool ShouldBeActive => running;
         public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
+
+        IntPtr m_LeftHandAnchor = IntPtr.Zero;
+        IntPtr m_RightHandAnchor = IntPtr.Zero;
 
         public VisionOSHandProvider()
         {
@@ -35,6 +40,9 @@ namespace UnityEngine.XR.VisionOS
         public override void Destroy()
         {
             VisionOSProviderRegistration.UnregisterProvider(k_HandFeatureProxy, this);
+            CurrentProvider = IntPtr.Zero;
+            m_LeftHandAnchor = IntPtr.Zero;
+            m_RightHandAnchor = IntPtr.Zero;
         }
 
         public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
@@ -44,6 +52,13 @@ namespace UnityEngine.XR.VisionOS
                 Debug.LogWarning("Hand tracking provider is not supported");
                 provider = IntPtr.Zero;
                 return false;
+            }
+
+            if (CurrentProvider != IntPtr.Zero)
+            {
+                CurrentProvider = IntPtr.Zero;
+                m_LeftHandAnchor = IntPtr.Zero;
+                m_RightHandAnchor = IntPtr.Zero;
             }
 
             var handTrackingConfiguration = NativeApi.HandTracking.ar_hand_tracking_configuration_create();
@@ -78,18 +93,21 @@ namespace UnityEngine.XR.VisionOS
             if (CurrentProvider == IntPtr.Zero)
                 return XRHandSubsystem.UpdateSuccessFlags.None;
 
-            // TODO: Can we re-use these anchors? We should confirm that these are freed by ARC
-            var leftHandAnchor = NativeApi.HandTracking.ar_hand_anchor_create();
-            var rightHandAnchor = NativeApi.HandTracking.ar_hand_anchor_create();
-            var success = NativeApi.HandTracking.ar_hand_tracking_provider_get_latest_anchors(CurrentProvider, leftHandAnchor, rightHandAnchor);
+            if (m_LeftHandAnchor == IntPtr.Zero)
+                m_LeftHandAnchor = NativeApi.HandTracking.ar_hand_anchor_create();
+
+            if (m_RightHandAnchor == IntPtr.Zero)
+                m_RightHandAnchor = NativeApi.HandTracking.ar_hand_anchor_create();
+
+            var success = NativeApi.HandTracking.ar_hand_tracking_provider_get_latest_anchors(CurrentProvider, m_LeftHandAnchor, m_RightHandAnchor);
 
             // get_latest_anchors will return false if we poll too quickly--in that case, return the last valid result
             if (!success)
                 return m_LastSuccessFlags;
 
             m_LastSuccessFlags = XRHandSubsystem.UpdateSuccessFlags.None;
-            GetHandData(ref leftHandRootPose, ref m_LastSuccessFlags, leftHandJoints, leftHandAnchor, Handedness.Left);
-            GetHandData(ref rightHandRootPose, ref m_LastSuccessFlags, rightHandJoints, rightHandAnchor, Handedness.Right);
+            GetHandData(ref leftHandRootPose, ref m_LastSuccessFlags, leftHandJoints, m_LeftHandAnchor, Handedness.Left);
+            GetHandData(ref rightHandRootPose, ref m_LastSuccessFlags, rightHandJoints, m_RightHandAnchor, Handedness.Right);
             return m_LastSuccessFlags;
         }
 
@@ -105,7 +123,7 @@ namespace UnityEngine.XR.VisionOS
             var wristPosition = worldMatrix.GetPosition();
             var wristRotation = worldMatrix.GetRotation();
 
-            rootPose = new Pose(wristPosition, wristRotation);
+            rootPose = new Pose(wristPosition, AlignRotation(wristRotation, handedness));
             successFlags |= handedness == Handedness.Left
                 ? XRHandSubsystem.UpdateSuccessFlags.LeftHandRootPose
                 : XRHandSubsystem.UpdateSuccessFlags.RightHandRootPose;
@@ -135,15 +153,30 @@ namespace UnityEngine.XR.VisionOS
                     var jointMatrix = Marshal.PtrToStructure<FloatArrayToMatrix4x4>(convertedMatrix);
                     var jointPosition = wristPosition + wristRotation * jointMatrix.GetPosition();
                     var jointRotation = wristRotation * jointMatrix.GetRotation();
-                    pose = new Pose(jointPosition, jointRotation);
+                    pose = new Pose(jointPosition, AlignRotation(jointRotation, handedness));
+
+                    var appleRotations = VisionOSHandExtensions.GetVisionOSRotations(handedness);
+                    appleRotations[index] = jointRotation;
 
                     successFlags |= handedness == Handedness.Left
                         ? XRHandSubsystem.UpdateSuccessFlags.LeftHandJoints
                         : XRHandSubsystem.UpdateSuccessFlags.RightHandJoints;
                 }
+                else
+                {
+                    var appleRotations = VisionOSHandExtensions.GetVisionOSRotations(handedness);
+                    appleRotations[index] = null;
+                }
 
                 jointArray[index] = CreateJoint(handedness, trackingState, jointID, pose);
             }
+        }
+
+        static Quaternion AlignRotation(Quaternion rotation, Handedness handedness)
+        {
+            return handedness == Handedness.Left
+                ? rotation * k_LeftHandAligment
+                : rotation * k_RightHandAlignment;
         }
 
         static XRHandJoint CreateJoint(Handedness handedness, XRHandJointTrackingState trackingState, XRHandJointID id, Pose pose)

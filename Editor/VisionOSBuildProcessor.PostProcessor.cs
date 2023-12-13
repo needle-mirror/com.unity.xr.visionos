@@ -1,9 +1,17 @@
 #if UNITY_VISIONOS
+#if !(UNITY_2022_3_11 || UNITY_2022_3_12 || UNITY_2022_3_13 || UNITY_2022_3_14 || UNITY_2022_3_15)
+#define UNITY_SUPPORT_FOVEATION
+#endif
+
 using UnityEngine;
 using System.IO;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.iOS.Xcode;
+
+#if UNITY_HAS_URP
+using UnityEngine.Rendering.Universal;
+#endif
 #endif
 
 namespace UnityEditor.XR.VisionOS
@@ -16,6 +24,8 @@ namespace UnityEditor.XR.VisionOS
 #if UNITY_VISIONOS
         const string k_SceneManifestKey = "UIApplicationSceneManifest";
         const string k_SupportsMultipleScenesKey = "UIApplicationSupportsMultipleScenes";
+        const string k_SessionRoleKey = "UIApplicationPreferredDefaultSceneSessionRole";
+        const string k_SessionRoleValue = "CPSceneSessionRoleImmersiveSpaceApplication";
         const string k_HandsTrackingUsageDescriptionKey = "NSHandsTrackingUsageDescription";
         const string k_WorldSensingUsageDescriptionKey = "NSWorldSensingUsageDescription";
 
@@ -43,11 +53,12 @@ namespace UnityEditor.XR.VisionOS
 
             public void OnPostprocessBuild(BuildReport report)
             {
+                PlayerSettings.SplashScreen.show = s_SplashScreenWasEnabled;
+
                 var isLoaderEnabled = IsLoaderEnabled();
                 var outputPath = report.summary.outputPath;
                 var settings = VisionOSSettings.currentSettings;
                 var appMode = settings.appMode;
-                PatchIl2Cpp(outputPath);
                 FilterXcodeProj(outputPath, isLoaderEnabled, appMode);
                 if (isLoaderEnabled)
                     FilterPlist(outputPath, settings, appMode);
@@ -55,11 +66,7 @@ namespace UnityEditor.XR.VisionOS
 
             static void FilterXcodeProj(string outputPath, bool isLoaderEnabled, VisionOSSettings.AppMode appMode)
             {
-#if UNITY_2022_3_9 || UNITY_2022_3_10
-                var xcodeProj = outputPath + "/Unity-iPhone.xcodeproj";
-#else
                 var xcodeProj = outputPath + "/Unity-VisionOS.xcodeproj";
-#endif
                 if (!Directory.Exists(xcodeProj))
                 {
                     Debug.LogError($"Failed to find Xcode project at path {xcodeProj}");
@@ -77,19 +84,18 @@ namespace UnityEditor.XR.VisionOS
                 pbx.SetBuildProperty(unityMainTargetGuid, "SWIFT_VERSION", "5.0");
 
                 const string ldFlagsSettingName = "OTHER_LDFLAGS";
-                var ldFlagsAddValues = new[]
+
+                if (isLoaderEnabled)
                 {
                     // Explicitly export the UnityVisionOS_OnInputEvent so it can be called from Swift code
-                    "-Wl,-exported_symbol,_UnityVisionOS_OnInputEvent",
-#if UNITY_2022_3_9 || UNITY_2022_3_10
-                    // Use legacy ld64 linker to work around sdk platform mismatch errors
-                    "-Wl",
-                    "-ld64"
-#endif
-                };
+                    var ldFlagsAddValues = new []
+                    {
+                     "-Wl,-exported_symbol,_UnityVisionOS_OnInputEvent"
+                    };
+                    pbx.UpdateBuildProperty(unityMainTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
+                    pbx.UpdateBuildProperty(unityFrameworkTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
+                }
 
-                pbx.UpdateBuildProperty(unityMainTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
-                pbx.UpdateBuildProperty(unityFrameworkTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
 
                 // Add legacy TARGET_OS_XR define which was renamed to TARGET_OS_VISION to fix builds on earlier Unity versions
                 const string cFlagsSettingName = "OTHER_CFLAGS";
@@ -112,6 +118,7 @@ namespace UnityEditor.XR.VisionOS
                     const string pluginPath = "Libraries/com.unity.xr.visionos/Runtime/Plugins/visionos";
                     BuildFileWithUnityTarget(pbx, $"{pluginPath}/UnityMain.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
                     BuildFileWithUnityTarget(pbx, $"{pluginPath}/UnityLibrary.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
+                    AddSettingsFile(pbx, outputPath, pluginPath, unityMainTargetGuid);
                 }
 
                 pbx.WriteToFile(xcodePbx);
@@ -133,8 +140,10 @@ namespace UnityEditor.XR.VisionOS
                 if (appMode == VisionOSSettings.AppMode.VR)
                 {
                     var sceneManifestDictionary = plist.CreateElement("dict");
-                    var valueElement = plist.CreateElement("true");
-                    sceneManifestDictionary[k_SupportsMultipleScenesKey] = valueElement;
+                    var supportsMultipleScenesValue = plist.CreateElement("true");
+                    sceneManifestDictionary[k_SupportsMultipleScenesKey] = supportsMultipleScenesValue;
+                    var sessionRoleValue = plist.CreateElement("string", k_SessionRoleValue);
+                    sceneManifestDictionary[k_SessionRoleKey] = sessionRoleValue;
                     plist.root[k_SceneManifestKey] = sceneManifestDictionary;
                 }
 
@@ -153,21 +162,26 @@ namespace UnityEditor.XR.VisionOS
                 plist.WriteToFile(plistPath);
             }
 
-            static void PatchIl2Cpp(string outputPath)
+            static void AddSettingsFile(PBXProject pbx, string outputPath, string pluginPath, string targetGuid)
             {
-                // Only 2022.3.9f1 can be patched to work with Xcode 15b8. Earlier versions will not work, and later versions do not require the patch
-                if (Application.unityVersion != "2022.3.9f1")
-                    return;
+                const string fileName = "VisionOSSettings.swift";
+                var projectPath = Path.Combine(pluginPath, fileName);
+                var fullPath = Path.Combine(outputPath, projectPath);
+                File.WriteAllText(fullPath, GetSettingsString());
+                var guid = pbx.AddFile(fullPath, projectPath);
+                pbx.AddFileToBuild(targetGuid, guid);
+            }
 
-                const string patchesDirectory = "Packages/com.unity.xr.visionos/Patches~";
-                if (!Directory.Exists(patchesDirectory))
-                    return;
+            static string GetSettingsString()
+            {
+                const string format = "var VisionOSEnableFoveation = {0}";
+#if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
+                var hasUrpAsset = UniversalRenderPipeline.asset != null;
+                if (PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device && hasUrpAsset)
+                    return string.Format(format, "true");
+#endif
 
-                const string patchFileName = "Bee.Toolchain.Xcode.dll";
-                const string il2CppPath = "Il2CppOutputProject/IL2CPP/build/deploy_arm64";
-                var destFileName = Path.Combine(outputPath, il2CppPath, patchFileName);
-                var sourceFileName = Path.Combine(patchesDirectory, patchFileName);
-                File.Copy(sourceFileName, destFileName, true);
+                return string.Format(format, "false");
             }
         }
 #endif

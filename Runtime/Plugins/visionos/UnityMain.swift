@@ -50,30 +50,18 @@ struct MyApp: App {
                 }
                 
                 configuration.isFoveationEnabled = enableFoveation
+                configuration.generateFlippedRasterizationRateMaps = enableFoveation
             }
     }
-    
-    @Environment(\.openImmersiveSpace) private var openImmersiveSpace
-    @Environment(\.dismiss) private var dismiss
     
     @State private var immersionStyle: ImmersionStyle = .full
     
     var body: some Scene {
-        WindowGroup {
-            Text("Loading").onAppear() {
-                Task { @MainActor in
-                    await openImmersiveSpace(id: "CompositorSpace")
-                }
-                // TODO: doesn't work?
-                self.dismiss()
-            }
-        }
-        
         ImmersiveSpace(id: "CompositorSpace") {
             let _ = UnityLibrary.GetInstance()
             let unityClass = NSClassFromString("UnityVisionOS") as? NSObject.Type
             let singlePass = Bool(truncating: unityClass?.perform(Selector(("getSinglePass"))).takeRetainedValue() as! NSNumber)
-            let configuration = UnityContentConfiguration(singlePass: singlePass, enableFoveation: false)
+            let configuration = UnityContentConfiguration(singlePass: singlePass, enableFoveation: VisionOSEnableFoveation)
             CompositorLayer(configuration:configuration) { layerRenderer in
                 unityClass?.perform(Selector(("setLayerRenderer:")), with: layerRenderer)
 
@@ -285,7 +273,45 @@ class UnitySwiftUIAppDelegate: NSObject, UIApplicationDelegate
 //        args.append("-batchmode")
 
         unity.run(args: args)
-        
         return true
+    }
+
+    func application(
+            _ application: UIApplication,
+            configurationForConnecting connectingSceneSession: UISceneSession,
+            options: UIScene.ConnectionOptions
+        ) -> UISceneConfiguration {
+       let configuration = UISceneConfiguration(
+           name: nil,
+           sessionRole: connectingSceneSession.role)
+       configuration.delegateClass = UnitySwiftUISceneDelegate.self
+       return configuration
+   }
+}
+
+@available(iOS 13.0, *)
+class UnitySwiftUISceneDelegate: UIResponder, UISceneDelegate {
+    var unity: UnityLibrary
+    
+    override init() {
+        unity = UnityLibrary.GetInstance()!
+
+        super.init()
+    }
+    
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        unity.didBecomeActive();
+    }
+
+    func sceneWillResignActive(_ scene: UIScene) {
+        unity.willResignActive();
+    }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        unity.didEnterBackground()
+    }
+    
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        unity.willEnterForeground()
     }
 }

@@ -12,6 +12,8 @@ namespace UnityEditor.XR.VisionOS
 {
     static partial class VisionOSBuildProcessor
     {
+        static bool s_SplashScreenWasEnabled;
+
         internal static bool IsLoaderEnabled()
         {
             var visionOSXRSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(
