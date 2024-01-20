@@ -21,6 +21,12 @@ namespace UnityEditor.XR.VisionOS
         internal const string HandTrackingUsageWarning = "Hand tracking usage description is required when the visionOS" +
             "loader is enabled. The hand subsystem will be started automatically and requires authorization to run.";
 
+        const string k_ARMWorkaroundOriginal = "--additional-defines=IL2CPP_DEBUG=";
+        const string k_ARMWorkaroundReplacement = "--additional-defines=IL2CPP_LARGE_EXECUTABLE_ARM_WORKAROUND=1,IL2CPP_DEBUG=";
+
+        const string k_ARMWorkaroundOriginalAlt = "--compile-cpp";
+        const string k_ARMWorkaroundReplacementAlt = "--compile-cpp --additional-defines=IL2CPP_LARGE_EXECUTABLE_ARM_WORKAROUND=1";
+
 #if UNITY_VISIONOS
         const string k_SceneManifestKey = "UIApplicationSceneManifest";
         const string k_SupportsMultipleScenesKey = "UIApplicationSupportsMultipleScenes";
@@ -54,11 +60,22 @@ namespace UnityEditor.XR.VisionOS
             public void OnPostprocessBuild(BuildReport report)
             {
                 PlayerSettings.SplashScreen.show = s_SplashScreenWasEnabled;
+                s_SplashScreenWasEnabled = false;
+
+                if (s_LoaderWasEnabled)
+                    EnableLoader();
+
+                s_LoaderWasEnabled = false;
 
                 var isLoaderEnabled = IsLoaderEnabled();
                 var outputPath = report.summary.outputPath;
                 var settings = VisionOSSettings.currentSettings;
                 var appMode = settings.appMode;
+
+                // Do not do any build post-processing for windowed apps
+                if (appMode == VisionOSSettings.AppMode.Windowed)
+                    return;
+
                 FilterXcodeProj(outputPath, isLoaderEnabled, appMode);
                 if (isLoaderEnabled)
                     FilterPlist(outputPath, settings, appMode);
@@ -66,42 +83,27 @@ namespace UnityEditor.XR.VisionOS
 
             static void FilterXcodeProj(string outputPath, bool isLoaderEnabled, VisionOSSettings.AppMode appMode)
             {
-                var xcodeProj = outputPath + "/Unity-VisionOS.xcodeproj";
-                if (!Directory.Exists(xcodeProj))
+                var xcodeProjectPath = GetXcodeProjectPath(outputPath);
+                if (!File.Exists(xcodeProjectPath))
                 {
-                    Debug.LogError($"Failed to find Xcode project at path {xcodeProj}");
+                    Debug.LogError($"Failed to find Xcode project at path {xcodeProjectPath}");
                     return;
                 }
 
-                var xcodePbx = xcodeProj + "/project.pbxproj";
-                var pbx = new PBXProject();
-                pbx.ReadFromFile(xcodePbx);
+                var pbxProject = new PBXProject();
+                pbxProject.ReadFromFile(xcodeProjectPath);
 
-                var unityMainTargetGuid = pbx.GetUnityMainTargetGuid();
-                var unityFrameworkTargetGuid = pbx.GetUnityFrameworkTargetGuid();
+                var unityMainTargetGuid = pbxProject.GetUnityMainTargetGuid();
+                var unityFrameworkTargetGuid = pbxProject.GetUnityFrameworkTargetGuid();
 
                 // Swift version 5 is required for swift trampoline
-                pbx.SetBuildProperty(unityMainTargetGuid, "SWIFT_VERSION", "5.0");
-
-                const string ldFlagsSettingName = "OTHER_LDFLAGS";
-
-                if (isLoaderEnabled)
-                {
-                    // Explicitly export the UnityVisionOS_OnInputEvent so it can be called from Swift code
-                    var ldFlagsAddValues = new []
-                    {
-                     "-Wl,-exported_symbol,_UnityVisionOS_OnInputEvent"
-                    };
-                    pbx.UpdateBuildProperty(unityMainTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
-                    pbx.UpdateBuildProperty(unityFrameworkTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
-                }
-
+                pbxProject.SetBuildProperty(unityMainTargetGuid, "SWIFT_VERSION", "5.0");
 
                 // Add legacy TARGET_OS_XR define which was renamed to TARGET_OS_VISION to fix builds on earlier Unity versions
                 const string cFlagsSettingName = "OTHER_CFLAGS";
                 var cFlagsAddValues = new[] { "-DTARGET_OS_XR=1" };
-                pbx.UpdateBuildProperty(unityMainTargetGuid, cFlagsSettingName, cFlagsAddValues, null);
-                pbx.UpdateBuildProperty(unityFrameworkTargetGuid, cFlagsSettingName, cFlagsAddValues, null);
+                pbxProject.UpdateBuildProperty(unityMainTargetGuid, cFlagsSettingName, cFlagsAddValues, null);
+                pbxProject.UpdateBuildProperty(unityFrameworkTargetGuid, cFlagsSettingName, cFlagsAddValues, null);
 
                 // Patch Keyboard.mm to work around inputAccessoryView being unavailable
                 var keyboardClassPath = Path.Combine(outputPath, k_KeyboardClassPath);
@@ -111,17 +113,34 @@ namespace UnityEditor.XR.VisionOS
 
                 if (isLoaderEnabled && appMode == VisionOSSettings.AppMode.VR)
                 {
+                    const string ldFlagsSettingName = "OTHER_LDFLAGS";
+
+                    // Explicitly export the UnityVisionOS_OnInputEvent so it can be called from Swift code
+                    var ldFlagsAddValues = new[]
+                    {
+                        "-Wl,-exported_symbol,_UnityVisionOS_OnInputEvent"
+                    };
+                    pbxProject.UpdateBuildProperty(unityMainTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
+                    pbxProject.UpdateBuildProperty(unityFrameworkTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
+
                     // Remove main.mm which is replaced by swift trampoline
-                    pbx.RemoveFile(pbx.FindFileGuidByProjectPath("MainApp/main.mm"));
+                    pbxProject.RemoveFile(pbxProject.FindFileGuidByProjectPath("MainApp/main.mm"));
 
                     // Move swift trampoline files from UnityFramework to UnityMain
                     const string pluginPath = "Libraries/com.unity.xr.visionos/Runtime/Plugins/visionos";
-                    BuildFileWithUnityTarget(pbx, $"{pluginPath}/UnityMain.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
-                    BuildFileWithUnityTarget(pbx, $"{pluginPath}/UnityLibrary.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
-                    AddSettingsFile(pbx, outputPath, pluginPath, unityMainTargetGuid);
+                    BuildFileWithUnityTarget(pbxProject, $"{pluginPath}/UnityMain.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
+                    BuildFileWithUnityTarget(pbxProject, $"{pluginPath}/UnityLibrary.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
+                    AddSettingsFile(pbxProject, outputPath, pluginPath, unityMainTargetGuid);
                 }
 
-                pbx.WriteToFile(xcodePbx);
+                var pbxProjectContents = pbxProject.WriteToString();
+
+                // Newer versions use a slightly different IL2CPP script without --additional-defines=IL2CPP_DEBUG=
+                pbxProjectContents = pbxProjectContents.Contains(k_ARMWorkaroundOriginal)
+                    ? pbxProjectContents.Replace(k_ARMWorkaroundOriginal, k_ARMWorkaroundReplacement)
+                    : pbxProjectContents.Replace(k_ARMWorkaroundOriginalAlt, k_ARMWorkaroundReplacementAlt);
+
+                File.WriteAllText(xcodeProjectPath, pbxProjectContents);
             }
 
             static void BuildFileWithUnityTarget(PBXProject pbx, string file, string unityMainTargetGuid, string unityFrameworkTargetGuid)

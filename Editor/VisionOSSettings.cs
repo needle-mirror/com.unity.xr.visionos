@@ -44,6 +44,12 @@ namespace UnityEditor.XR.VisionOS
             /// </summary>
             [InspectorName("Mixed Reality - Volume or Immersive Space")]
             MR,
+
+            /// <summary>
+            /// Windowed - 2D Window
+            /// </summary>
+            [InspectorName("Windowed - 2D Window")]
+            Windowed
         }
 
         [SerializeField, Tooltip("Initial mode of the app.")]

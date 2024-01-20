@@ -16,8 +16,8 @@ namespace UnityEditor.XR.VisionOS
 
         class ExecutionFailedException : ACToolException
         {
-            public ExecutionFailedException(int exitCode, string stderr)
-                : base($"Execution of actool failed with exit code {exitCode}. stderr:\n{stderr}")
+            public ExecutionFailedException(int exitCode, string stdout, string stderr)
+                : base($"Execution of actool failed with exit code {exitCode}. stdout:\n{stdout}\nstderr:\n{stderr}")
             { }
         }
 
@@ -40,13 +40,13 @@ namespace UnityEditor.XR.VisionOS
                     $"\"{assetCatalogPath}\"",
                     $"--compile \"{outputDirectory}\"",
                     $"--platform xros",
-                    $"--minimum-deployment-target 11.3",
+                    $"--minimum-deployment-target 1.0",
                     "--warnings",
                     "--errors"
                 });
 
                 if (exitCode != 0)
-                    throw new ExecutionFailedException(exitCode, stderr);
+                    throw new ExecutionFailedException(exitCode, stdout, stderr);
 
                 // Parse the plist
                 var plist = Plist.ReadFromString(stdout);

@@ -1,5 +1,12 @@
+#if UNITY_EDITOR && UNITY_VISIONOS
 using UnityEngine;
 using UnityEngine.InputSystem;
+
+#if INCLUDE_UNITY_XRI
+using System.Collections.Generic;
+using UnityEngine.XR.Interaction.Toolkit.UI;
+#endif
+#endif
 
 namespace UnityEngine.XR.VisionOS.InputDevices
 {
@@ -8,9 +15,40 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         [SerializeField]
         bool m_DrawDebugRay;
 
+#if UNITY_EDITOR && UNITY_VISIONOS
         Vector3 m_StartRayOrigin;
         Vector3 m_StartRayDirection;
         Vector2 m_PreviousMousePosition;
+
+#if INCLUDE_UNITY_XRI
+        readonly List<XRUIInputModule> m_PreviouslyEnabledModules = new();
+
+        void OnEnable()
+        {
+            // Disable mouse input on input modules in order to prevent doubling up of events
+            m_PreviouslyEnabledModules.Clear();
+            foreach (var inputModule in FindObjectsByType<XRUIInputModule>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (inputModule.enableMouseInput)
+                {
+                    m_PreviouslyEnabledModules.Add(inputModule);
+                    inputModule.enableMouseInput = false;
+                }
+            }
+        }
+
+        void OnDisable()
+        {
+            // Re-enable mouse input on input modules if it was previously enabled
+            foreach (var module in m_PreviouslyEnabledModules)
+            {
+                if (module != null)
+                    module.enableMouseInput = true;
+            }
+
+            m_PreviouslyEnabledModules.Clear();
+        }
+#endif
 
         void Update()
         {
@@ -68,13 +106,14 @@ namespace UnityEngine.XR.VisionOS.InputDevices
                 return;
             }
 
-            var devicePosition = ray.GetPoint(0.5f);
+            // Create a fake input device pose position roughly at arm's length along the ray
+            var inputDevicePosition = ray.GetPoint(0.5f);
             VisionOSSpatialPointerEventListener.OnInputEvent(new VisionOSSpatialPointerEvent
             {
                 interactionId = 0,
                 phase = phase,
-                devicePosition = devicePosition,
-                deviceRotation = Quaternion.LookRotation(rayDirection),
+                inputDevicePosition = inputDevicePosition,
+                inputDeviceRotation = Quaternion.LookRotation(rayDirection),
                 rayOrigin = m_StartRayOrigin,
                 rayDirection = m_StartRayDirection,
                 kind = VisionOSSpatialPointerKind.IndirectPinch
@@ -82,5 +121,6 @@ namespace UnityEngine.XR.VisionOS.InputDevices
 
             m_PreviousMousePosition = mousePosition;
         }
+#endif
     }
 }

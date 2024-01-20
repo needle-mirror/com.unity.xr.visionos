@@ -1,5 +1,6 @@
 #if UNITY_VISIONOS || (UNITY_VISIONOS_MAC_STUB && UNITY_STANDALONE_OSX)
 using System;
+using System.IO;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -28,11 +29,23 @@ namespace UnityEditor.XR.VisionOS
             {
                 DisableSplashScreenIfEnabled();
                 SetRuntimePluginCopyDelegate();
+                RestoreARMWorkaround(report.summary.outputPath);
 
                 if (!IsLoaderEnabled())
                     return;
 
                 var settings = VisionOSSettings.currentSettings;
+                var appMode = settings.appMode;
+                if (appMode == VisionOSSettings.AppMode.Windowed)
+                {
+                    Debug.LogWarning("The Apple visionOS XR loader is not supported when building a visionOS Windowed application. It will be disabled for this " +
+                        "build and re-enabled afterward. You may need to manually re-enable the loader in XR Plugin Management settings if this build fails.");
+
+                    s_LoaderWasEnabled = true;
+                    DisableLoader();
+                    return;
+                }
+
                 if (settings.appMode == VisionOSSettings.AppMode.MR)
                 {
 #if !UNITY_HAS_POLYSPATIAL_VISIONOS
@@ -86,10 +99,16 @@ namespace UnityEditor.XR.VisionOS
 
             static bool ShouldIncludeSourcePluginsInBuild(string path)
             {
+                // Including plugins will cause errors because post process is different if loader is disabled
                 if (!IsLoaderEnabled())
                     return false;
 
-                return (VisionOSSettings.currentSettings.appMode != VisionOSSettings.AppMode.MR || !path.Contains(".swift"));
+                // Always include `UnityVisionOS.m` file if the loader is enabled to provide export methods to XR library
+                if (path.Contains("UnityVisionOS.m"))
+                    return true;
+
+                // Also include .swift files and UnityAppController.m for VR builds
+                return VisionOSSettings.currentSettings.appMode == VisionOSSettings.AppMode.VR;
             }
 
             static bool ShouldIncludePreCompiledLibraryInBuild(string path)
@@ -107,6 +126,22 @@ namespace UnityEditor.XR.VisionOS
                 }
 
                 return true;
+            }
+
+            static void RestoreARMWorkaround(string outputPath)
+            {
+                // For append builds, we need to restore the original command line so that the Unity
+                // build process doesn't see it as missing and add a duplicate to replace it.
+                var xcodeProjectPath = GetXcodeProjectPath(outputPath);
+                if (!File.Exists(xcodeProjectPath))
+                    return;
+
+                var projContents = File.ReadAllText(xcodeProjectPath);
+
+                projContents = projContents.Replace(k_ARMWorkaroundReplacement, k_ARMWorkaroundOriginal);
+                projContents = projContents.Replace(k_ARMWorkaroundReplacementAlt, k_ARMWorkaroundOriginalAlt);
+
+                File.WriteAllText(xcodeProjectPath, projContents);
             }
         }
 #endif

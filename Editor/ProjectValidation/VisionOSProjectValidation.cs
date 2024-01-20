@@ -6,6 +6,7 @@ using UnityEngine.XR.VisionOS;
 using UnityObject = UnityEngine.Object;
 
 #if UNITY_HAS_URP
+using System;
 using UnityEngine.Rendering.Universal;
 #endif
 
@@ -17,6 +18,8 @@ namespace UnityEditor.XR.VisionOS
         const string k_VisionOS = "VisionOS";
         const string k_ARSessionMessageVR = "An ARSession component is required to be active in the scene.";
         const string k_ARSessionMessageMR = "An ARSession component is required to be active in the scene to provide access to ARKit features.";
+        const string k_RendererDataListPropertyName = "m_RendererDataList";
+        const string k_CopyDepthModePropertyName = "m_CopyDepthMode";
 
         const BuildTargetGroup k_VisionOSBuildTarget = BuildTargetGroup.VisionOS;
 
@@ -83,6 +86,15 @@ namespace UnityEditor.XR.VisionOS
                     Error = true,
                     CheckPredicate = IsCamerasDepthTextureDisabled,
                     FixIt = SetCamerasDepthTextureToEnabled,
+                    IsRuleEnabled = () => VisionOSBuildProcessor.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
+                },
+                new ()
+                {
+                    Message = "After Opaques is the only supported Depth Texture Mode for visionOS VR applications.",
+                    Category = k_VisionOS,
+                    Error = true,
+                    CheckPredicate = IsDepthTextureModeNotAfterOpaques,
+                    FixIt = SetDepthTextureModeToAfterOpaques,
                     IsRuleEnabled = () => VisionOSBuildProcessor.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
                 },
 #endif
@@ -183,6 +195,71 @@ namespace UnityEditor.XR.VisionOS
             }
 
             return true;
+        }
+
+        static void ForEachRendererData(UniversalRenderPipelineAsset asset, Action<UnityObject> action)
+        {
+            // NB: Copy Depth Mode is not exposed on UniversalRenderer, so we need to snoop SerializedProperties to check for UniversalRendererData references.
+            var serializedObject = new SerializedObject(asset);
+            var rendererDataList = serializedObject.FindProperty(k_RendererDataListPropertyName);
+            if (rendererDataList == null)
+                return;
+
+            var count = rendererDataList.arraySize;
+            for (var i = 0; i < count; i++)
+            {
+                var rendererDataListElement = rendererDataList.GetArrayElementAtIndex(i);
+                var rendererData = rendererDataListElement.objectReferenceValue;
+                if (rendererData == null)
+                    continue;
+
+                action.Invoke(rendererData);
+            }
+        }
+
+        static SerializedProperty GetCopyDepthModeProperty(UnityObject rendererData)
+        {
+            var serializedObject = new SerializedObject(rendererData);
+            return serializedObject.FindProperty(k_CopyDepthModePropertyName);
+        }
+
+        static void SetDepthTextureModeToAfterOpaques()
+        {
+            var asset = UniversalRenderPipeline.asset;
+            if (asset == null)
+                return;
+
+            ForEachRendererData(asset, rendererData =>
+            {
+                var copyDepthModeProperty = GetCopyDepthModeProperty(rendererData);
+                if (copyDepthModeProperty == null)
+                    return;
+
+                copyDepthModeProperty.intValue = (int)CopyDepthMode.AfterOpaques;
+                copyDepthModeProperty.serializedObject.ApplyModifiedProperties();
+            });
+        }
+
+
+        static bool IsDepthTextureModeNotAfterOpaques()
+        {
+            // Passes validation if no asset is set.
+            var asset = UniversalRenderPipeline.asset;
+            if (asset == null)
+                return true;
+
+            var foundInvalidRenderer = false;
+            ForEachRendererData(asset, rendererData =>
+            {
+                var copyDepthModeProperty = GetCopyDepthModeProperty(rendererData);
+                if (copyDepthModeProperty == null)
+                    return;
+
+                if (copyDepthModeProperty.intValue != (int)CopyDepthMode.AfterOpaques)
+                    foundInvalidRenderer = true; // If any renderer's copy depth mode is not set to AfterOpaques, rendering issues can occur on visionOS hardware.
+            });
+
+            return !foundInvalidRenderer;
         }
 #endif
 

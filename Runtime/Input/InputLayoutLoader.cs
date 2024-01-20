@@ -27,16 +27,16 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void RegisterLayouts()
         {
-            InputSystem.RegisterLayout<HandheldARInputDevice>(
-                matches: new InputDeviceMatcher()
-                    .WithInterface(XRUtilities.InterfaceMatchAnyVersion)
-                    .WithProduct("(visionOS)")
-                );
-
             InputSystem.RegisterLayout<XRHMD>(
                 matches: new InputDeviceMatcher()
                     .WithInterface(XRUtilities.InterfaceMatchAnyVersion)
-                    .WithProduct("(visionOS)")
+                    .WithProduct("(visionOS_HMD)")
+                );
+
+            InputSystem.RegisterLayout<HandheldARInputDevice>(
+                matches: new InputDeviceMatcher()
+                    .WithInterface(XRUtilities.InterfaceMatchAnyVersion)
+                    .WithProduct("(visionOS_HandheldARDevice)")
             );
 
             InputSystem.RegisterLayout<VisionOSSpatialPointerControl>(name: VisionOSSpatialPointerState.LayoutName);

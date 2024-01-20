@@ -70,7 +70,9 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         {
             var stateEventPtr = (StateEvent*)eventPtr.data;
 
-            Debug.Assert(stateEventPtr->stateFormat == VisionOSSpatialPointerState.Format);
+            if (stateEventPtr->stateFormat != VisionOSSpatialPointerState.Format)
+                return;
+
             Debug.Assert(eventPtr.type != DeltaStateEvent.Type);
 
             VisionOSSpatialPointerState newState;

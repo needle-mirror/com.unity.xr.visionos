@@ -18,6 +18,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
     class VisionOSSpatialPointerEventListener
     {
         readonly Dictionary<int, VisionOSSpatialPointerState> m_Inputs = new();
+        readonly Dictionary<int, Vector3> m_StartInputDevicePositions = new();
         readonly VisionOSSpatialPointerDevice m_PointerDevice;
         static readonly Lazy<VisionOSSpatialPointerEventListener> k_Instance = new(() => new VisionOSSpatialPointerEventListener());
 
@@ -117,15 +118,43 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         {
             var state = GetPointerId(inputEvent.interactionId);
             var phase = inputEvent.phase;
+            var inputDevicePosition = inputEvent.inputDevicePosition;
+            var interactionId = state.interactionId;
+            if (phase == VisionOSSpatialPointerPhase.Began)
+                m_StartInputDevicePositions[interactionId] = inputDevicePosition;
+
+            // Compute interaction ray rotation based on device position
+            var rayOrigin = inputEvent.rayOrigin;
+            var rayDirection = inputEvent.rayDirection;
+            if (m_StartInputDevicePositions.TryGetValue(interactionId, out var startInputDevicePosition))
+            {
+                // Calculate start position at arbitrary distance, roughly within arms' reach
+                var gazeRay = new Ray(rayOrigin, rayDirection);
+                var startPosition = gazeRay.GetPoint(0.5f);
+
+                // Update current position based on distance inputDevicePosition has moved
+                var currentPosition = startPosition + (inputDevicePosition - startInputDevicePosition);
+                var interactionRayDirection = Vector3.Normalize(currentPosition - rayOrigin);
+                state.interactionRayRotation = Quaternion.LookRotation(interactionRayDirection);
+            }
+
+            switch (phase)
+            {
+                case VisionOSSpatialPointerPhase.Cancelled:
+                case VisionOSSpatialPointerPhase.Ended:
+                case VisionOSSpatialPointerPhase.None:
+                    m_StartInputDevicePositions.Remove(interactionId);
+                    break;
+            }
+
             state.phaseId = (byte)phase;
             state.startRayOrigin = inputEvent.rayOrigin;
-            var rayDirection = inputEvent.rayDirection;
             state.startRayDirection = rayDirection;
             state.startRayRotation = rayDirection == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(rayDirection);
             state.kindId = (byte)inputEvent.kind;
             state.modifierKeys = (ushort)inputEvent.modifierKeys;
-            state.devicePosition = inputEvent.devicePosition;
-            state.deviceRotation = inputEvent.deviceRotation;
+            state.inputDevicePosition = inputEvent.inputDevicePosition;
+            state.inputDeviceRotation = inputEvent.inputDeviceRotation;
             var isTracked = phase == VisionOSSpatialPointerPhase.Began || phase == VisionOSSpatialPointerPhase.Moved;
             state.isTracked = isTracked;
             state.trackingState = isTracked ? InputTrackingState.Position | InputTrackingState.Rotation : InputTrackingState.None;

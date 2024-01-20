@@ -223,6 +223,7 @@ namespace UnityEngine.XR.VisionOS
             {
                 m_ProviderStateCallbackReceived = false;
                 NativeApi.Session.ar_session_stop(m_ARSession);
+                m_CurrentConfiguration = null;
             }
 
             public override void Destroy()

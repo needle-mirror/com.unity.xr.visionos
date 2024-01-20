@@ -117,8 +117,8 @@ struct MyApp: App {
                             interactionId: Self.existingIndices[event.id]!,
                             interactionRayOrigin: ConvertDouble3PositionToUnityVector3(ray!.origin.vector),
                             interactionRayDirection: ConvertDouble3PositionToUnityVector3(ray!.direction.vector),
-                            devicePosition: ConvertDouble3PositionToUnityVector3(pose3D.position.vector),
-                            deviceRotation: ConvertDouble4RotationToUnityVector4(pose3D.rotation.vector),
+                            inputDevicePosition: ConvertDouble3PositionToUnityVector3(pose3D.position.vector),
+                            inputDeviceRotation: ConvertDouble4RotationToUnityVector4(pose3D.rotation.vector),
                             modifierKeys: UInt16(event.modifierKeys.rawValue),
                             kind: ConvertKindToUInt8(event.kind),
                             phase: ConverPhaseToUInt8(event.phase, existingEvent)
@@ -221,19 +221,19 @@ struct SpatialPointerEvent
     private var _interactionId: Int32
     private var _interactionRayOrigin: UnityVector3
     private var _interactionRayDirection: UnityVector3
-    private var _devicePosition: UnityVector3
-    private var _deviceRotation: UnityVector4
+    private var _inputDevicePosition: UnityVector3
+    private var _inputDeviceRotation: UnityVector4
     private var _modifierKeys: UInt16
     private var _kind: UInt8
     private var _phase: UInt8
 
-    init(interactionId: Int32, interactionRayOrigin: UnityVector3, interactionRayDirection: UnityVector3, devicePosition: UnityVector3, deviceRotation: UnityVector4, modifierKeys: UInt16, kind: UInt8, phase: UInt8)
+    init(interactionId: Int32, interactionRayOrigin: UnityVector3, interactionRayDirection: UnityVector3, inputDevicePosition: UnityVector3, inputDeviceRotation: UnityVector4, modifierKeys: UInt16, kind: UInt8, phase: UInt8)
     {
         _interactionId = interactionId
         _interactionRayOrigin = interactionRayOrigin
         _interactionRayDirection = interactionRayDirection
-        _devicePosition = devicePosition
-        _deviceRotation = deviceRotation
+        _inputDevicePosition = inputDevicePosition
+        _inputDeviceRotation = inputDeviceRotation
         _modifierKeys = modifierKeys
         _kind = kind
         _phase = phase
@@ -243,8 +243,8 @@ struct SpatialPointerEvent
       _interactionId = 0
       _interactionRayOrigin = UnityVector3()
       _interactionRayDirection = UnityVector3()
-      _devicePosition = UnityVector3()
-      _deviceRotation = UnityVector4()
+      _inputDevicePosition = UnityVector3()
+      _inputDeviceRotation = UnityVector4()
       _modifierKeys = 0
       _kind = 0
       _phase = 0

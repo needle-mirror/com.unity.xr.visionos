@@ -22,9 +22,11 @@ namespace UnityEngine.XR.VisionOS.InputDevices
 
         public QuaternionControl startRayRotation { get; set; }
 
-        public Vector3Control devicePosition { get; set; }
+        public QuaternionControl interactionRayRotation { get; set; }
 
-        public QuaternionControl deviceRotation { get; set; }
+        public Vector3Control inputDevicePosition { get; set; }
+
+        public QuaternionControl inputDeviceRotation { get; set; }
 
         public IntegerControl kind { get; set; }
 
@@ -59,8 +61,9 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             startRayOrigin = GetChildControl<Vector3Control>("startRayOrigin");
             startRayDirection = GetChildControl<Vector3Control>("startRayDirection");
             startRayRotation = GetChildControl<QuaternionControl>("startRayRotation");
-            devicePosition = GetChildControl<Vector3Control>("devicePosition");
-            deviceRotation = GetChildControl<QuaternionControl>("deviceRotation");
+            interactionRayRotation = GetChildControl<QuaternionControl>("interactionRayRotation");
+            inputDevicePosition = GetChildControl<Vector3Control>("inputDevicePosition");
+            inputDeviceRotation = GetChildControl<QuaternionControl>("inputDeviceRotation");
             kind = GetChildControl<IntegerControl>("kind");
             phase = GetChildControl<TouchPhaseControl>("phase");
             trackingState = GetChildControl<IntegerControl>("trackingState");

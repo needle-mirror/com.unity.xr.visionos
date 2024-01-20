@@ -7,6 +7,32 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2024-01-20
+
+### Added
+- Added a Project Validation rule to check for UniversalRenderData with `Depth Texture Mode` set to anything other than `After Opaques`, which will cause rendering glitches when no opaque objects are visible.
+- Added a workaround to build the post processor for `ARM64 branch out of range` error which can occur when building in Xcode.
+- Added `interactionRayRotation` control which exposes a gaze ray which can be used for draggable UI elements. It begins with a rotation pointing in the direction of the gaze ray, and follows a position which is offset by the change in `devicePosition`. In practice, users can gaze at a slider, pinch their fingers and move their hand right and left to drag it side-to-side.
+- Added a UI canvas to `Main` sample scene, configured to use the `XRUIInputModule` from `com.unity.xr.interaction.toolkit`.
+- Added an `InputSystem UI` scene configured to use the `InputSystemUIInputModule` from `com.unity.inputsystem`.
+- Added an affordance to the Apple visionOS settings UI to install PolySpatial packages if the user switches AppMode to Mixed Reality or clicks the Install Packages button visible when AppMode is set to Mixed Reality.
+- Add Windowed AppMode.
+
+### Changed
+- Updated Xcode version used to build native libraries to 15.2 (15C500b)
+- Renamed `devicePosition` and `deviceRotation` input controls to `inputDevicePosition` and `inputDeviceRotation`.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Use the correct deployment target version `1.0` when invoking `actool` to compile image marker libraries.
+- Fixed an issue in samples where the world anchor that is placed by user input used an empty GameObject instead of a visible prefab.
+- Fixed the `HandVisualizer` script in package samples to properly disable joint visual GameObjects when the joint is not tracked.
+
+### Security
+
 ## [0.7.1] - 2023-12-13
 
 ### Added
@@ -31,6 +57,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Implemented lifecycle management. Unity now suspends and resumes properly when the home menu is brought forward.
 - Fixed an issue where closing the gray "Loading..." window would mute audio.
 - Fixed an issue where spatial audio would use the gray "Loading..." window as its source location.
+- XRHMD Input device now properly reports HMD input. This enables existing VR projects and templates to properly track head movement in visionOS VR builds.
 
 ### Security
 

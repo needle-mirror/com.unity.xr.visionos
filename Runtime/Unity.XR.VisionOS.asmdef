@@ -5,7 +5,8 @@
         "Unity.XR.ARSubsystems",
         "Unity.XR.Management",
         "Unity.XR.Hands",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.XR.Interaction.Toolkit"
     ],
     "includePlatforms": [
         "Editor",
@@ -32,6 +33,11 @@
             "name": "com.unity.inputsystem",
             "expression": "1.0.0",
             "define": "INCLUDE_UNITY_INPUT_SYSTEM"
+        },
+        {
+            "name": "com.unity.xr.interaction.toolkit",
+            "expression": "1.0.0",
+            "define": "INCLUDE_UNITY_XRI"
         }
     ],
     "noEngineReferences": false

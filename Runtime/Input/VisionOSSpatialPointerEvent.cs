@@ -15,10 +15,10 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         public Vector3 rayDirection;
 
         [FieldOffset(28)] // 16+12
-        public Vector3 devicePosition;
+        public Vector3 inputDevicePosition;
 
         [FieldOffset(40)] // 28+12
-        public Quaternion deviceRotation;
+        public Quaternion inputDeviceRotation;
 
         [FieldOffset(56)] // 40+16
         public VisionOSSpatialPointerModifierKeys modifierKeys;

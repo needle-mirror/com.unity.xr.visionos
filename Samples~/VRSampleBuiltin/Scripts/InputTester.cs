@@ -56,8 +56,8 @@ namespace UnityEngine.XR.VisionOS.Sample.Builtin
 
             if (active)
             {
-                m_Device.position = primaryTouch.devicePosition;
-                m_Device.rotation = primaryTouch.deviceRotation;
+                m_Device.position = primaryTouch.inputDevicePosition;
+                m_Device.rotation = primaryTouch.inputDeviceRotation;
             }
         }
 #endif
