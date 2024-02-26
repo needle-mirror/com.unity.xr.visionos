@@ -11,8 +11,6 @@ extern "C" {
 
 void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces* unityInterfaces);
 
-void ObjC_SetCPLayer(cp_layer_renderer_t layer);
-
 void ObjC_SetDisplayProviderParameters(void* parameters);
 
 #ifdef __cplusplus
@@ -23,11 +21,7 @@ void ObjC_SetDisplayProviderParameters(void* parameters);
 
 + (void)loadPlugin;
 
-+ (void)setLayerRenderer:(cp_layer_renderer_t)layerRenderer;
-
 + (void)setDisplayProviderParameters:(NSValue*)parameters;
-
-+ (NSNumber*)getSinglePass;
 
 @end
 
@@ -38,25 +32,11 @@ void ObjC_SetDisplayProviderParameters(void* parameters);
     UnityRegisterRenderingPluginV5(UnityPluginLoad, NULL);
 }
 
-+ (void)setLayerRenderer:(cp_layer_renderer_t)layerRenderer
-{
-    ObjC_SetCPLayer(layerRenderer);
-}
-
 + (void)setDisplayProviderParameters:(NSValue*)parameters
 {
     DisplayProviderParameters params;
     [parameters getValue:&params size:sizeof(DisplayProviderParameters)];
     ObjC_SetDisplayProviderParameters(&params);
-}
-
-+ (NSNumber*)getSinglePass
-{
-#if TARGET_OS_SIMULATOR
-    return @(0);
-#else
-    return @(1);
-#endif
 }
 
 @end

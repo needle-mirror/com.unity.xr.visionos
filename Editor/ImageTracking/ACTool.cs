@@ -1,3 +1,4 @@
+#if UNITY_VISIONOS
 using System;
 using System.ComponentModel;
 using UnityEngine;
@@ -63,3 +64,4 @@ namespace UnityEditor.XR.VisionOS
         }
     }
 }
+#endif

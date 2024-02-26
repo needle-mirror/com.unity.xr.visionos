@@ -1,23 +1,19 @@
-#if UNITY_VISIONOS || (UNITY_VISIONOS_MAC_STUB && UNITY_STANDALONE_OSX)
-using System;
+#if UNITY_VISIONOS
 using System.IO;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
-#endif
 
 namespace UnityEditor.XR.VisionOS
 {
     static partial class VisionOSBuildProcessor
     {
-#if UNITY_VISIONOS || (UNITY_VISIONOS_MAC_STUB && UNITY_STANDALONE_OSX)
         class Preprocessor : IPreprocessBuildWithReport
         {
             const string k_PreCompiledLibraryName = "libUnityVisionOS.a";
             static readonly string[] k_SourcePluginNames =
             {
                 "UnityVisionOS.m",
-                "VisionOSAppController.mm",
                 // PolySpatial.visionOS package keeps these in Lib~ folder, so no need to distinguish between theirs and ours
                 "UnityMain.swift",
                 "UnityLibrary.swift"
@@ -31,7 +27,7 @@ namespace UnityEditor.XR.VisionOS
                 SetRuntimePluginCopyDelegate();
                 RestoreARMWorkaround(report.summary.outputPath);
 
-                if (!IsLoaderEnabled())
+                if (!VisionOSEditorUtils.IsLoaderEnabled())
                     return;
 
                 var settings = VisionOSSettings.currentSettings;
@@ -42,7 +38,7 @@ namespace UnityEditor.XR.VisionOS
                         "build and re-enabled afterward. You may need to manually re-enable the loader in XR Plugin Management settings if this build fails.");
 
                     s_LoaderWasEnabled = true;
-                    DisableLoader();
+                    VisionOSEditorUtils.DisableLoader();
                     return;
                 }
 
@@ -100,7 +96,7 @@ namespace UnityEditor.XR.VisionOS
             static bool ShouldIncludeSourcePluginsInBuild(string path)
             {
                 // Including plugins will cause errors because post process is different if loader is disabled
-                if (!IsLoaderEnabled())
+                if (!VisionOSEditorUtils.IsLoaderEnabled())
                     return false;
 
                 // Always include `UnityVisionOS.m` file if the loader is enabled to provide export methods to XR library
@@ -144,6 +140,6 @@ namespace UnityEditor.XR.VisionOS
                 File.WriteAllText(xcodeProjectPath, projContents);
             }
         }
-#endif
     }
 }
+#endif

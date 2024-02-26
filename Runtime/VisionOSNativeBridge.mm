@@ -428,13 +428,9 @@ EXPORT(void) UnityVisionOS_impl_ar_authorization_results_enumerate_results(ar_au
     }
 }
 
-EXPORT(bool) UnityVisionOS_IsSimulator()
+EXPORT(void) UnityVisionOS_SetIsImmersiveSpaceReady(bool immersiveSpaceReady)
 {
-#if TARGET_OS_SIMULATOR
-    return true;
-#else
-    return false;
-#endif
+    s_ImmersiveSpaceReady = immersiveSpaceReady;
 }
 
 EXPORT(bool) UnityVisionOS_IsImmersiveSpaceReady()
@@ -463,18 +459,3 @@ EXPORT(void) UnityVisionOS_OnInputEvent(int eventCount, void* eventsPointer)
 
     s_OnInputEvent(eventCount, eventsPointer);
 }
-
-@interface UnityVisionOSNativeBridge : NSObject
-
-+ (void)setImmersiveSpaceReady;
-
-@end
-
-@implementation UnityVisionOSNativeBridge
-
-+ (void)setImmersiveSpaceReady
-{
-    s_ImmersiveSpaceReady = true;
-}
-
-@end

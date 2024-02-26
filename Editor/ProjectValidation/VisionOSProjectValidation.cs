@@ -15,7 +15,7 @@ namespace UnityEditor.XR.VisionOS
     [InitializeOnLoad]
     static class VisionOSProjectValidation
     {
-        const string k_VisionOS = "VisionOS";
+        const string k_CategoryFormat = "VisionOS - {0}";
         const string k_ARSessionMessageVR = "An ARSession component is required to be active in the scene.";
         const string k_ARSessionMessageMR = "An ARSession component is required to be active in the scene to provide access to ARKit features.";
         const string k_RendererDataListPropertyName = "m_RendererDataList";
@@ -32,7 +32,7 @@ namespace UnityEditor.XR.VisionOS
                 new ()
                 {
                     Message = "The Color Space inside Player Settings must be set to Linear.",
-                    Category = k_VisionOS,
+                    Category = string.Format(k_CategoryFormat, "Color Space"),
                     Error = true,
                     CheckPredicate = () => PlayerSettings.colorSpace == ColorSpace.Linear,
                     FixIt = () => PlayerSettings.colorSpace = ColorSpace.Linear
@@ -41,7 +41,7 @@ namespace UnityEditor.XR.VisionOS
                 new ()
                 {
                     Message = k_ARSessionMessageVR,
-                    Category = k_VisionOS,
+                    Category = string.Format(k_CategoryFormat, "ARSession"),
                     Error = true,
                     CheckPredicate = () =>
                     {
@@ -56,82 +56,120 @@ namespace UnityEditor.XR.VisionOS
                         return UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include) != null;
                     },
                     FixIt = () => CreateARSession(),
-                    IsRuleEnabled = VisionOSBuildProcessor.IsLoaderEnabled
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && !CheckAppMode(VisionOSSettings.AppMode.Windowed)
                 },
 
                 new ()
                 {
                     Message = "The ARSession component requires the Apple visionOS plug-in to be enabled in the XR Plug-in Management.",
                     FixItMessage = "Enable the Apple visionOS plug-in",
-                    Category = k_VisionOS,
-                    CheckPredicate = VisionOSBuildProcessor.IsLoaderEnabled,
+                    Category = string.Format(k_CategoryFormat, "ARSession and XR Plug-in"),
+                    CheckPredicate = VisionOSEditorUtils.IsLoaderEnabled,
                     FixIt = EnableVisionOSLoader,
                     IsRuleEnabled = () => UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include) != null
                 },
 
                 new ()
                 {
+                    Message = "Virtual Reality apps require the Apple visionOS plug-in to be enabled in the XR Plug-in Management.",
+                    FixItMessage = "Virtual Reality the Apple visionOS plug-in",
+                    Category = string.Format(k_CategoryFormat, "ARSession and XR Plug-in"),
+                    Error = true,
+                    CheckPredicate = VisionOSEditorUtils.IsLoaderEnabled,
+                    FixIt = EnableVisionOSLoader,
+                    IsRuleEnabled = () =>
+                    {
+                        var settings = VisionOSSettings.currentSettings;
+                        if (settings == null)
+                            return false;
+
+                        return settings.appMode == VisionOSSettings.AppMode.VR && !VisionOSEditorUtils.IsLoaderEnabled();
+                    }
+                },
+
+                new ()
+                {
                     Message = "An ARInputManager component is required to be active in the scene.",
-                    Category = k_VisionOS,
+                    Category = string.Format(k_CategoryFormat, "ARInputManager"),
                     Error = true,
                     CheckPredicate = () => UnityObject.FindAnyObjectByType<ARInputManager>(FindObjectsInactive.Include) != null,
                     FixIt = CreateARInputManager,
-                    IsRuleEnabled = () => VisionOSBuildProcessor.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
                 },
 #if UNITY_HAS_URP
                 new ()
                 {
                     Message = "Each camera must generate a depth texture.",
-                    Category = k_VisionOS,
+                    Category = string.Format(k_CategoryFormat, "Camera depth texture"),
                     Error = true,
                     CheckPredicate = IsCamerasDepthTextureDisabled,
                     FixIt = SetCamerasDepthTextureToEnabled,
-                    IsRuleEnabled = () => VisionOSBuildProcessor.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
                 },
                 new ()
                 {
                     Message = "After Opaques is the only supported Depth Texture Mode for visionOS VR applications.",
-                    Category = k_VisionOS,
+                    Category = string.Format(k_CategoryFormat, "DepthTextureMode"),
                     Error = true,
                     CheckPredicate = IsDepthTextureModeNotAfterOpaques,
                     FixIt = SetDepthTextureModeToAfterOpaques,
-                    IsRuleEnabled = () => VisionOSBuildProcessor.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
                 },
 #endif
+
+#if INCLUDE_UNITY_XR_HANDS
                 new ()
                 {
-                    Message = "Hand Tracking Usage Description (in the Apple visionOS settings) is required to automatically start the Hands subsystem.",
-                    FixItMessage = "Update the Hand Tracking Usage Description",
-                    Category = k_VisionOS,
+                    Message = "Hand Tracking Usage Description (in Apple visionOS settings) is required to automatically initialize hand tracking. You must " +
+                        "set a usage description to prevent your app from crashing when trying to start an AR Session.",
+                    FixItMessage = "Update the Hand Tracking Usage Description or disable Initialize Hand Tracking On Startup",
+                    Category = string.Format(k_CategoryFormat, "Hand Tracking Usage Description"),
                     Error = true,
-                    CheckPredicate = () => VisionOSSettings.currentSettings == null ||
-                                           !string.IsNullOrEmpty(VisionOSSettings.currentSettings.handsTrackingUsageDescription),
+                    CheckPredicate = () => !GetEditorSettings(out var editorSettings) || !string.IsNullOrEmpty(editorSettings.handsTrackingUsageDescription),
                     FixItAutomatic = false,
                     FixIt = () => SettingsService.OpenProjectSettings("Project/XR Plug-in Management/Apple visionOS"),
-                    IsRuleEnabled = VisionOSBuildProcessor.IsLoaderEnabled
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && !CheckAppMode(VisionOSSettings.AppMode.Windowed)
+                        // Show an error if initializeHandTrackingOnStartup is true
+                        && GetRuntimeSettings(out var runtimeSettings) && runtimeSettings.initializeHandTrackingOnStartup
                 },
 
                 new ()
                 {
-                    Message = "World Sensing features (images, planes or meshes) are disabled. If your app uses world sensing, you need to add a " +
-                              "World Sensing Usage Description in the Apple visionOS settings.",
-                    FixItMessage = "Update the World Sensing Usage Description",
-                    Category = k_VisionOS,
-                    Error = false,
-                    CheckPredicate = () => VisionOSSettings.currentSettings == null ||
-                                           !string.IsNullOrEmpty(VisionOSSettings.currentSettings.worldSensingUsageDescription),
+                    Message = "Hand Tracking Usage Description (in Apple visionOS settings) is required for hand tracking features. If your app uses hand " +
+                        "tracking, your app will crash when trying to start an AR Session. If your app does not use hand tracking features, you can safely " +
+                        "ignore this warning.",
+                    FixItMessage = "Update the Hand Tracking Usage Description",
+                    Category = string.Format(k_CategoryFormat, "Hand Tracking Usage Description"),
+                    CheckPredicate = () => !GetEditorSettings(out var editorSettings) || !string.IsNullOrEmpty(editorSettings.handsTrackingUsageDescription),
                     FixItAutomatic = false,
                     FixIt = () => SettingsService.OpenProjectSettings("Project/XR Plug-in Management/Apple visionOS"),
-                    IsRuleEnabled = VisionOSBuildProcessor.IsLoaderEnabled
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && !CheckAppMode(VisionOSSettings.AppMode.Windowed)
+                        // Show a warning if initializeHandTrackingOnStartup is false
+                        && GetRuntimeSettings(out var runtimeSettings) && !runtimeSettings.initializeHandTrackingOnStartup
+                },
+#endif
+
+                new ()
+                {
+                    Message = "World Sensing Usage Description (in Apple visionOS settings) is required for world sensing features (images, planes or meshes). " +
+                        "If your app uses world sensing, you need to add a World Sensing Usage Description in the Apple visionOS settings. If your app does not " +
+                        "use world sensing features, you can safely ignore this warning.",
+                    FixItMessage = "Update the World Sensing Usage Description",
+                    Category = string.Format(k_CategoryFormat, "World Sensing Usage Description"),
+                    Error = false,
+                    CheckPredicate = () => !GetEditorSettings(out var editorSettings) || !string.IsNullOrEmpty(editorSettings.worldSensingUsageDescription),
+                    FixItAutomatic = false,
+                    FixIt = () => SettingsService.OpenProjectSettings("Project/XR Plug-in Management/Apple visionOS"),
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && !CheckAppMode(VisionOSSettings.AppMode.Windowed)
                 },
                 new ()
                 {
                     Message = "Splash screen is not yet supported for visionOS. If the splash screen is enabled, you may have errors when building or when " +
                               "running your application in the simulator or in the device.",
                     FixItMessage = "Disable the splash screen",
-                    Category = k_VisionOS,
+                    Category = string.Format(k_CategoryFormat, "Splash Screen"),
                     Error = true,
-                    CheckPredicate = () =>  !PlayerSettings.SplashScreen.show,
+                    CheckPredicate = () => !PlayerSettings.SplashScreen.show,
                     FixIt = () => PlayerSettings.SplashScreen.show = false
                 },
             };
@@ -141,8 +179,22 @@ namespace UnityEditor.XR.VisionOS
 
         static bool CheckAppMode(VisionOSSettings.AppMode mode)
         {
-            return VisionOSSettings.currentSettings != null && VisionOSSettings.currentSettings.appMode == mode;
+            return GetEditorSettings(out var editorSettings) && editorSettings.appMode == mode;
         }
+
+        static bool GetEditorSettings(out VisionOSSettings editorSettings)
+        {
+            editorSettings = VisionOSSettings.currentSettings;
+            return editorSettings != null;
+        }
+
+#if INCLUDE_UNITY_XR_HANDS
+        static bool GetRuntimeSettings(out VisionOSRuntimeSettings runtimeSettings)
+        {
+            runtimeSettings = VisionOSRuntimeSettings.GetOrCreate();
+            return runtimeSettings != null;
+        }
+#endif
 
         static GameObject CreateARSession()
         {

@@ -1,3 +1,4 @@
+#if UNITY_VISIONOS
 using System.Collections.Generic;
 using System.Linq;
 
@@ -11,3 +12,4 @@ namespace UnityEditor.XR.VisionOS
                 .Select(AssetDatabase.LoadAssetAtPath<T>);
     }
 }
+#endif

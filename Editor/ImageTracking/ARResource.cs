@@ -1,3 +1,4 @@
+#if UNITY_VISIONOS
 namespace UnityEditor.XR.VisionOS
 {
     abstract class ARResource
@@ -11,3 +12,4 @@ namespace UnityEditor.XR.VisionOS
         public abstract void Write(string pathToResourceGroup);
     }
 }
+#endif

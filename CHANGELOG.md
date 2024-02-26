@@ -7,6 +7,75 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2024-02-26
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [1.1.3] - 2024-02-22
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [1.1.2] - 2024-02-21
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [1.1.1] - 2024-02-15
+
+### Added
+- Selected validation profiles are now set automatically depending on the App mode dropdown. Users targeting multiple modes can still manually override the selected validation profiles.
+- Added extension method `GetVisionOSHandJoint` to `XRHand` for platform-specific data.
+- Added project validation rule and settings error telling users they need the `Apple visionOS` XR Loader enabled for VR builds to work.
+
+### Changed
+- Cleaned up trampoline code.
+- `VisionOSPlayModeInput` reports position/rotation data in the camera's local space to more accurately reflect input on the device.
+- Updated the Project Validation rules category to include a small description.
+
+### Deprecated
+
+### Removed
+- Removed unused `VisionOSAppController` that was added to Xcode projects for VR builds.
+
+### Fixed
+- Fixed an issue where VR apps would crash when the user opened the OS menu or Control Center (requires Unity 2022.3.20f1).
+- Fixed an issue where VR apps would present frames in the background, resulting in logs that say `Insufficient Permission (to submit GPU work from background)` (requires Unity 2022.3.20f1).
+- Updated samples to properly handle scenes with an XR Origin that is moved, rotated, or scaled (i.e. no longer located at 0, 0, 0).
+- Fixed launch crash on device when you do an incremental build over a folder that previously held a build with Target SDK set to Simulator.
+- Fixed culling issue on device where objects were culled aggressively on the periphery.
+- Fixed an issue where Xcode projects would fail to build if they were moved from their original location. VisionOSSettings.swift now uses a project-relative path instead of an absolute path.
+
+### Security
+
 ## [1.0.3] - 2024-01-20
 
 ### Added

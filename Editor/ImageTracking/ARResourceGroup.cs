@@ -1,3 +1,4 @@
+#if UNITY_VISIONOS
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -62,3 +63,4 @@ namespace UnityEditor.XR.VisionOS
         List<ARResource> m_Resources = new List<ARResource>();
     }
 }
+#endif

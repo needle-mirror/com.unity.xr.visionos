@@ -1,6 +1,9 @@
 using System;
+using System.IO;
 using UnityEngine;
 using UnityEngine.XR.Management;
+using UnityEngine.XR.VisionOS;
+
 #if UNITY_HAS_POLYSPATIAL
 using Unity.PolySpatial;
 using UnityEditor.PolySpatial;
@@ -13,11 +16,9 @@ namespace UnityEditor.XR.VisionOS
     /// Holds settings that are used to configure the Apple visionOS XR Plug-in.
     /// </summary>
     [Serializable]
-    [XRConfigurationData("Apple visionOS", "UnityEditor.XR.VisionOS.VisionOSSettings")]
-    public class VisionOSSettings : ScriptableObject
+    [XRConfigurationData("Apple visionOS", Constants.k_SettingsKey)]
+    public class VisionOSSettings : ScriptableObject, IPackageSettings
     {
-        const string k_SettingsKey = "UnityEditor.XR.VisionOS.VisionOSSettings";
-
         const string k_HandTrackingUsageTooltip = "Provide a brief description of what hand tracking will be used for." +
             "This will be shown to users in a dialog asking them to allow authorization when hand tracking is requested." +
             "This description will be added to the Info.plist file of the generated visionOS Player Xcode project. If your " +
@@ -27,6 +28,23 @@ namespace UnityEditor.XR.VisionOS
             "will be used for. This will be shown to users in a dialog asking them to allow authorization when world sensing" +
             " is requested. This description will be added to the Info.plist file of the generated visionOS Player Xcode project. If your " +
             "application does not use world sensing, you can safely leave this field blank.";
+
+        // TODO: Update this tooltip when we support volumes and immersive spaces simultaneously. In this case, tis setting will affect volume content
+        // as long as the immersive space is open. In other words, when limb visibility is disabled, and the immersive space is open, the user's hands
+        // will be occluded by content in a volume even though they can see pass-through.
+        const string k_UpperLimbVisibilityTooltip = "Controls how your app displays passthrough video of the user's hands and forearms. In the " +
+            "Virtual Reality App Mode, hands are only shown when you enable this setting and always render on top of virtual content. In the " +
+            "Mixed Reality App Mode, this setting controls how the user's hands and arms are blended with virtual objects. When enabled, hands " +
+            "are blended with virtual objects based on depth. When disabled, hands are always displayed behind virtual objects. This setting is " +
+            "ignored when the Volume Camera is in Bounded mode, or when the App Mode is set to Windowed.";
+
+        const string k_FoveatedRenderingTooltip = "Controls if foveated rendering is enabled or disabled. This setting only applies to Virtual Reality apps. " +
+            "Foveated rendering requires the Universal Render Pipeline.";
+
+        const string k_IL2CPPLargeExeWorkaroundTooltip = "Patches the `Unity-VisionOS` project to work around linker errors that can occur in some " +
+            "large projects. Check this box if you encounter the \"ARM64 branch out of range\" error when building the project in Xcode.";
+
+        const string k_RuntimeSettingsFileName = "VisionOS Runtime Settings.asset";
 
         /// <summary>
         /// Which mode the app will use: MR or VR.
@@ -61,6 +79,49 @@ namespace UnityEditor.XR.VisionOS
         [SerializeField, Tooltip(k_WorldSensingUsageTooltip)]
         string m_WorldSensingUsageDescription;
 
+        [SerializeField, HideInInspector]
+        VisionOSRuntimeSettings m_RuntimeSettings;
+
+        public VisionOSRuntimeSettings GetOrCreateRuntimeSettings()
+        {
+            if (m_RuntimeSettings != null)
+                return m_RuntimeSettings;
+
+            var assetGuids = AssetDatabase.FindAssets($"t:{nameof(VisionOSRuntimeSettings)}");
+            foreach (var assetGuid in assetGuids)
+            {
+                var assetPath = AssetDatabase.GUIDToAssetPath(assetGuid);
+                var asset = AssetDatabase.LoadAssetAtPath<VisionOSRuntimeSettings>(assetPath);
+                if (asset != null)
+                {
+                    m_RuntimeSettings = asset;
+                    break;
+                }
+            }
+
+            if (m_RuntimeSettings != null)
+                return m_RuntimeSettings;
+
+            var path = GetAssetPathForSubFolders(new[] { "XR", "Settings" });
+            if (string.IsNullOrEmpty(path))
+                return null;
+
+            m_RuntimeSettings = CreateInstance<VisionOSRuntimeSettings>();
+            var targetPath = Path.Combine(path, k_RuntimeSettingsFileName);
+            AssetDatabase.CreateAsset(m_RuntimeSettings, targetPath);
+            AssetDatabase.SaveAssets();
+            return m_RuntimeSettings;
+        }
+
+        [SerializeField, Tooltip(k_UpperLimbVisibilityTooltip)]
+        bool m_UpperLimbVisibility;
+
+        [SerializeField, Tooltip(k_FoveatedRenderingTooltip)]
+        bool m_FoveatedRendering = true;
+
+        [SerializeField, Tooltip(k_IL2CPPLargeExeWorkaroundTooltip)]
+        bool m_IL2CPPLargeExeWorkaround;
+
         /// <summary>
         /// App mode.
         /// </summary>
@@ -89,6 +150,34 @@ namespace UnityEditor.XR.VisionOS
         }
 
         /// <summary>
+        /// Upper limb visibility setting (currently only set at the beginning of an app)
+        /// </summary>
+        public bool upperLimbVisibility
+        {
+            get => m_UpperLimbVisibility;
+            set => m_UpperLimbVisibility = value;
+        }
+
+        /// <summary>
+        /// Controls if foveated rendering is enabled or disabled. This setting only applies to Virtual Reality apps. Foveated rendering requires
+        /// the Universal Render Pipeline.
+        /// </summary>
+        public bool foveatedRendering
+        {
+            get => m_FoveatedRendering;
+            set => m_FoveatedRendering = value;
+        }
+
+        /// <summary>
+        /// Setting that determines if the IL2CPP_LARGE_EXECUTABLE_ARM_WORKAROUND flag is used when building an Xcode project.
+        /// </summary>
+        public bool il2CPPLargeExeWorkaround
+        {
+            get => m_IL2CPPLargeExeWorkaround;
+            set => m_IL2CPPLargeExeWorkaround = value;
+        }
+
+        /// <summary>
         /// Gets the currently selected settings, or creates default settings if no <see cref="VisionOSSettings"/> have been set in Player Settings.
         /// </summary>
         /// <returns>The visionOS settings to use for the current Player build.</returns>
@@ -98,7 +187,9 @@ namespace UnityEditor.XR.VisionOS
             if (settings != null)
                 return settings;
 
-            return CreateInstance<VisionOSSettings>();
+            settings = CreateInstance<VisionOSSettings>();
+            settings.m_RuntimeSettings = settings.GetOrCreateRuntimeSettings();
+            return settings;
         }
 
         /// <summary>
@@ -106,17 +197,17 @@ namespace UnityEditor.XR.VisionOS
         /// </summary>
         public static VisionOSSettings currentSettings
         {
-            get => EditorBuildSettings.TryGetConfigObject(k_SettingsKey, out VisionOSSettings settings) ? settings : null;
+            get => EditorBuildSettings.TryGetConfigObject(Constants.k_SettingsKey, out VisionOSSettings settings) ? settings : null;
 
             set
             {
                 if (value == null)
                 {
-                    EditorBuildSettings.RemoveConfigObject(k_SettingsKey);
+                    EditorBuildSettings.RemoveConfigObject(Constants.k_SettingsKey);
                 }
                 else
                 {
-                    EditorBuildSettings.AddConfigObject(k_SettingsKey, value, true);
+                    EditorBuildSettings.AddConfigObject(Constants.k_SettingsKey, value, true);
                 }
             }
         }
@@ -132,5 +223,33 @@ namespace UnityEditor.XR.VisionOS
         }
 
         internal static SerializedObject GetSerializedSettings() => new(GetOrCreateSettings());
+
+        static string GetAssetPathForSubFolders(string[] subFolders)
+        {
+            if (subFolders.Length <= 0)
+                return null;
+
+            var parentFolder = "Assets";
+            foreach (var pathComponent in subFolders)
+            {
+                var fullPath = Path.Combine(parentFolder, pathComponent);
+                var shouldCreate = true;
+                foreach (var folder in AssetDatabase.GetSubFolders(parentFolder))
+                {
+                    if (string.Compare(FileUtil.GetPhysicalPath(folder), FileUtil.GetPhysicalPath(fullPath), true) == 0)
+                    {
+                        shouldCreate = false;
+                        break;
+                    }
+                }
+
+                if (shouldCreate)
+                    AssetDatabase.CreateFolder(parentFolder, pathComponent);
+
+                parentFolder = fullPath;
+            }
+
+            return parentFolder;
+        }
     }
 }

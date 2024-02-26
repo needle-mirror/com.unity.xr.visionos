@@ -1,7 +1,6 @@
-using System;
 using System.Collections.Generic;
-using UnityEngine;
 using UnityEditor.XR.Management.Metadata;
+using UnityEngine;
 using UnityEngine.XR.VisionOS;
 
 namespace UnityEditor.XR.VisionOS

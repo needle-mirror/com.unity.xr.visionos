@@ -15,7 +15,7 @@ namespace UnityEngine.XR.VisionOS
         // Use Body3D as a proxy for now
         const Feature k_HandFeatureProxy = Feature.Body3D;
         internal const string handSubsystemId = "VisionOS-Hands";
-        static readonly Quaternion k_LeftHandAligment = Quaternion.AngleAxis(-90f, Vector3.up) * Quaternion.AngleAxis(180f, Vector3.right);
+        static readonly Quaternion k_LeftHandAlignment = Quaternion.AngleAxis(-90f, Vector3.up) * Quaternion.AngleAxis(180f, Vector3.right);
         static readonly Quaternion k_RightHandAlignment = Quaternion.AngleAxis(-90f, Vector3.up);
 
         XRHandSubsystem.UpdateSuccessFlags m_LastSuccessFlags = XRHandSubsystem.UpdateSuccessFlags.None;
@@ -111,7 +111,7 @@ namespace UnityEngine.XR.VisionOS
             return m_LastSuccessFlags;
         }
 
-        void GetHandData(ref Pose rootPose, ref XRHandSubsystem.UpdateSuccessFlags successFlags, NativeArray<XRHandJoint> jointArray, IntPtr handAnchor, Handedness handedness)
+        static void GetHandData(ref Pose rootPose, ref XRHandSubsystem.UpdateSuccessFlags successFlags, NativeArray<XRHandJoint> jointArray, IntPtr handAnchor, Handedness handedness)
         {
             var isTracked = NativeApi.Anchor.ar_trackable_anchor_is_tracked(handAnchor);
             if (!isTracked)
@@ -129,7 +129,8 @@ namespace UnityEngine.XR.VisionOS
                 : XRHandSubsystem.UpdateSuccessFlags.RightHandRootPose;
 
             var handSkeleton = NativeApi.HandTracking.ar_hand_anchor_get_hand_skeleton(handAnchor);
-            for (var jointID = XRHandJointID.BeginMarker; jointID < XRHandJointID.EndMarker; jointID++)
+            var endID = (XRHandJointID)((int)XRHandJointID.EndMarker + VisionOSHandExtensions.k_NumVisionOSJoints);
+            for (var jointID = XRHandJointID.BeginMarker; jointID < endID; jointID++)
             {
                 var index = jointID.ToIndex();
                 var pose = Pose.identity;
@@ -168,14 +169,25 @@ namespace UnityEngine.XR.VisionOS
                     appleRotations[index] = null;
                 }
 
-                jointArray[index] = CreateJoint(handedness, trackingState, jointID, pose);
+                var createdJoint = CreateJoint(handedness, trackingState, jointID, pose);
+                if (jointID < XRHandJointID.EndMarker)
+                {
+                    jointArray[index] = createdJoint;
+                }
+                else
+                {
+                    var visionOSHand = handedness == Handedness.Left
+                        ? VisionOSHandExtensions.leftHand
+                        : VisionOSHandExtensions.rightHand;
+                    visionOSHand.SetJoint(createdJoint);
+                }
             }
         }
 
         static Quaternion AlignRotation(Quaternion rotation, Handedness handedness)
         {
             return handedness == Handedness.Left
-                ? rotation * k_LeftHandAligment
+                ? rotation * k_LeftHandAlignment
                 : rotation * k_RightHandAlignment;
         }
 
@@ -258,8 +270,10 @@ namespace UnityEngine.XR.VisionOS
                     return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_little_finger_intermediate_tip;
                 case XRHandJointID.LittleTip:
                     return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_little_finger_tip;
-                case XRHandJointID.EndMarker:
-                    throw new ArgumentException("EndMarker is not a valid joint ID");
+                case (XRHandJointID)VisionOSHandJointID.ForearmWrist:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_forearm_wrist;
+                case (XRHandJointID)VisionOSHandJointID.ForearmArm:
+                    return AR_Skeleton_Joint_Name.ar_hand_skeleton_joint_name_forearm_arm;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(jointID), jointID, null);
             }

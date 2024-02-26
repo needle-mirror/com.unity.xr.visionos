@@ -1,33 +1,36 @@
 #if UNITY_VISIONOS
-#if !(UNITY_2022_3_11 || UNITY_2022_3_12 || UNITY_2022_3_13 || UNITY_2022_3_14 || UNITY_2022_3_15)
+
+// The only version supported by the package which does not support foveation is 2022.3.15f1
+#if !(UNITY_2022_3_15)
 #define UNITY_SUPPORT_FOVEATION
 #endif
 
-using UnityEngine;
+using System;
 using System.IO;
+using System.Linq;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.iOS.Xcode;
+using UnityEngine;
 
 #if UNITY_HAS_URP
 using UnityEngine.Rendering.Universal;
 #endif
+
+#if INCLUDE_UNITY_XR_HANDS
+using UnityEngine.XR.VisionOS;
 #endif
 
 namespace UnityEditor.XR.VisionOS
 {
     static partial class VisionOSBuildProcessor
     {
-        internal const string HandTrackingUsageWarning = "Hand tracking usage description is required when the visionOS" +
-            "loader is enabled. The hand subsystem will be started automatically and requires authorization to run.";
-
         const string k_ARMWorkaroundOriginal = "--additional-defines=IL2CPP_DEBUG=";
         const string k_ARMWorkaroundReplacement = "--additional-defines=IL2CPP_LARGE_EXECUTABLE_ARM_WORKAROUND=1,IL2CPP_DEBUG=";
 
         const string k_ARMWorkaroundOriginalAlt = "--compile-cpp";
         const string k_ARMWorkaroundReplacementAlt = "--compile-cpp --additional-defines=IL2CPP_LARGE_EXECUTABLE_ARM_WORKAROUND=1";
 
-#if UNITY_VISIONOS
         const string k_SceneManifestKey = "UIApplicationSceneManifest";
         const string k_SupportsMultipleScenesKey = "UIApplicationSupportsMultipleScenes";
         const string k_SessionRoleKey = "UIApplicationPreferredDefaultSceneSessionRole";
@@ -57,31 +60,56 @@ namespace UnityEditor.XR.VisionOS
             // Run last
             public int callbackOrder => 9999;
 
+#if INCLUDE_UNITY_XR_HANDS
+            const string k_HandTrackingUsageError = "Hand tracking usage description is required when Initialize Hand Tracking On Startup is enabled. Refer to Project Settings > XR Plug-in Management > Apple visionOS or Project Validation for more information.";
+#endif
+
             public void OnPostprocessBuild(BuildReport report)
             {
                 PlayerSettings.SplashScreen.show = s_SplashScreenWasEnabled;
                 s_SplashScreenWasEnabled = false;
 
                 if (s_LoaderWasEnabled)
-                    EnableLoader();
+                    VisionOSEditorUtils.EnableLoader();
 
                 s_LoaderWasEnabled = false;
 
-                var isLoaderEnabled = IsLoaderEnabled();
+                var isLoaderEnabled = VisionOSEditorUtils.IsLoaderEnabled();
                 var outputPath = report.summary.outputPath;
                 var settings = VisionOSSettings.currentSettings;
                 var appMode = settings.appMode;
+
+                if (settings.il2CPPLargeExeWorkaround)
+                    ApplyArmWorkaround(outputPath);
+
+                if (PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device)
+                    RemoveSimulatorDylib(report.summary.outputPath);
 
                 // Do not do any build post-processing for windowed apps
                 if (appMode == VisionOSSettings.AppMode.Windowed)
                     return;
 
-                FilterXcodeProj(outputPath, isLoaderEnabled, appMode);
+                FilterXcodeProj(outputPath, isLoaderEnabled, settings);
                 if (isLoaderEnabled)
-                    FilterPlist(outputPath, settings, appMode);
+                    FilterPlist(outputPath, settings);
             }
 
-            static void FilterXcodeProj(string outputPath, bool isLoaderEnabled, VisionOSSettings.AppMode appMode)
+            static void RemoveSimulatorDylib(string pathToXcodeProject)
+            {
+                // If the simulator dylib is present in the build for device, the device will crash on launch with an error like this:
+                // dyld[435]: Library not loaded: @loader_path/libVisionOS-lib.dylib
+                // This happens when doing an incremental build, to the same folder, that doesn't clean after doing a simulator build first.
+                try
+                {
+                    File.Delete(Path.Combine(pathToXcodeProject, "Libraries/libVisionOS-lib.dylib"));
+                }
+                catch (Exception exception)
+                {
+                    throw new BuildFailedException("Failed to delete libVisionOS-lib.dylib: " + exception);
+                }
+            }
+
+            static void FilterXcodeProj(string outputPath, bool isLoaderEnabled, VisionOSSettings settings)
             {
                 var xcodeProjectPath = GetXcodeProjectPath(outputPath);
                 if (!File.Exists(xcodeProjectPath))
@@ -111,17 +139,33 @@ namespace UnityEditor.XR.VisionOS
                 keyboardClassContents = keyboardClassContents.Replace(k_KeyboardClassSearchString, k_KeyboardClassReplaceString);
                 File.WriteAllText(keyboardClassPath, keyboardClassContents);
 
-                if (isLoaderEnabled && appMode == VisionOSSettings.AppMode.VR)
+                if (isLoaderEnabled && settings.appMode == VisionOSSettings.AppMode.VR)
                 {
-                    const string ldFlagsSettingName = "OTHER_LDFLAGS";
-
-                    // Explicitly export the UnityVisionOS_OnInputEvent so it can be called from Swift code
-                    var ldFlagsAddValues = new[]
+                    // We have lots of exported-symbol goop in the UnityFramework target for the simulator.
+                    // It's not necessary, and actually causes problems because it requires all exported
+                    // symbols to be specified that way. Remove these here until we get rid of them in the
+                    // template.
+                    // Remove this once this is removed from the template!
+                    foreach (var configName in pbxProject.BuildConfigNames())
                     {
-                        "-Wl,-exported_symbol,_UnityVisionOS_OnInputEvent"
-                    };
-                    pbxProject.UpdateBuildProperty(unityMainTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
-                    pbxProject.UpdateBuildProperty(unityFrameworkTargetGuid, ldFlagsSettingName, ldFlagsAddValues, null);
+                        var configGuid = pbxProject.BuildConfigByName(unityFrameworkTargetGuid, configName);
+                        if (configGuid == null)
+                            continue;
+
+                        var existing = pbxProject.GetBuildPropertyForConfig(configGuid, "OTHER_LDFLAGS");
+                        if (existing != null)
+                        {
+                            if (!existing.Contains("-exported_symbol"))
+                                continue;
+
+                            // This split is not 100% correct, individual elements may be "" quoted. But
+                            // we re-join with a " " at the end, and we don't handle backslash-escapes,
+                            // so this should be fine in 99.99999999% of cases
+                            var items = existing.Split(" ");
+                            items = items.Where(s => !s.Contains("-exported_symbol")).ToArray();
+                            pbxProject.SetBuildPropertyForConfig(configGuid, "OTHER_LDFLAGS", string.Join(" ", items));
+                        }
+                    }
 
                     // Remove main.mm which is replaced by swift trampoline
                     pbxProject.RemoveFile(pbxProject.FindFileGuidByProjectPath("MainApp/main.mm"));
@@ -134,6 +178,19 @@ namespace UnityEditor.XR.VisionOS
                 }
 
                 var pbxProjectContents = pbxProject.WriteToString();
+                File.WriteAllText(xcodeProjectPath, pbxProjectContents);
+            }
+
+            static void ApplyArmWorkaround(string outputPath)
+            {
+                var xcodeProjectPath = GetXcodeProjectPath(outputPath);
+                if (!File.Exists(xcodeProjectPath))
+                {
+                    Debug.LogError($"Failed to find Xcode project at path {xcodeProjectPath}");
+                    return;
+                }
+
+                var pbxProjectContents = File.ReadAllText(xcodeProjectPath);
 
                 // Newer versions use a slightly different IL2CPP script without --additional-defines=IL2CPP_DEBUG=
                 pbxProjectContents = pbxProjectContents.Contains(k_ARMWorkaroundOriginal)
@@ -150,13 +207,13 @@ namespace UnityEditor.XR.VisionOS
                 pbx.AddFileToBuild(unityMainTargetGuid, fileGuid);
             }
 
-            static void FilterPlist(string outputPath, VisionOSSettings settings, VisionOSSettings.AppMode appMode)
+            static void FilterPlist(string outputPath, VisionOSSettings settings)
             {
                 var plistPath = outputPath + "/Info.plist";
                 var text = File.ReadAllText(plistPath);
                 var plist = Plist.ReadFromString(text);
 
-                if (appMode == VisionOSSettings.AppMode.VR)
+                if (settings.appMode == VisionOSSettings.AppMode.VR)
                 {
                     var sceneManifestDictionary = plist.CreateElement("dict");
                     var supportsMultipleScenesValue = plist.CreateElement("true");
@@ -166,12 +223,19 @@ namespace UnityEditor.XR.VisionOS
                     plist.root[k_SceneManifestKey] = sceneManifestDictionary;
                 }
 
-                // TODO: Enable/disable hand tracking
+                // TODO: Project analysis to detect any scripts/scenes that will request hand tracking
                 var handsUsage = settings.handsTrackingUsageDescription;
+#if INCLUDE_UNITY_XR_HANDS
                 if (string.IsNullOrEmpty(handsUsage))
-                    Debug.LogWarning(HandTrackingUsageWarning);
+                {
+                    if (VisionOSRuntimeSettings.GetOrCreate().initializeHandTrackingOnStartup)
+                        Debug.LogError(k_HandTrackingUsageError);
+                }
                 else
+#endif
+                {
                     plist.root[k_HandsTrackingUsageDescriptionKey] = plist.CreateElement("string", handsUsage);
+                }
 
                 // TODO: Scene analysis to detect any managers that will request world sensing
                 var worldSensingUsage = settings.worldSensingUsageDescription;
@@ -187,22 +251,28 @@ namespace UnityEditor.XR.VisionOS
                 var projectPath = Path.Combine(pluginPath, fileName);
                 var fullPath = Path.Combine(outputPath, projectPath);
                 File.WriteAllText(fullPath, GetSettingsString());
-                var guid = pbx.AddFile(fullPath, projectPath);
+                var guid = pbx.AddFile(projectPath, projectPath);
                 pbx.AddFileToBuild(targetGuid, guid);
             }
 
             static string GetSettingsString()
             {
-                const string format = "var VisionOSEnableFoveation = {0}";
+                const string format = "var VisionOSEnableFoveation = {0};\nvar VisionOSUpperLimbVisibility = {1}";
+
+                var enableFoveation = "false";
 #if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
                 var hasUrpAsset = UniversalRenderPipeline.asset != null;
-                if (PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device && hasUrpAsset)
-                    return string.Format(format, "true");
+                if (VisionOSSettings.currentSettings.foveatedRendering && PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device && hasUrpAsset)
+                    enableFoveation = "true";
 #endif
 
-                return string.Format(format, "false");
+                var upperLimbVisibility = "false";
+                if (VisionOSSettings.currentSettings.upperLimbVisibility)
+                    upperLimbVisibility = "true";
+
+                return string.Format(format, enableFoveation, upperLimbVisibility);
             }
         }
-#endif
     }
 }
+#endif

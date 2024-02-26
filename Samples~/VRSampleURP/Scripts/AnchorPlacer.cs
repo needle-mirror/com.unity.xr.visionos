@@ -15,6 +15,9 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
 {
     public class AnchorPlacer : MonoBehaviour
     {
+        const int k_FirstPointerId = 0;
+        const int k_SecondPointerId = 1;
+
         [SerializeField]
         GameObject m_AnchorPrefab;
 
@@ -53,7 +56,8 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
                 return;
 
 #if INCLUDE_UNITY_XRI
-            if (m_InputModule.IsPointerOverGameObject(0) || m_InputModule.IsPointerOverGameObject(1))
+            // Don't place anchors when the user is interacting with UI
+            if (m_InputModule.IsPointerOverGameObject(k_FirstPointerId) || m_InputModule.IsPointerOverGameObject(k_SecondPointerId))
                 return;
 #endif
 
@@ -63,15 +67,19 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
             var anchorGameObject = Instantiate(m_AnchorPrefab);
             anchorGameObject.name = $"Anchor {Time.time}";
             var anchorTransform = anchorGameObject.transform;
-            var ray = new Ray(primaryTouch.startRayOrigin, primaryTouch.startRayDirection);
+            var thisTransform = transform;
+            anchorTransform.parent = thisTransform;
 
+            var rayOrigin = thisTransform.TransformPoint(primaryTouch.startRayOrigin);
+            var rayDirection = thisTransform.TransformVector(primaryTouch.startRayDirection);
+            var ray = new Ray(rayOrigin, rayDirection);
             if (Physics.Raycast(ray, out var hitInfo))
             {
                 anchorTransform.SetPositionAndRotation(hitInfo.point, Quaternion.LookRotation(hitInfo.normal));
             }
             else
             {
-                anchorTransform.SetPositionAndRotation(primaryTouch.inputDevicePosition, primaryTouch.inputDeviceRotation);
+                anchorTransform.SetLocalPositionAndRotation(primaryTouch.inputDevicePosition, primaryTouch.inputDeviceRotation);
             }
 
             m_Anchor = anchorTransform.gameObject.AddComponent<ARAnchor>();

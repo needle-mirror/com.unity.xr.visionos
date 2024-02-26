@@ -25,13 +25,6 @@ namespace UnityEngine.XR.VisionOS
         public static extern void SetDepthRange(float near, float far);
 
         /// <summary>
-        /// Return true if the app is running in the visionOS Simulator.
-        /// Treat the Editor as running in simulator.
-        /// </summary>
-        [DllImport(k_LibraryName, EntryPoint = "UnityVisionOS_IsSimulator")]
-        public static extern bool IsSimulator();
-
-        /// <summary>
         /// Determine whether the immersive space for the app is ready.
         /// </summary>
         /// <returns><see langword="true"/> if the immersive space is ready. Otherwise, <see langword="false"/>.</returns>
@@ -45,21 +38,6 @@ namespace UnityEngine.XR.VisionOS
         /// <param name="near">The value for the near clipping plane.</param>
         /// <param name="far">The value for the far clipping plane.</param>
         public static void SetDepthRange(float near, float far) { }
-
-        /// <summary>
-        /// Determine whether the app is running in the visionOS simulator.
-        /// Treat the Editor targeting visionOS as running in simulator.
-        /// </summary>
-        /// <returns><see langword="true"/> if the app is running in the visionOS Simulator.
-        /// Otherwise, <see langword="false"/>.</returns>
-        public static bool IsSimulator()
-        {
-#if UNITY_VISIONOS
-            return true;
-#else
-            return false;
-#endif
-        }
 
         /// <summary>
         /// Determine whether the immersive space for the app is ready.
@@ -76,5 +54,24 @@ namespace UnityEngine.XR.VisionOS
 #endif
         }
 #endif
+
+        /// <summary>
+        /// Determine whether the app is running in the visionOS simulator.
+        /// Treat the Editor targeting visionOS as running in simulator.
+        /// </summary>
+        /// <returns><see langword="true"/> if the app is running in the visionOS Simulator.
+        /// Otherwise, <see langword="false"/>.</returns>
+        public static bool IsSimulator()
+        {
+#if UNITY_VISIONOS
+#if UNITY_EDITOR
+            return true;
+#else
+            return Environment.GetEnvironmentVariable("SIMULATOR_ROOT") != null;
+#endif
+#else
+            return false;
+#endif
+        }
     }
 }

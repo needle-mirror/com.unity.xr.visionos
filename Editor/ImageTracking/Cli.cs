@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if UNITY_VISIONOS
+using System;
 using System.Diagnostics;
 
 namespace UnityEditor.XR.VisionOS
@@ -72,3 +73,4 @@ namespace UnityEditor.XR.VisionOS
             Execute(fileName, arguments == null ? null : string.Join(" ", arguments));
     }
 }
+#endif

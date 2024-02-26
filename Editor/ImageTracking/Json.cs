@@ -1,3 +1,4 @@
+#if UNITY_VISIONOS
 using System;
 
 namespace UnityEditor.XR.VisionOS
@@ -82,3 +83,4 @@ namespace UnityEditor.XR.VisionOS
         }
     }
 }
+#endif

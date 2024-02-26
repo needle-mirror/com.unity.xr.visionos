@@ -1,3 +1,4 @@
+#if UNITY_VISIONOS
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,7 +21,7 @@ namespace UnityEditor.XR.VisionOS
                 WriteRaw("\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
             }
         }
-        
+
         public class Element
         {
             readonly XmlNode m_Node;
@@ -119,7 +120,7 @@ namespace UnityEditor.XR.VisionOS
             var element = m_XmlDocument.CreateElement(name);
             if (!string.IsNullOrEmpty(innerText))
                 element.InnerText = innerText;
-            
+
             return new Element(element);
         }
 
@@ -132,3 +133,4 @@ namespace UnityEditor.XR.VisionOS
         }
     }
 }
+#endif

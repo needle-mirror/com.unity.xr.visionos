@@ -78,8 +78,6 @@ namespace UnityEngine.XR.VisionOS
         /// <returns>`True` if the session subsystem was successfully created, otherwise `false`.</returns>
         public override bool Initialize()
         {
-            // TODO: #ifdef for runtime-only after removing macos stub
-
             // TODO: Remove targetFrameRate setting or find a better place to put it (or make it optional?)
             Application.targetFrameRate = 90;
             CreateSubsystem<XRDisplaySubsystemDescriptor, XRDisplaySubsystem>(k_DisplaySubsystemDescriptors, k_DisplaySubsystemId);
@@ -91,8 +89,8 @@ namespace UnityEngine.XR.VisionOS
             CreateSubsystem<XRAnchorSubsystemDescriptor, XRAnchorSubsystem>(k_AnchorSubsystemDescriptors, VisionOSAnchorSubsystem.anchorSubsystemId);
 
 #if INCLUDE_UNITY_XR_HANDS
-            CreateSubsystem<XRHandSubsystemDescriptor, XRHandSubsystem>(s_HandSubsystemDescriptors, VisionOSHandProvider.handSubsystemId);
-            m_Updater = new XRHandProviderUtility.SubsystemUpdater(GetLoadedSubsystem<XRHandSubsystem>());
+            if (VisionOSRuntimeSettings.GetOrCreate().initializeHandTrackingOnStartup)
+                CreateHandSubsystem();
 #endif
 
             var loadedSessionSubsystem = GetLoadedSubsystem<XRSessionSubsystem>();
@@ -113,10 +111,8 @@ namespace UnityEngine.XR.VisionOS
             StartSubsystem<XRDisplaySubsystem>();
             StartSubsystem<XRInputSubsystem>();
 
-            // TODO: #ifdef for runtime-only after removing macos stub
 #if INCLUDE_UNITY_XR_HANDS
-            StartSubsystem<XRHandSubsystem>();
-            m_Updater?.Start();
+            StartHandSubsystem();
 #endif
             return true;
         }
@@ -130,10 +126,8 @@ namespace UnityEngine.XR.VisionOS
             StopSubsystem<XRDisplaySubsystem>();
             StopSubsystem<XRInputSubsystem>();
 
-            // TODO: #ifdef for runtime-only after removing macos stub
 #if INCLUDE_UNITY_XR_HANDS
-            StopSubsystem<XRHandSubsystem>();
-            m_Updater?.Stop();
+            StopHandSubsystem();
 #endif
 
             return true;
@@ -154,9 +148,59 @@ namespace UnityEngine.XR.VisionOS
             DestroySubsystem<XRAnchorSubsystem>();
 
 #if INCLUDE_UNITY_XR_HANDS
-            DestroySubsystem<XRHandSubsystem>();
+            DestroyHandSubsystem();
 #endif
             return true;
+        }
+
+        public void CreateHandSubsystem()
+        {
+#if INCLUDE_UNITY_XR_HANDS
+            CreateSubsystem<XRHandSubsystemDescriptor, XRHandSubsystem>(s_HandSubsystemDescriptors, VisionOSHandProvider.handSubsystemId);
+            m_Updater = new XRHandProviderUtility.SubsystemUpdater(GetLoadedSubsystem<XRHandSubsystem>());
+#else
+            Debug.LogError("XR Hands package (com.unity.xr.hands) is required to use XR Hand Subsystem");
+#endif
+        }
+
+        public void StartHandSubsystem()
+        {
+#if INCLUDE_UNITY_XR_HANDS
+            if (handSubsystem != null)
+            {
+                StartSubsystem<XRHandSubsystem>();
+                m_Updater?.Start();
+            }
+#else
+            Debug.LogError("XR Hands package (com.unity.xr.hands) is required to use XR Hand Subsystem");
+#endif
+        }
+
+        public void StopHandSubsystem()
+        {
+#if INCLUDE_UNITY_XR_HANDS
+            if (handSubsystem != null)
+            {
+                StopSubsystem<XRHandSubsystem>();
+                m_Updater?.Stop();
+            }
+#else
+            Debug.LogError("XR Hands package (com.unity.xr.hands) is required to use XR Hand Subsystem");
+#endif
+        }
+
+        public void DestroyHandSubsystem()
+        {
+#if INCLUDE_UNITY_XR_HANDS
+            if (handSubsystem != null)
+            {
+                DestroySubsystem<XRHandSubsystem>();
+                m_Updater?.Stop();
+                m_Updater = null;
+            }
+#else
+            Debug.LogError("XR Hands package (com.unity.xr.hands) is required to use XR Hand Subsystem");
+#endif
         }
     }
 }

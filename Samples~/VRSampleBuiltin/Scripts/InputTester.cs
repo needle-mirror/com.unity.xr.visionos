@@ -45,19 +45,19 @@ namespace UnityEngine.XR.VisionOS.Sample.Builtin
             {
                 var rayOrigin = primaryTouch.startRayOrigin;
                 var rayDirection = primaryTouch.startRayDirection;
-                m_Ray.position = rayOrigin;
-                m_Ray.rotation = Quaternion.LookRotation(rayDirection);
+                m_Ray.localPosition = rayOrigin;
+                m_Ray.localRotation = Quaternion.LookRotation(rayDirection);
 
                 var ray = new Ray(rayOrigin, rayDirection);
                 var hit = Physics.Raycast(ray, out var hitInfo);
                 m_Target.gameObject.SetActive(hit);
-                m_Target.position = hitInfo.point;
+                m_Target.localPosition = hitInfo.point;
             }
 
             if (active)
             {
-                m_Device.position = primaryTouch.inputDevicePosition;
-                m_Device.rotation = primaryTouch.inputDeviceRotation;
+                m_Device.localPosition = primaryTouch.inputDevicePosition;
+                m_Device.localRotation = primaryTouch.inputDeviceRotation;
             }
         }
 #endif

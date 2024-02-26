@@ -265,7 +265,11 @@ namespace UnityEngine.XR.VisionOS
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void RegisterDescriptor()
         {
+#if HAS_AR_FOUNDATION_5_OR_EARLIER
             XRImageTrackingSubsystemDescriptor.Create(new XRImageTrackingSubsystemDescriptor.Cinfo
+#else
+            XRImageTrackingSubsystemDescriptor.Register(new XRImageTrackingSubsystemDescriptor.Cinfo
+#endif
             {
                 id = imageTrackingSubsystemId,
                 providerType = typeof(VisionOSImageTrackingProvider),

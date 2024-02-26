@@ -67,15 +67,19 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
             var anchorGameObject = Instantiate(m_AnchorPrefab);
             anchorGameObject.name = $"Anchor {Time.time}";
             var anchorTransform = anchorGameObject.transform;
-            var ray = new Ray(primaryTouch.startRayOrigin, primaryTouch.startRayDirection);
+            var thisTransform = transform;
+            anchorTransform.parent = thisTransform;
 
+            var rayOrigin = thisTransform.TransformPoint(primaryTouch.startRayOrigin);
+            var rayDirection = thisTransform.TransformVector(primaryTouch.startRayDirection);
+            var ray = new Ray(rayOrigin, rayDirection);
             if (Physics.Raycast(ray, out var hitInfo))
             {
                 anchorTransform.SetPositionAndRotation(hitInfo.point, Quaternion.LookRotation(hitInfo.normal));
             }
             else
             {
-                anchorTransform.SetPositionAndRotation(primaryTouch.inputDevicePosition, primaryTouch.inputDeviceRotation);
+                anchorTransform.SetLocalPositionAndRotation(primaryTouch.inputDevicePosition, primaryTouch.inputDeviceRotation);
             }
 
             m_Anchor = anchorTransform.gameObject.AddComponent<ARAnchor>();

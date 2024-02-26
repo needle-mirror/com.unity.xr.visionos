@@ -9,6 +9,7 @@
         "Unity.XR.Management.Editor",
         "Unity.PolySpatial",
         "Unity.PolySpatial.Editor",
+        "Unity.XR.CoreUtils",
         "Unity.XR.CoreUtils.Editor",
         "Unity.XR.ARFoundation",
         "Unity.RenderPipelines.Universal.Runtime"
@@ -37,6 +38,16 @@
             "name": "com.unity.render-pipelines.universal",
             "expression": "0.1.0",
             "define": "UNITY_HAS_URP"
+        },
+        {
+            "name": "com.unity.polyspatial.xr",
+            "expression": "1.0.3",
+            "define": "UNITY_HAS_POLYSPATIAL_XR"
+        },
+        {
+            "name": "com.unity.xr.hands",
+            "expression": "1.0.0-pre.1",
+            "define": "INCLUDE_UNITY_XR_HANDS"
         }
     ],
     "noEngineReferences": false

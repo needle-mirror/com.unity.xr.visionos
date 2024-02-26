@@ -8,8 +8,20 @@
 import SwiftUI
 import CompositorServices
 
+#if targetEnvironment(simulator)
+let singlePass = false
+#else
+let singlePass = true
+#endif
+
 @_silgen_name("UnityVisionOS_OnInputEvent")
 private func UnityVisionOS_OnInputEvent(_ eventCount: Int32, _ eventsPointer: UnsafePointer<SpatialPointerEvent>?)
+
+@_silgen_name("UnityVisionOS_SetIsImmersiveSpaceReady")
+private func UnityVisionOS_SetIsImmersiveSpaceReady(_ immersiveSpaceReady: Bool)
+
+@_silgen_name("UnityVisionOS_SetLayerRenderer")
+private func UnityVisionOS_SetLayerRenderer(_ layerRenderer: LayerRenderer)
 
 @main
 struct MyApp: App {
@@ -59,14 +71,16 @@ struct MyApp: App {
     var body: some Scene {
         ImmersiveSpace(id: "CompositorSpace") {
             let _ = UnityLibrary.GetInstance()
-            let unityClass = NSClassFromString("UnityVisionOS") as? NSObject.Type
-            let singlePass = Bool(truncating: unityClass?.perform(Selector(("getSinglePass"))).takeRetainedValue() as! NSNumber)
             let configuration = UnityContentConfiguration(singlePass: singlePass, enableFoveation: VisionOSEnableFoveation)
             CompositorLayer(configuration:configuration) { layerRenderer in
-                unityClass?.perform(Selector(("setLayerRenderer:")), with: layerRenderer)
+                let compositorBridge = NSClassFromString("UnityVisionOSCompositorBridge") as? NSObject.Type
+                compositorBridge?.perform(Selector(("setLayerRenderer:")), with: layerRenderer)
 
-                let unityBridge = NSClassFromString("UnityVisionOSNativeBridge") as? NSObject.Type
-                unityBridge?.perform(Selector(("setImmersiveSpaceReady")))
+                let settingsBridge = NSClassFromString("UnityVisionOSSettingsBridge") as? NSObject.Type
+                settingsBridge?.perform(Selector(("setFoveatedRenderingEnabled:")), with: VisionOSEnableFoveation)
+
+                UnityVisionOS_SetIsImmersiveSpaceReady(true);
+                UnityVisionOS_SetLayerRenderer(layerRenderer)
 
                 layerRenderer.onSpatialEvent = { eventCollection in
                     var count = 0
@@ -79,7 +93,6 @@ struct MyApp: App {
                     Self.existingEvents = Self.existingEvents.filter { Self.currentEvents.contains($0.key) }
                     Self.existingIndices = Self.existingIndices.filter { Self.currentEvents.contains($0.key) }
 
-                    // TODO: use pinch ID to handle the case where the first pinch ends before the second
                     for event in eventCollection
                     {
                         if (count > 1)
@@ -136,6 +149,7 @@ struct MyApp: App {
                 }
             }
         }.immersionStyle(selection: $immersionStyle, in: .full)
+         .upperLimbVisibility(VisionOSUpperLimbVisibility ? .visible : .hidden)
     }
     
     func ConvertKindToUInt8(_ kind: SpatialEventCollection.Event.Kind) -> UInt8 {
@@ -257,21 +271,11 @@ class UnitySwiftUIAppDelegate: NSObject, UIApplicationDelegate
     
     override init() {
         unity = UnityLibrary.GetInstance()!
-
         super.init()
-
-//        let api = PolySpatialRealityKitAccess.getApiData()
-//        let size = PolySpatialRealityKitAccess.getApiSize()
-//        SetPolySpatialNativeAPIImplementation(api, size)
-//
-//        PolySpatialRealityKitAccess.register()
     }
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        
-        var args = CommandLine.arguments
-//        args.append("-batchmode")
-
+        let args = CommandLine.arguments
         unity.run(args: args)
         return true
     }

@@ -1,17 +1,15 @@
+#if UNITY_VISIONOS
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
+using UnityEditor.iOS.Xcode;
 using UnityEditor.XR.ARSubsystems;
 using UnityEngine;
 using UnityEngine.XR.ARSubsystems;
 using UnityEngine.XR.VisionOS;
-
-#if UNITY_VISIONOS
-using System.IO;
-using UnityEditor.iOS.Xcode;
-#endif
 
 namespace UnityEditor.XR.VisionOS
 {
@@ -134,7 +132,6 @@ namespace UnityEditor.XR.VisionOS
                 // if (eventArgs.activeLoadersForBuildTarget?.OfType<VisionOSLoader>().Any() == false)
                 //     return;
 
-#if UNITY_VISIONOS
                 if (report.summary.platform != BuildTarget.VisionOS)
                     return;
 
@@ -169,8 +166,8 @@ namespace UnityEditor.XR.VisionOS
 
                 // Write out the updated Xcode project file
                 File.WriteAllText(pbxProjectPath, project.WriteToString());
-#endif
             }
         }
     }
 }
+#endif

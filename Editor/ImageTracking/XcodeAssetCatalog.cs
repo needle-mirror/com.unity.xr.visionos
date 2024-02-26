@@ -1,12 +1,10 @@
+#if UNITY_VISIONOS
 using System;
 using System.Collections.Generic;
 using System.IO;
+using UnityEditor.iOS.Xcode;
 using UnityEngine;
 using UnityEngine.XR.ARSubsystems;
-
-#if UNITY_VISIONOS
-using UnityEditor.iOS.Xcode;
-#endif
 
 namespace UnityEditor.XR.VisionOS
 {
@@ -107,3 +105,4 @@ namespace UnityEditor.XR.VisionOS
         }
     }
 }
+#endif

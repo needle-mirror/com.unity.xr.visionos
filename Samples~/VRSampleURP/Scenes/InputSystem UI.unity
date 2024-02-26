@@ -210,7 +210,7 @@ MonoBehaviour:
   m_SendPointerHoverToParent: 1
   m_MoveRepeatDelay: 0.5
   m_MoveRepeatRate: 0.1
-  m_XRTrackingOrigin: {fileID: 1989642381}
+  m_XRTrackingOrigin: {fileID: 844625607}
   m_ActionsAsset: {fileID: -944628639613478452, guid: 507eb55db5cc1421aba7317521bf8c19, type: 3}
   m_PointAction: {fileID: -1654692200621890270, guid: 507eb55db5cc1421aba7317521bf8c19, type: 3}
   m_MoveAction: {fileID: -8784545083839296357, guid: 507eb55db5cc1421aba7317521bf8c19, type: 3}

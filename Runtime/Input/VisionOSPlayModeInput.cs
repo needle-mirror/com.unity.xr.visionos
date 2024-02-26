@@ -13,6 +13,9 @@ namespace UnityEngine.XR.VisionOS.InputDevices
     public class VisionOSPlayModeInput : MonoBehaviour
     {
         [SerializeField]
+        Transform m_XROrigin;
+
+        [SerializeField]
         bool m_DrawDebugRay;
 
 #if UNITY_EDITOR && UNITY_VISIONOS
@@ -108,14 +111,21 @@ namespace UnityEngine.XR.VisionOS.InputDevices
 
             // Create a fake input device pose position roughly at arm's length along the ray
             var inputDevicePosition = ray.GetPoint(0.5f);
+
+            // Transform input into local camera space to more accurately reflect platform input
+            var worldToLocal = m_XROrigin.transform.worldToLocalMatrix;
+            var startRayOrigin = worldToLocal.MultiplyPoint(m_StartRayOrigin);
+            var startRayDirection = worldToLocal.MultiplyVector(m_StartRayDirection);
+            inputDevicePosition = worldToLocal.MultiplyPoint(inputDevicePosition);
+            rayDirection = worldToLocal.MultiplyVector(rayDirection);
             VisionOSSpatialPointerEventListener.OnInputEvent(new VisionOSSpatialPointerEvent
             {
                 interactionId = 0,
                 phase = phase,
                 inputDevicePosition = inputDevicePosition,
                 inputDeviceRotation = Quaternion.LookRotation(rayDirection),
-                rayOrigin = m_StartRayOrigin,
-                rayDirection = m_StartRayDirection,
+                rayOrigin = startRayOrigin,
+                rayDirection = startRayDirection,
                 kind = VisionOSSpatialPointerKind.IndirectPinch
             });
 

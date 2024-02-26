@@ -1,3 +1,4 @@
+#if UNITY_VISIONOS
 using System;
 using System.IO;
 using UnityEngine;
@@ -29,7 +30,7 @@ namespace UnityEditor.XR.VisionOS
                 this.path = path;
             }
         }
-        
+
         byte[] m_ImageBytes;
         float m_Width;
         string m_TexturePath;
@@ -138,3 +139,4 @@ namespace UnityEditor.XR.VisionOS
         }
     }
 }
+#endif

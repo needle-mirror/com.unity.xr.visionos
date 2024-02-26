@@ -1,8 +1,21 @@
-using UnityEngine;
+// The only version supported by the package which does not support foveation is 2022.3.15f1
+#if !(UNITY_2022_3_15)
+#define UNITY_SUPPORT_FOVEATION
+#endif
 
-#if !UNITY_HAS_POLYSPATIAL_VISIONOS
+using UnityEngine.XR.VisionOS;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
+using UnityEngine;
+
+#if UNITY_HAS_POLYSPATIAL_XR
+using System.Linq;
+using UnityEditor.PolySpatial.Utilities;
+using Unity.XR.CoreUtils.Capabilities.Editor;
+#endif
+
+#if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
+using UnityEngine.Rendering.Universal;
 #endif
 
 namespace UnityEditor.XR.VisionOS
@@ -10,37 +23,89 @@ namespace UnityEditor.XR.VisionOS
     [CustomEditor(typeof(VisionOSSettings))]
     class VisionOSSettingsEditor : Editor
     {
-        const string k_WorldSensingUsageWarning = "World sensing usage description is required if world sensing features " +
-            "(images, planes, or meshes) will be used. If this field is blank, the app will not be allowed to request " +
-            "world sensing authorization, and these features will not work. If your app does not use world sensing, " +
-            "you can safely leave this field blank.";
+        const string k_WorldSensingUsageWarning = "World sensing usage description is required if world sensing features (images, planes, or meshes) will be " +
+            "used. If this field is blank, the app will not be allowed to request world sensing authorization, and will crash when trying to start an AR " +
+            "Session using these data providers. If your app does not use world sensing, you can safely leave this field blank.";
+
+#if INCLUDE_UNITY_XR_HANDS
+        const string k_HandTrackingUsageWarning = "Hand tracking usage description is required if hand tracking features will be used. If this field is blank, " +
+            "the app will not be allowed to request hand tracking authorization, and will crash when trying to start an AR Session using this data provider. " +
+            "If your app does not use hand tracking, you can safely leave this field blank.";
+
+        const string k_HandTrackingUsageError = "Hand tracking usage description is required if hand tracking features will be used. If this field is blank, " +
+            "the app will not be allowed to request hand tracking authorization, and will crash when trying to start an AR Session using this data provider. " +
+            "Because Initialize Hand Tracking On " +
+            "Startup is enabled, the hand subsystem will be started automatically and requires authorization to run. Building without this usage description " +
+            "will cause a crash when the AR Session is initialized. Please disable Initialize Hand Tracking On Startup or provide a usage description.";
+
+        const bool k_HasHandsPackage = true;
+#else
+        const bool k_HasHandsPackage = false;
+#endif
 
 #if !UNITY_HAS_POLYSPATIAL_VISIONOS
         static readonly string[] k_PolySpatialPackages = { "com.unity.polyspatial.visionos", "com.unity.polyspatial.xr" };
-        AddAndRemoveRequest m_InstallRequest;
 #endif
+
+#if UNITY_HAS_POLYSPATIAL_XR
+        const string k_CapabilityProfilesMessageFormat = "Selected Validation Profiles: <b>{0}</b>.";
+        const string k_NoProfilesSelectedOption = "none";
+        const string k_EditButtonLabel = "Edit";
+        const string k_EditButtonTooltip = "Open Project Validation";
+        const string k_ProjectValidationSettingsPath = "Project/XR Plug-in Management/Project Validation";
+        const string k_LinkLabel = "Documentation";
+        const string k_ProjectValidationURL = "https://docs.unity3d.com/Packages/com.unity.polyspatial.visionos@latest/index.html?subfolder=/manual/PolySpatialXRProjectValidation.html";
+#endif
+
+        [SerializeField]
+        AddAndRemoveRequest m_InstallRequest;
 
         SerializedProperty m_AppModeProperty;
         SerializedProperty m_HandsTrackingUsageDescriptionProperty;
         SerializedProperty m_WorldSensingUsageDescriptionProperty;
+        SerializedProperty m_InitializeHandTrackingOnStartupProperty;
+        SerializedProperty m_UpperLimbVisibilityProperty;
+        SerializedProperty m_FoveatedRenderingProperty;
+        SerializedProperty m_IL2CPPLargeExeWorkaroundProperty;
 
         void OnEnable()
         {
             m_AppModeProperty = serializedObject.FindProperty("m_AppMode");
             m_HandsTrackingUsageDescriptionProperty = serializedObject.FindProperty("m_HandsTrackingUsageDescription");
             m_WorldSensingUsageDescriptionProperty = serializedObject.FindProperty("m_WorldSensingUsageDescription");
+            m_UpperLimbVisibilityProperty = serializedObject.FindProperty("m_UpperLimbVisibility");
+            m_FoveatedRenderingProperty = serializedObject.FindProperty("m_FoveatedRendering");
+            m_IL2CPPLargeExeWorkaroundProperty = serializedObject.FindProperty("m_IL2CPPLargeExeWorkaround");
+
+            // Initialize RuntimeSettings on a delay to prevent asset creation errors that can happen on first import
+            EditorApplication.delayCall += InitializeRuntimeSettings;
+
+#if UNITY_HAS_POLYSPATIAL_XR
+            // If there was a serialized install request we just switched to mixed reality mode
+            if (m_InstallRequest != null)
+            {
+                if (m_InstallRequest.Status == StatusCode.Success)
+                    VisionOSEditorUtils.UpdateSelectedCapabilityProfiles((VisionOSSettings.AppMode)m_AppModeProperty.intValue);
+
+                m_InstallRequest = null;
+            }
+#endif
+        }
+
+        void InitializeRuntimeSettings()
+        {
+            var runtimeSettings = new SerializedObject(VisionOSRuntimeSettings.GetOrCreate());
+            m_InitializeHandTrackingOnStartupProperty = runtimeSettings.FindProperty("m_InitializeHandTrackingOnStartup");
         }
 
         public override void OnInspectorGUI()
         {
-            var isLoaderEnabled = VisionOSBuildProcessor.IsLoaderEnabled();
+            var isLoaderEnabled = VisionOSEditorUtils.IsLoaderEnabled();
 
             serializedObject.Update();
             EditorGUIUtility.labelWidth = 200;
 
-            EditorGUILayout.LabelField("General Settings", EditorStyles.boldLabel);
-
-#if !UNITY_HAS_POLYSPATIAL_VISIONOS
+#if !UNITY_HAS_POLYSPATIAL_VISIONOS || UNITY_HAS_POLYSPATIAL_XR
             var previousAppMode = (VisionOSSettings.AppMode)m_AppModeProperty.intValue;
             if (m_InstallRequest != null && m_InstallRequest.IsCompleted)
                 m_InstallRequest = null;
@@ -70,18 +135,81 @@ namespace UnityEditor.XR.VisionOS
             }
 #endif
 
+#if UNITY_HAS_POLYSPATIAL_XR
+            using (new GUILayout.VerticalScope(GUILayout.Height(24)))
+            {
+                var capabilityProfilesMessage = CapabilityProfileSelection.Selected.Count > 0 ?
+                    string.Format(k_CapabilityProfilesMessageFormat, string.Join(", ", CapabilityProfileSelection.Selected.Where(p => p != null).Select(p => p.name))) :
+                    string.Format(k_CapabilityProfilesMessageFormat, k_NoProfilesSelectedOption);
+
+                if (PolySpatialEditorGUIUtils.DrawFixMeBox(capabilityProfilesMessage, MessageType.None, k_EditButtonLabel, k_EditButtonTooltip, k_LinkLabel, k_ProjectValidationURL))
+                {
+                    SettingsService.OpenProjectSettings(k_ProjectValidationSettingsPath);
+                    GUIUtility.ExitGUI();
+                }
+            }
+
+            // ChangeCheckScope can fire when first viewing the inspector, so just compare previous to current state
+            if (previousAppMode != appMode)
+                VisionOSEditorUtils.UpdateSelectedCapabilityProfiles(appMode);
+#endif
+
+#if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
+            var hasUrpAsset = UniversalRenderPipeline.asset != null;
+            var foveationSupported = appMode == VisionOSSettings.AppMode.VR && hasUrpAsset;
+#else
+            const bool foveationSupported = false;
+#endif
+
             // Usage descriptions are only needed when loader is enabled (it will be disabled under Windowed mode regardless)
             using (new EditorGUI.DisabledScope(!isLoaderEnabled || appMode == VisionOSSettings.AppMode.Windowed))
             {
-                // TODO: Enable/disable hand tracking
-                EditorGUILayout.PropertyField(m_HandsTrackingUsageDescriptionProperty);
-                if (isLoaderEnabled && string.IsNullOrEmpty(m_HandsTrackingUsageDescriptionProperty.stringValue))
-                    EditorGUILayout.HelpBox(VisionOSBuildProcessor.HandTrackingUsageWarning, MessageType.Error);
+                using (new EditorGUI.DisabledScope(!k_HasHandsPackage))
+                {
+                    if (m_InitializeHandTrackingOnStartupProperty == null)
+                    {
+                        // Fall back to a label in case we see the UI between OnEnable and initializing this property
+                        GUILayout.Label("Initializing Runtime Settings...");
+                    }
+                    else
+                    {
+                        using (var changed = new EditorGUI.ChangeCheckScope())
+                        {
+                            m_InitializeHandTrackingOnStartupProperty.serializedObject.Update();
+                            EditorGUILayout.PropertyField(m_InitializeHandTrackingOnStartupProperty);
+                            if (changed.changed)
+                            {
+                                m_InitializeHandTrackingOnStartupProperty.serializedObject.ApplyModifiedProperties();
+                            }
+                        }
+                    }
+
+                    EditorGUILayout.PropertyField(m_HandsTrackingUsageDescriptionProperty);
+
+#if INCLUDE_UNITY_XR_HANDS
+                    if (isLoaderEnabled && string.IsNullOrEmpty(m_HandsTrackingUsageDescriptionProperty.stringValue)
+                                        && m_InitializeHandTrackingOnStartupProperty != null)
+                    {
+                        if (m_InitializeHandTrackingOnStartupProperty.boolValue)
+                            EditorGUILayout.HelpBox(k_HandTrackingUsageError, MessageType.Error);
+                        else
+                            EditorGUILayout.HelpBox(k_HandTrackingUsageWarning, MessageType.Warning);
+                    }
+#endif
+                }
 
                 EditorGUILayout.PropertyField(m_WorldSensingUsageDescriptionProperty);
                 if (isLoaderEnabled && string.IsNullOrEmpty(m_WorldSensingUsageDescriptionProperty.stringValue))
                     EditorGUILayout.HelpBox(k_WorldSensingUsageWarning, MessageType.Warning);
+
+                EditorGUILayout.PropertyField(m_UpperLimbVisibilityProperty);
+                using (new EditorGUI.DisabledScope(!foveationSupported))
+                {
+                    EditorGUILayout.PropertyField(m_FoveatedRenderingProperty);
+                }
             }
+
+            EditorGUILayout.PropertyField(m_IL2CPPLargeExeWorkaroundProperty);
 
             switch (appMode)
             {
@@ -93,8 +221,17 @@ namespace UnityEditor.XR.VisionOS
                             break;
                         case VisionOSSdkVersion.Simulator:
                             EditorGUILayout.HelpBox("When building for visionOS Simulator SDK, Multi-Pass rendering will be used.", MessageType.Info);
+
+#if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
+                            if (m_FoveatedRenderingProperty.boolValue && hasUrpAsset)
+                                EditorGUILayout.HelpBox("Foveated rendering will be disabled for this build because it is not supported in the visionOS simulator.", MessageType.Info);
+#endif
+
                             break;
                     }
+
+                    if (!isLoaderEnabled)
+                        EditorGUILayout.HelpBox("Virtual Reality apps require the Apple visionOS plug-in to be enabled in the XR Plug-in Management.", MessageType.Error);
 
                     break;
                 case VisionOSSettings.AppMode.MR:
