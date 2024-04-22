@@ -111,29 +111,29 @@ namespace UnityEngine.XR.VisionOS
                 s_Instance.ProcessPlaneUpdates(added_anchors, added_anchor_count, updated_anchors, updated_anchor_count, removed_anchors, removed_anchor_count);
             }
 
-            static PlaneClassification AR_Plane_ClassificationToPlaneClassification(AR_Plane_Classification classification)
+            static PlaneClassifications AR_Plane_ClassificationToPlaneClassification(AR_Plane_Classification classification)
             {
                 switch (classification)
                 {
                     case AR_Plane_Classification.Wall:
-                        return PlaneClassification.Wall;
+                        return PlaneClassifications.WallFace;
                     case AR_Plane_Classification.Floor:
-                        return PlaneClassification.Floor;
+                        return PlaneClassifications.Floor;
                     case AR_Plane_Classification.Ceiling:
-                        return PlaneClassification.Ceiling;
+                        return PlaneClassifications.Ceiling;
                     case AR_Plane_Classification.Table:
-                        return PlaneClassification.Table;
+                        return PlaneClassifications.Table;
                     case AR_Plane_Classification.Seat:
-                        return PlaneClassification.Seat;
+                        return PlaneClassifications.Seat;
                     case AR_Plane_Classification.Window:
-                        return PlaneClassification.Window;
+                        return PlaneClassifications.WindowFrame;
                     case AR_Plane_Classification.Door:
-                        return PlaneClassification.Door;
+                        return PlaneClassifications.DoorFrame;
                     case AR_Plane_Classification.Status_not_available:
                     case AR_Plane_Classification.Status_undetermined:
                     case AR_Plane_Classification.Status_unknown:
                     default:
-                        return PlaneClassification.None;
+                        return PlaneClassifications.None;
                 }
             }
 
@@ -394,7 +394,7 @@ namespace UnityEngine.XR.VisionOS
                 supportsClassification = true
             };
 
-            XRPlaneSubsystemDescriptor.Create(cinfo);
+            XRPlaneSubsystemDescriptor.Register(cinfo);
         }
     }
 }

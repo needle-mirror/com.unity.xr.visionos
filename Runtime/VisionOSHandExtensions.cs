@@ -168,7 +168,7 @@ namespace UnityEngine.XR.VisionOS
         /// <see cref="VisionOSHandJointID"/> values or this will throw.</param>
         /// <param name="rotation">The Apple-defined rotation for the given joint, but
         /// still converted to Unity space.</param>
-        public static void SetVisionOSRotation(Handedness handedness, XRHandJoint joint, Quaternion rotation)
+        public static void SetVisionOSRotation(Handedness handedness, XRHandJoint joint, Quaternion? rotation)
         {
             var rotations = handedness == Handedness.Left ? k_LeftHandRotations : k_RightHandRotations;
             rotations[joint.id.ToIndex()] = rotation;

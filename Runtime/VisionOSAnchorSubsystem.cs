@@ -265,7 +265,7 @@ namespace UnityEngine.XR.VisionOS
                 supportsTrackableAttachments = false
             };
 
-            XRAnchorSubsystemDescriptor.Create(cinfo);
+            XRAnchorSubsystemDescriptor.Register(cinfo);
         }
     }
 }

@@ -40,6 +40,7 @@ namespace UnityEditor.XR.VisionOS
 
         const string k_PluginPath = "Libraries/com.unity.xr.visionos/Runtime/Plugins/visionos";
         const string k_MainFile = "MainApp/main.mm";
+        const string k_LaunchScreenStoryboard = "LaunchScreen-iPhone.storyboard";
 
         class PostProcessor : IPostprocessBuildWithReport
         {
@@ -71,7 +72,7 @@ namespace UnityEditor.XR.VisionOS
                     ApplyArmWorkaround(outputPath);
 
                 if (PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device)
-                    RemoveSimulatorDylib(report.summary.outputPath);
+                    RemoveSimulatorDylib(outputPath);
 
                 // Do not do any build post-processing for windowed apps
                 if (appMode == VisionOSSettings.AppMode.Windowed)
@@ -141,6 +142,12 @@ namespace UnityEditor.XR.VisionOS
                 // Remove main.mm which is replaced by swift trampoline
                 pbxProject.RemoveFile(pbxProject.FindFileGuidByProjectPath(k_MainFile));
                 File.Delete(Path.Combine(outputPath, k_MainFile));
+
+                // If LaunchScreen-iPhone.storyboard is not removed you will randomly get a build error like this:
+                // Failed to find or create execution context for description '<IBPlatformToolDescription_xrOS: 0x600000e435e0> System content for
+                // IBCocoaTouchFramework-seventeenAndLater <IBScaleFactorDeviceTypeDescription: 0x600000e43180> scaleFactor=2x, renderMode.identifier=(null)'.
+                pbxProject.RemoveFile(pbxProject.FindFileGuidByProjectPath(k_LaunchScreenStoryboard));
+                File.Delete(Path.Combine(outputPath, k_LaunchScreenStoryboard));
 
                 // Move swift trampoline files from UnityFramework to UnityMain
                 foreach (var file in k_SwiftTrampolineFiles)
