@@ -426,11 +426,7 @@ namespace UnityEngine.XR.VisionOS
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void RegisterDescriptor()
         {
-#if HAS_AR_FOUNDATION_5_OR_EARLIER
             XRSessionSubsystemDescriptor.RegisterDescriptor(new XRSessionSubsystemDescriptor.Cinfo
-#else
-            XRSessionSubsystemDescriptor.Register(new XRSessionSubsystemDescriptor.Cinfo
-#endif
             {
                 id = sessionSubsystemId,
                 providerType = typeof(VisionOSSessionProvider),

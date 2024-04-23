@@ -82,6 +82,9 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
             k_AnchorsToDestroy.Clear();
             foreach (var anchor in m_AnchorManager.trackables)
             {
+                if (anchor == null)
+                    continue;
+
                 k_AnchorsToDestroy.Add(anchor);
             }
 

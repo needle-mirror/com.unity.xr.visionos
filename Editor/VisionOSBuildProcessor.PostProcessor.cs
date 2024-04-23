@@ -38,22 +38,8 @@ namespace UnityEditor.XR.VisionOS
         const string k_HandsTrackingUsageDescriptionKey = "NSHandsTrackingUsageDescription";
         const string k_WorldSensingUsageDescriptionKey = "NSWorldSensingUsageDescription";
 
-        const string k_KeyboardClassPath = "Classes/UI/Keyboard.mm";
-        const string k_KeyboardClassSearchString = @"- (BOOL)textViewShouldBeginEditing:(UITextView*)view
-{
-#if !PLATFORM_TVOS
-    view.inputAccessoryView = viewToolbar;
-#endif
-    return YES;
-}";
-
-        const string k_KeyboardClassReplaceString = @"- (BOOL)textViewShouldBeginEditing:(UITextView*)view
-{
-#if !PLATFORM_TVOS && !PLATFORM_VISIONOS
-    view.inputAccessoryView = viewToolbar;
-#endif
-    return YES;
-}";
+        const string k_PluginPath = "Libraries/com.unity.xr.visionos/Runtime/Plugins/visionos";
+        const string k_MainFile = "MainApp/main.mm";
 
         class PostProcessor : IPostprocessBuildWithReport
         {
@@ -66,6 +52,9 @@ namespace UnityEditor.XR.VisionOS
 
             public void OnPostprocessBuild(BuildReport report)
             {
+                if (report.summary.platform != BuildTarget.VisionOS)
+                    return;
+
                 PlayerSettings.SplashScreen.show = s_SplashScreenWasEnabled;
                 s_SplashScreenWasEnabled = false;
 
@@ -74,7 +63,6 @@ namespace UnityEditor.XR.VisionOS
 
                 s_LoaderWasEnabled = false;
 
-                var isLoaderEnabled = VisionOSEditorUtils.IsLoaderEnabled();
                 var outputPath = report.summary.outputPath;
                 var settings = VisionOSSettings.currentSettings;
                 var appMode = settings.appMode;
@@ -89,9 +77,8 @@ namespace UnityEditor.XR.VisionOS
                 if (appMode == VisionOSSettings.AppMode.Windowed)
                     return;
 
-                FilterXcodeProj(outputPath, isLoaderEnabled, settings);
-                if (isLoaderEnabled)
-                    FilterPlist(outputPath, settings);
+                FilterXcodeProj(outputPath);
+                FilterPlist(outputPath, settings);
             }
 
             static void RemoveSimulatorDylib(string pathToXcodeProject)
@@ -109,7 +96,7 @@ namespace UnityEditor.XR.VisionOS
                 }
             }
 
-            static void FilterXcodeProj(string outputPath, bool isLoaderEnabled, VisionOSSettings settings)
+            static void FilterXcodeProj(string outputPath)
             {
                 var xcodeProjectPath = GetXcodeProjectPath(outputPath);
                 if (!File.Exists(xcodeProjectPath))
@@ -124,58 +111,48 @@ namespace UnityEditor.XR.VisionOS
                 var unityMainTargetGuid = pbxProject.GetUnityMainTargetGuid();
                 var unityFrameworkTargetGuid = pbxProject.GetUnityFrameworkTargetGuid();
 
-                // Swift version 5 is required for swift trampoline
-                pbxProject.SetBuildProperty(unityMainTargetGuid, "SWIFT_VERSION", "5.0");
-
-                // Add legacy TARGET_OS_XR define which was renamed to TARGET_OS_VISION to fix builds on earlier Unity versions
-                const string cFlagsSettingName = "OTHER_CFLAGS";
-                var cFlagsAddValues = new[] { "-DTARGET_OS_XR=1" };
-                pbxProject.UpdateBuildProperty(unityMainTargetGuid, cFlagsSettingName, cFlagsAddValues, null);
-                pbxProject.UpdateBuildProperty(unityFrameworkTargetGuid, cFlagsSettingName, cFlagsAddValues, null);
-
-                // Patch Keyboard.mm to work around inputAccessoryView being unavailable
-                var keyboardClassPath = Path.Combine(outputPath, k_KeyboardClassPath);
-                var keyboardClassContents = File.ReadAllText(keyboardClassPath);
-                keyboardClassContents = keyboardClassContents.Replace(k_KeyboardClassSearchString, k_KeyboardClassReplaceString);
-                File.WriteAllText(keyboardClassPath, keyboardClassContents);
-
-                if (isLoaderEnabled && settings.appMode == VisionOSSettings.AppMode.VR)
+                // We have lots of exported-symbol goop in the UnityFramework target for the simulator.
+                // It's not necessary, and actually causes problems because it requires all exported
+                // symbols to be specified that way. Remove these here until we get rid of them in the
+                // template.
+                // Remove this once this is removed from the template!
+                foreach (var configName in pbxProject.BuildConfigNames())
                 {
-                    // We have lots of exported-symbol goop in the UnityFramework target for the simulator.
-                    // It's not necessary, and actually causes problems because it requires all exported
-                    // symbols to be specified that way. Remove these here until we get rid of them in the
-                    // template.
-                    // Remove this once this is removed from the template!
-                    foreach (var configName in pbxProject.BuildConfigNames())
+                    var configGuid = pbxProject.BuildConfigByName(unityFrameworkTargetGuid, configName);
+                    if (configGuid == null)
+                        continue;
+
+                    var existing = pbxProject.GetBuildPropertyForConfig(configGuid, "OTHER_LDFLAGS");
+                    if (existing != null)
                     {
-                        var configGuid = pbxProject.BuildConfigByName(unityFrameworkTargetGuid, configName);
-                        if (configGuid == null)
+                        const string exportedSymbolArgument = "-exported_symbol";
+                        if (!existing.Contains(exportedSymbolArgument))
                             continue;
 
-                        var existing = pbxProject.GetBuildPropertyForConfig(configGuid, "OTHER_LDFLAGS");
-                        if (existing != null)
-                        {
-                            if (!existing.Contains("-exported_symbol"))
-                                continue;
-
-                            // This split is not 100% correct, individual elements may be "" quoted. But
-                            // we re-join with a " " at the end, and we don't handle backslash-escapes,
-                            // so this should be fine in 99.99999999% of cases
-                            var items = existing.Split(" ");
-                            items = items.Where(s => !s.Contains("-exported_symbol")).ToArray();
-                            pbxProject.SetBuildPropertyForConfig(configGuid, "OTHER_LDFLAGS", string.Join(" ", items));
-                        }
+                        // This split is not 100% correct, individual elements may be "" quoted. But
+                        // we re-join with a " " at the end, and we don't handle backslash-escapes,
+                        // so this should be fine in 99.99999999% of cases
+                        var items = existing.Split(" ");
+                        items = items.Where(s => !s.Contains(exportedSymbolArgument)).ToArray();
+                        pbxProject.SetBuildPropertyForConfig(configGuid, "OTHER_LDFLAGS", string.Join(" ", items));
                     }
-
-                    // Remove main.mm which is replaced by swift trampoline
-                    pbxProject.RemoveFile(pbxProject.FindFileGuidByProjectPath("MainApp/main.mm"));
-
-                    // Move swift trampoline files from UnityFramework to UnityMain
-                    const string pluginPath = "Libraries/com.unity.xr.visionos/Runtime/Plugins/visionos";
-                    BuildFileWithUnityTarget(pbxProject, $"{pluginPath}/UnityMain.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
-                    BuildFileWithUnityTarget(pbxProject, $"{pluginPath}/UnityLibrary.swift", unityMainTargetGuid, unityFrameworkTargetGuid);
-                    AddSettingsFile(pbxProject, outputPath, pluginPath, unityMainTargetGuid);
                 }
+
+                // Remove main.mm which is replaced by swift trampoline
+                pbxProject.RemoveFile(pbxProject.FindFileGuidByProjectPath(k_MainFile));
+                File.Delete(Path.Combine(outputPath, k_MainFile));
+
+                // Move swift trampoline files from UnityFramework to UnityMain
+                foreach (var file in k_SwiftTrampolineFiles)
+                {
+                    var path = Path.Combine(k_PluginPath, file);
+                    if (!File.Exists(Path.Combine(outputPath, path)))
+                        continue;
+
+                    BuildFileWithUnityTarget(pbxProject, path, unityMainTargetGuid, unityFrameworkTargetGuid);
+                }
+
+                AddSettingsFile(pbxProject, outputPath, k_PluginPath, unityMainTargetGuid);
 
                 var pbxProjectContents = pbxProject.WriteToString();
                 File.WriteAllText(xcodeProjectPath, pbxProjectContents);
@@ -226,7 +203,7 @@ namespace UnityEditor.XR.VisionOS
                 // TODO: Project analysis to detect any scripts/scenes that will request hand tracking
                 var handsUsage = settings.handsTrackingUsageDescription;
 #if INCLUDE_UNITY_XR_HANDS
-                if (string.IsNullOrEmpty(handsUsage))
+                if (string.IsNullOrEmpty(handsUsage) && VisionOSEditorUtils.IsLoaderEnabled())
                 {
                     if (VisionOSRuntimeSettings.GetOrCreate().initializeHandTrackingOnStartup)
                         Debug.LogError(k_HandTrackingUsageError);

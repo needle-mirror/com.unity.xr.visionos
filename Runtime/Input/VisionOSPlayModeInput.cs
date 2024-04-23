@@ -18,6 +18,9 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         [SerializeField]
         bool m_DrawDebugRay;
 
+        [SerializeField]
+        bool m_EnableSecondaryPointer;
+
 #if UNITY_EDITOR && UNITY_VISIONOS
         Vector3 m_StartRayOrigin;
         Vector3 m_StartRayDirection;
@@ -118,7 +121,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             var startRayDirection = worldToLocal.MultiplyVector(m_StartRayDirection);
             inputDevicePosition = worldToLocal.MultiplyPoint(inputDevicePosition);
             rayDirection = worldToLocal.MultiplyVector(rayDirection);
-            VisionOSSpatialPointerEventListener.OnInputEvent(new VisionOSSpatialPointerEvent
+            var pointerEvent = new VisionOSSpatialPointerEvent
             {
                 interactionId = 0,
                 phase = phase,
@@ -127,7 +130,15 @@ namespace UnityEngine.XR.VisionOS.InputDevices
                 rayOrigin = startRayOrigin,
                 rayDirection = startRayDirection,
                 kind = VisionOSSpatialPointerKind.IndirectPinch
-            });
+            };
+
+            VisionOSSpatialPointerEventListener.OnInputEvent(pointerEvent);
+
+            if (m_EnableSecondaryPointer)
+            {
+                pointerEvent.interactionId = 1;
+                VisionOSSpatialPointerEventListener.OnInputEvent(pointerEvent);
+            }
 
             m_PreviousMousePosition = mousePosition;
         }

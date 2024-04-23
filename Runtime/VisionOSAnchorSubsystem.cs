@@ -265,11 +265,7 @@ namespace UnityEngine.XR.VisionOS
                 supportsTrackableAttachments = false
             };
 
-#if  HAS_AR_FOUNDATION_5_OR_EARLIER
             XRAnchorSubsystemDescriptor.Create(cinfo);
-#else
-            XRAnchorSubsystemDescriptor.Register(cinfo);
-#endif
         }
     }
 }

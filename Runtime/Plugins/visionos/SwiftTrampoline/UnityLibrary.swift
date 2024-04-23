@@ -1,22 +1,26 @@
 import Foundation
 import UnityFramework
 
- class UnityLibrary: UIResponder, UIApplicationDelegate, UnityFrameworkListener {
+class UnityLibrary: UIResponder, UIApplicationDelegate, UnityFrameworkListener {
 
-    public static var instance : UnityLibrary?
+    public static var instance: UnityLibrary?
 
     private let unityFramework: UnityFramework
 
     public var view: UIView? {
-        get {
-            return self.unityFramework.appController()?.rootView
-        }
+        return self.unityFramework.appController()?.rootView
     }
 
-    public static func GetInstance() -> UnityLibrary? {
+    /// Used to invoke the system keyboard
+    public var keyboardTextField: UITextField? {
+        return self.unityFramework.keyboardTextField()
+    }
+
+    public static func getInstance() -> UnityLibrary? {
         if UnityLibrary.instance == nil {
             UnityLibrary.instance = UnityLibrary()
         }
+
         return UnityLibrary.instance!
     }
 
@@ -39,25 +43,25 @@ import UnityFramework
 
     internal override init() {
         self.unityFramework = UnityLibrary.loadUnityFramework()!
-        //self.unityFramework.setDataBundleId("com.unity3d.framework")
+        self.unityFramework.setDataBundleId(Bundle.main.bundleIdentifier)
 
         super.init()
 
         self.unityFramework.register(self)
     }
 
-    public func run(args: [String]) {
+    public func run(arguments: [String]) {
 
         // Passing to Unity requires re-creating the standard argv array.
-        let argv = UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>.allocate(capacity: args.count)
+        let argv = UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>.allocate(capacity: arguments.count)
 
-        for i in 0..<args.count {
-            if let cp = strdup(args[i]) {
-                argv[i] = cp
+        for index in 0..<arguments.count {
+            if let copy = strdup(arguments[index]) {
+                argv[index] = copy
             }
         }
-        
-        unityFramework.runEmbedded(withArgc: Int32(args.count), argv: argv, appLaunchOpts: nil)
+
+        unityFramework.runEmbedded(withArgc: Int32(arguments.count), argv: argv, appLaunchOpts: nil)
     }
 
     public func show() {
@@ -77,7 +81,18 @@ import UnityFramework
 
     internal func unityDidUnload(_ notification: Notification!) {
         unityFramework.unregisterFrameworkListener(self)
-        UnityLibrary.instance = nil;
+        UnityLibrary.instance = nil
+    }
+
+    public func setAbsoluteUrl(_ url: String) {
+        let selector = Selector(("setAbsoluteURL:"))
+        if unityFramework.responds(to: selector) {
+            url.withCString({
+              let methodIMP: IMP! = unityFramework.method(for: selector)
+                 unsafeBitCast(methodIMP, to:
+                    (@convention(c)(Any?, Selector, UnsafeRawPointer) -> Void).self)(unityFramework, selector, $0)
+            })
+        }
     }
 
     public func didBecomeActive() {
@@ -88,7 +103,7 @@ import UnityFramework
         unityFramework.appController().applicationWillResignActive(UIApplication.shared)
     }
 
-    public func didEnterBackground() {        
+    public func didEnterBackground() {
         unityFramework.appController().applicationDidEnterBackground(UIApplication.shared)
     }
 

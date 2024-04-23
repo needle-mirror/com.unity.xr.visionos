@@ -111,7 +111,6 @@ namespace UnityEngine.XR.VisionOS
                 s_Instance.ProcessPlaneUpdates(added_anchors, added_anchor_count, updated_anchors, updated_anchor_count, removed_anchors, removed_anchor_count);
             }
 
-#if HAS_AR_FOUNDATION_5_OR_EARLIER
             static PlaneClassification AR_Plane_ClassificationToPlaneClassification(AR_Plane_Classification classification)
             {
                 switch (classification)
@@ -137,33 +136,7 @@ namespace UnityEngine.XR.VisionOS
                         return PlaneClassification.None;
                 }
             }
-#else
-            static PlaneClassifications AR_Plane_ClassificationToPlaneClassification(AR_Plane_Classification classification)
-            {
-                switch (classification)
-                {
-                    case AR_Plane_Classification.Wall:
-                        return PlaneClassifications.WallFace;
-                    case AR_Plane_Classification.Floor:
-                        return PlaneClassifications.Floor;
-                    case AR_Plane_Classification.Ceiling:
-                        return PlaneClassifications.Ceiling;
-                    case AR_Plane_Classification.Table:
-                        return PlaneClassifications.Table;
-                    case AR_Plane_Classification.Seat:
-                        return PlaneClassifications.Seat;
-                    case AR_Plane_Classification.Window:
-                        return PlaneClassifications.WindowFrame;
-                    case AR_Plane_Classification.Door:
-                        return PlaneClassifications.DoorFrame;
-                    case AR_Plane_Classification.Status_not_available:
-                    case AR_Plane_Classification.Status_undetermined:
-                    case AR_Plane_Classification.Status_unknown:
-                    default:
-                        return PlaneClassifications.None;
-                }
-            }
-#endif
+
             BoundedPlane GetBoundedPlane(IntPtr planeAnchor)
             {
                 var alignment = NativeApi.PlaneDetection.ar_plane_anchor_get_alignment(planeAnchor);
@@ -421,11 +394,7 @@ namespace UnityEngine.XR.VisionOS
                 supportsClassification = true
             };
 
-#if HAS_AR_FOUNDATION_5_OR_EARLIER
             XRPlaneSubsystemDescriptor.Create(cinfo);
-#else
-            XRPlaneSubsystemDescriptor.Register(cinfo);
-#endif
         }
     }
 }

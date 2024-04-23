@@ -135,7 +135,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
                 // Update current position based on distance inputDevicePosition has moved
                 var currentPosition = startPosition + (inputDevicePosition - startInputDevicePosition);
                 var interactionRayDirection = Vector3.Normalize(currentPosition - rayOrigin);
-                state.interactionRayRotation = Quaternion.LookRotation(interactionRayDirection);
+                state.interactionRayRotation = interactionRayDirection == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(interactionRayDirection);
             }
 
             switch (phase)

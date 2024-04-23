@@ -7,19 +7,31 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [1.1.6] - 2024-03-12
+## [1.2.3] - 2024-04-23
+
+## [1.2.2] - 2024-04-22
+
+## [1.2.1] - 2024-04-22
+
+## [1.2.0] - 2024-04-19
 
 ### Added
+- VisionOSTrackingState for hand joints to provide extra data about whether or not the joint is in view.
 
 ### Changed
-
-### Deprecated
-
-### Removed
+- Updated VR samples to support two-handed interactions.
+- Enabled shadows in URP VR sample.
+- Tracking origin mode now correctly reports to XROrigin, which will vertically reposition content. The CameraOffset transform which is usually a child of XROrigin will now have it's local Y position set to 0 for all requested tracking origin modes. Some projects may need to be updated to account for this change. **Note: XR Interaction Toolkit samples and GameObject menu presets will behave differently than they did in prior versions.**
+- Re-organize Swift app trampoline for VR mode to be more modular and share code with MR mode. This should make it easier to extend and re-configure the Xcode project to implement custom SwiftUI solutions.
+- Always report ARKit hand joint tracking state as `XRHandJointTrackingState.Pose`, as long as part of the hand is tracked. This exposes estimated joint poses that were previously unavailable when using the result of `ar_skeleton_joint_is_tracked` to set the joint tracking state. Estimated poses are provided even when the joint is not in view, and `ar_skeleton_joint_is_tracked` returns `false`.
+- Add a floor object to VR sample scene and tweak XR Origin and interactable transforms to be in a more sensible location.
 
 ### Fixed
+- Fix compilation issues when targeting tvOS.
+- Fix compilation issues when making a non-visionOS build while visionOS is the active build target.
+- Fix VR frame timing issues.
 
-### Security
+## [1.1.6] - 2024-03-12
 
 ## [1.1.4] - 2024-02-26
 

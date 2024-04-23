@@ -35,17 +35,37 @@ public partial class @PointerInput: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""SecondaryPointer"",
+                    ""type"": ""PassThrough"",
+                    ""id"": ""12f09dd3-e61e-424c-93ce-24e8eedab693"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
                 {
                     ""name"": """",
                     ""id"": ""6beadd1e-fbe7-42ca-9fcf-b2fedcf81cc7"",
-                    ""path"": ""<VisionOSSpatialPointerDevice>/primarySpatialPointer"",
+                    ""path"": ""<VisionOSSpatialPointerDevice>/spatialPointer0"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": ""Default"",
                     ""action"": ""PrimaryPointer"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""835e359b-e497-4e97-84ee-91d9c5a52265"",
+                    ""path"": ""<VisionOSSpatialPointerDevice>/spatialPointer1"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Default"",
+                    ""action"": ""SecondaryPointer"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -63,6 +83,7 @@ public partial class @PointerInput: IInputActionCollection2, IDisposable
         // Default
         m_Default = asset.FindActionMap("Default", throwIfNotFound: true);
         m_Default_PrimaryPointer = m_Default.FindAction("PrimaryPointer", throwIfNotFound: true);
+        m_Default_SecondaryPointer = m_Default.FindAction("SecondaryPointer", throwIfNotFound: true);
     }
 
     public void Dispose()
@@ -125,11 +146,13 @@ public partial class @PointerInput: IInputActionCollection2, IDisposable
     private readonly InputActionMap m_Default;
     private List<IDefaultActions> m_DefaultActionsCallbackInterfaces = new List<IDefaultActions>();
     private readonly InputAction m_Default_PrimaryPointer;
+    private readonly InputAction m_Default_SecondaryPointer;
     public struct DefaultActions
     {
         private @PointerInput m_Wrapper;
         public DefaultActions(@PointerInput wrapper) { m_Wrapper = wrapper; }
         public InputAction @PrimaryPointer => m_Wrapper.m_Default_PrimaryPointer;
+        public InputAction @SecondaryPointer => m_Wrapper.m_Default_SecondaryPointer;
         public InputActionMap Get() { return m_Wrapper.m_Default; }
         public void Enable() { Get().Enable(); }
         public void Disable() { Get().Disable(); }
@@ -142,6 +165,9 @@ public partial class @PointerInput: IInputActionCollection2, IDisposable
             @PrimaryPointer.started += instance.OnPrimaryPointer;
             @PrimaryPointer.performed += instance.OnPrimaryPointer;
             @PrimaryPointer.canceled += instance.OnPrimaryPointer;
+            @SecondaryPointer.started += instance.OnSecondaryPointer;
+            @SecondaryPointer.performed += instance.OnSecondaryPointer;
+            @SecondaryPointer.canceled += instance.OnSecondaryPointer;
         }
 
         private void UnregisterCallbacks(IDefaultActions instance)
@@ -149,6 +175,9 @@ public partial class @PointerInput: IInputActionCollection2, IDisposable
             @PrimaryPointer.started -= instance.OnPrimaryPointer;
             @PrimaryPointer.performed -= instance.OnPrimaryPointer;
             @PrimaryPointer.canceled -= instance.OnPrimaryPointer;
+            @SecondaryPointer.started -= instance.OnSecondaryPointer;
+            @SecondaryPointer.performed -= instance.OnSecondaryPointer;
+            @SecondaryPointer.canceled -= instance.OnSecondaryPointer;
         }
 
         public void RemoveCallbacks(IDefaultActions instance)
@@ -178,5 +207,6 @@ public partial class @PointerInput: IInputActionCollection2, IDisposable
     public interface IDefaultActions
     {
         void OnPrimaryPointer(InputAction.CallbackContext context);
+        void OnSecondaryPointer(InputAction.CallbackContext context);
     }
 }

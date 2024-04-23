@@ -1,4 +1,3 @@
-#if UNITY_VISIONOS
 using System.IO;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -11,22 +10,20 @@ namespace UnityEditor.XR.VisionOS
         class Preprocessor : IPreprocessBuildWithReport
         {
             const string k_PreCompiledLibraryName = "libUnityVisionOS.a";
-            static readonly string[] k_SourcePluginNames =
-            {
-                "UnityVisionOS.m",
-                // PolySpatial.visionOS package keeps these in Lib~ folder, so no need to distinguish between theirs and ours
-                "UnityMain.swift",
-                "UnityLibrary.swift"
-            };
+            const string k_VRMainSwiftFile = "UnityVRMainApp.swift";
 
             public int callbackOrder => 0;
 
             void IPreprocessBuildWithReport.OnPreprocessBuild(BuildReport report)
             {
+                if (report.summary.platform != BuildTarget.VisionOS)
+                    return;
+
                 DisableSplashScreenIfEnabled();
                 SetRuntimePluginCopyDelegate();
                 RestoreARMWorkaround(report.summary.outputPath);
 
+#if UNITY_VISIONOS
                 if (!VisionOSEditorUtils.IsLoaderEnabled())
                     return;
 
@@ -52,10 +49,12 @@ namespace UnityEditor.XR.VisionOS
                     Debug.Log("Notice: an Unbounded volume configuration is required for ARKit features when building for Mixed Reality");
 #endif
                 }
+#endif
             }
 
             static void DisableSplashScreenIfEnabled()
             {
+#if UNITY_VISIONOS
                 s_SplashScreenWasEnabled = PlayerSettings.SplashScreen.show;
                 if (!s_SplashScreenWasEnabled)
                     return;
@@ -64,6 +63,7 @@ namespace UnityEditor.XR.VisionOS
                     "You may need to manually re-enable the splash screen in Player Settings if this build fails.");
 
                 PlayerSettings.SplashScreen.show = false;
+#endif
             }
 
             static void SetRuntimePluginCopyDelegate()
@@ -82,7 +82,7 @@ namespace UnityEditor.XR.VisionOS
                         continue;
                     }
 
-                    foreach (var pluginName in k_SourcePluginNames)
+                    foreach (var pluginName in k_SwiftTrampolineFiles)
                     {
                         if (plugin.assetPath.Contains(pluginName))
                         {
@@ -95,20 +95,17 @@ namespace UnityEditor.XR.VisionOS
 
             static bool ShouldIncludeSourcePluginsInBuild(string path)
             {
-                // Including plugins will cause errors because post process is different if loader is disabled
-                if (!VisionOSEditorUtils.IsLoaderEnabled())
+                // PoySpatial will replace UnityMain.swift
+                var settings = VisionOSSettings.currentSettings;
+                if (settings != null && settings.appMode == VisionOSSettings.AppMode.MR && path.Contains(k_VRMainSwiftFile))
                     return false;
 
-                // Always include `UnityVisionOS.m` file if the loader is enabled to provide export methods to XR library
-                if (path.Contains("UnityVisionOS.m"))
-                    return true;
-
-                // Also include .swift files and UnityAppController.m for VR builds
-                return VisionOSSettings.currentSettings.appMode == VisionOSSettings.AppMode.VR;
+                return settings.appMode != VisionOSSettings.AppMode.Windowed;
             }
 
             static bool ShouldIncludePreCompiledLibraryInBuild(string path)
             {
+#if UNITY_VISIONOS
                 // Exclude libraries that don't match the target SDK
                 if (PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device)
                 {
@@ -122,10 +119,14 @@ namespace UnityEditor.XR.VisionOS
                 }
 
                 return true;
+#else
+                return false;
+#endif
             }
 
             static void RestoreARMWorkaround(string outputPath)
             {
+#if UNITY_VISIONOS
                 // For append builds, we need to restore the original command line so that the Unity
                 // build process doesn't see it as missing and add a duplicate to replace it.
                 var xcodeProjectPath = GetXcodeProjectPath(outputPath);
@@ -138,8 +139,8 @@ namespace UnityEditor.XR.VisionOS
                 projContents = projContents.Replace(k_ARMWorkaroundReplacementAlt, k_ARMWorkaroundOriginalAlt);
 
                 File.WriteAllText(xcodeProjectPath, projContents);
+#endif
             }
         }
     }
 }
-#endif

@@ -1,5 +1,6 @@
 #if INCLUDE_UNITY_XR_HANDS
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using UnityEngine;
@@ -27,6 +28,8 @@ namespace UnityEngine.XR.VisionOS
 
         IntPtr m_LeftHandAnchor = IntPtr.Zero;
         IntPtr m_RightHandAnchor = IntPtr.Zero;
+
+        readonly Dictionary<Handedness, bool> m_HandTrackingStates = new();
 
         public VisionOSHandProvider()
         {
@@ -111,11 +114,21 @@ namespace UnityEngine.XR.VisionOS
             return m_LastSuccessFlags;
         }
 
-        static void GetHandData(ref Pose rootPose, ref XRHandSubsystem.UpdateSuccessFlags successFlags, NativeArray<XRHandJoint> jointArray, IntPtr handAnchor, Handedness handedness)
+        void GetHandData(ref Pose rootPose, ref XRHandSubsystem.UpdateSuccessFlags successFlags, NativeArray<XRHandJoint> jointArray, IntPtr handAnchor, Handedness handedness)
         {
             var isTracked = NativeApi.Anchor.ar_trackable_anchor_is_tracked(handAnchor);
             if (!isTracked)
+            {
+                // If TryGetValue returns false, that means we never tracked this hand. `wasTracked` will be false, which is the correct behavior
+                m_HandTrackingStates.TryGetValue(handedness, out var wasTracked);
+                m_HandTrackingStates[handedness] = false;
+                if (wasTracked)
+                    ClearHandTrackingStates(jointArray, handedness);
+
                 return;
+            }
+
+            m_HandTrackingStates[handedness] = true;
 
             var worldTransform = NativeApi.Anchor.ar_anchor_get_origin_from_anchor_transform(handAnchor);
             var convertedMatrix = NativeApi_Types.UnityVisionOS_impl_simd_float4x4_to_float_array(worldTransform);
@@ -129,7 +142,7 @@ namespace UnityEngine.XR.VisionOS
                 : XRHandSubsystem.UpdateSuccessFlags.RightHandRootPose;
 
             var handSkeleton = NativeApi.HandTracking.ar_hand_anchor_get_hand_skeleton(handAnchor);
-            var endID = (XRHandJointID)((int)XRHandJointID.EndMarker + VisionOSHandExtensions.k_NumVisionOSJoints);
+            var endID = (XRHandJointID)((int)XRHandJointID.EndMarker + VisionOSHandExtensions.NumVisionOSJoints);
             for (var jointID = XRHandJointID.BeginMarker; jointID < endID; jointID++)
             {
                 var index = jointID.ToIndex();
@@ -145,29 +158,26 @@ namespace UnityEngine.XR.VisionOS
                 var jointName = GetJointNameForJointID(jointID);
                 var joint = NativeApi.HandSkeleton.ar_hand_skeleton_get_joint_named(handSkeleton, jointName);
                 var jointIsTracked = NativeApi.SkeletonJoint.ar_skeleton_joint_is_tracked(joint);
-                trackingState = jointIsTracked ? XRHandJointTrackingState.Pose : XRHandJointTrackingState.None;
+                var appleTrackingStates = VisionOSHandExtensions.GetVisionOSTrackingStates(handedness);
+                appleTrackingStates[index] = jointIsTracked;
 
-                if (jointIsTracked)
-                {
-                    var jointTransformPtr = NativeApi.SkeletonJoint.ar_skeleton_joint_get_anchor_from_joint_transform(joint);
-                    convertedMatrix = NativeApi_Types.UnityVisionOS_impl_simd_float4x4_to_float_array(jointTransformPtr);
-                    var jointMatrix = Marshal.PtrToStructure<FloatArrayToMatrix4x4>(convertedMatrix);
-                    var jointPosition = wristPosition + wristRotation * jointMatrix.GetPosition();
-                    var jointRotation = wristRotation * jointMatrix.GetRotation();
-                    pose = new Pose(jointPosition, AlignRotation(jointRotation, handedness));
+                // Always report pose is tracked as long as the hand anchor is tracked. Estimated poses are provided for
+                // joints hidden from view, even though jointIsTracked will be false
+                trackingState = XRHandJointTrackingState.Pose;
 
-                    var appleRotations = VisionOSHandExtensions.GetVisionOSRotations(handedness);
-                    appleRotations[index] = jointRotation;
+                var jointTransformPtr = NativeApi.SkeletonJoint.ar_skeleton_joint_get_anchor_from_joint_transform(joint);
+                convertedMatrix = NativeApi_Types.UnityVisionOS_impl_simd_float4x4_to_float_array(jointTransformPtr);
+                var jointMatrix = Marshal.PtrToStructure<FloatArrayToMatrix4x4>(convertedMatrix);
+                var jointPosition = wristPosition + wristRotation * jointMatrix.GetPosition();
+                var jointRotation = wristRotation * jointMatrix.GetRotation();
+                pose = new Pose(jointPosition, AlignRotation(jointRotation, handedness));
 
-                    successFlags |= handedness == Handedness.Left
-                        ? XRHandSubsystem.UpdateSuccessFlags.LeftHandJoints
-                        : XRHandSubsystem.UpdateSuccessFlags.RightHandJoints;
-                }
-                else
-                {
-                    var appleRotations = VisionOSHandExtensions.GetVisionOSRotations(handedness);
-                    appleRotations[index] = null;
-                }
+                var appleRotations = VisionOSHandExtensions.GetVisionOSRotations(handedness);
+                appleRotations[index] = jointRotation;
+
+                successFlags |= handedness == Handedness.Left
+                    ? XRHandSubsystem.UpdateSuccessFlags.LeftHandJoints
+                    : XRHandSubsystem.UpdateSuccessFlags.RightHandJoints;
 
                 var createdJoint = CreateJoint(handedness, trackingState, jointID, pose);
                 if (jointID < XRHandJointID.EndMarker)
@@ -181,6 +191,20 @@ namespace UnityEngine.XR.VisionOS
                         : VisionOSHandExtensions.rightHand;
                     visionOSHand.SetJoint(createdJoint);
                 }
+            }
+        }
+
+        static void ClearHandTrackingStates(NativeArray<XRHandJoint> jointArray, Handedness handedness)
+        {
+            var endID = (XRHandJointID)((int)XRHandJointID.EndMarker + VisionOSHandExtensions.NumVisionOSJoints);
+            for (var jointID = XRHandJointID.BeginMarker; jointID < endID; jointID++)
+            {
+                var index = jointID.ToIndex();
+                var trackingState = XRHandJointTrackingState.None;
+                if (jointID == XRHandJointID.Palm)
+                    trackingState = XRHandJointTrackingState.WillNeverBeValid;
+
+                jointArray[index] = CreateJoint(handedness, trackingState, jointID, Pose.identity);
             }
         }
 

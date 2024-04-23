@@ -35,11 +35,6 @@
             "define": "INCLUDE_UNITY_INPUT_SYSTEM"
         },
         {
-            "name": "com.unity.xr.arfoundation",
-            "expression": "[1.0,6.0.0-pre)",
-            "define": "HAS_AR_FOUNDATION_5_OR_EARLIER"
-        },
-        {
             "name": "com.unity.xr.interaction.toolkit",
             "expression": "1.0.0",
             "define": "INCLUDE_UNITY_XRI"
