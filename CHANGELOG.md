@@ -7,6 +7,24 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2024-07-09
+
+## [1.3.0] - 2024-06-26
+
+### Added
+- Added `VisionOS.AuthorizationChanged` and `VisionOS.QueryAuthorizationStatus` APIs to enable user code to query and respond to changes in AR authorizations like Hand Tracking and World Sensing.
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Fixed a crash that can happen when unloading a scene after tracking an image with ARKit image tracking.
+- Fixed issues in the InputSystem UI sample scene.
+- Fixed random compilation issue when targeting visionOS, removed LaunchScreen-iPhone.storyboard from xcode project output.
+
 ## [1.2.3] - 2024-04-23
 
 ## [1.2.2] - 2024-04-22

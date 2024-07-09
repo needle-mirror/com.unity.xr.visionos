@@ -318,6 +318,10 @@ namespace UnityEngine.XR.VisionOS
                 var resultStatus = NativeApi.Authorization.ar_authorization_result_get_status(authorizationResult);
                 Debug.Log($"AR authorization result - Type: {resultType} Status: {resultStatus}");
 
+                // Note: We assume here that our public enums for authorization type and status are value-equal to the native APIs, so we can just cast here.
+                // If this changes, we will need methods to convert between divergent values.
+                VisionOS.OnAuthorizationChanged((VisionOSAuthorizationType)resultType, (VisionOSAuthorizationStatus)resultStatus);
+
                 switch (resultStatus)
                 {
                     case AR_Authorization_Status.ar_authorization_status_not_determined:
@@ -420,6 +424,23 @@ namespace UnityEngine.XR.VisionOS
             public void SetSceneReconstructionMode(AR_Scene_Reconstruction_Mode mode)
             {
                 m_SceneReconstructionMode = mode;
+            }
+
+            public static VisionOSAuthorizationStatus QueryAuthorizationStatus(VisionOSAuthorizationType type)
+            {
+                if (Instance == null)
+                    return VisionOSAuthorizationStatus.NotDetermined;
+
+                // Note: We assume here that our public enums for authorization type and status are value-equal to the native APIs, so we can just cast here.
+                // If this changes, we will need methods to convert between divergent values.
+                var nativeType = (AR_Authorization_Type)type;
+                if ((Instance.m_AllowedAuthorizations & nativeType) != 0)
+                    return VisionOSAuthorizationStatus.Allowed;
+
+                if ((Instance.m_DeniedAuthorizations & nativeType) != 0)
+                    return VisionOSAuthorizationStatus.Denied;
+
+                return VisionOSAuthorizationStatus.NotDetermined;
             }
         }
 

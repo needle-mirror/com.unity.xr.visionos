@@ -73,5 +73,28 @@ namespace UnityEngine.XR.VisionOS
             return false;
 #endif
         }
+
+        /// <summary>
+        /// Called when an ARKit authorization like hand tracking or world tracking changes status. Some examples of when this occurs:
+        /// - On app start when initially querying the authorization status, if it was already requested
+        /// - After querying authorization status, if it was not requested and the user allowed or declined
+        /// - When the user changes authorizations in Settings and returns to the app
+        /// </summary>
+        public static event Action<VisionOSAuthorizationEventArgs> AuthorizationChanged;
+
+        /// <summary>
+        /// Query the current authorization status for a given authorization type.
+        /// </summary>
+        /// <param name="type">The authorization type to query.</param>
+        /// <returns>The status of the queried authorization type.</returns>
+        public static VisionOSAuthorizationStatus QueryAuthorizationStatus(VisionOSAuthorizationType type)
+        {
+            return VisionOSSessionSubsystem.VisionOSSessionProvider.QueryAuthorizationStatus(type);
+        }
+
+        internal static void OnAuthorizationChanged(VisionOSAuthorizationType type, VisionOSAuthorizationStatus status)
+        {
+            AuthorizationChanged?.Invoke(new VisionOSAuthorizationEventArgs { type = type, status = status });
+        }
     }
 }

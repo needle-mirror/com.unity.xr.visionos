@@ -18,6 +18,9 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         const string k_DestroyHandSubsystemText = "Destroy Hand Subsystem";
 #endif
 
+        const string k_HandTrackingAuthorizationFormat = "Hand Tracking Authorization: {0}";
+        const string k_WorldSensingAuthorizationFormat = "World Sensing Authorization: {0}";
+
         [SerializeField]
         ParticleSystem m_ParticleSystem;
 
@@ -30,6 +33,12 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         [SerializeField]
         Text m_HandSubsystemToggleText;
 
+        [SerializeField]
+        Text m_HandTrackingAuthorizationText;
+
+        [SerializeField]
+        Text m_WorldSensingAuthorizationText;
+
 #if INCLUDE_UNITY_XR_HANDS && (UNITY_VISIONOS || UNITY_EDITOR)
         VisionOSLoader m_Loader;
         XRHandSubsystem m_HandSubsystem;
@@ -39,9 +48,17 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
 
         void Awake()
         {
+#if UNITY_VISIONOS || UNITY_EDITOR
+            UpdateAuthorizationText();
+#endif
+
 #if INCLUDE_UNITY_XR_HANDS && (UNITY_VISIONOS || UNITY_EDITOR)
             if (XRGeneralSettings.Instance != null && XRGeneralSettings.Instance.Manager != null)
                 m_Loader = XRGeneralSettings.Instance.Manager.ActiveLoaderAs<VisionOSLoader>();
+
+            // If the button doesn't exist, there's no point in setting up the rest of the hand tracking fields
+            if (m_HandSubsystemToggleButton == null)
+                return;
 
             // If building in Windowed or Mixed Reality mode, VisionOSLoader may not be active
             if (m_Loader == null)
@@ -53,9 +70,47 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
             m_HandSubsystem = m_Loader.handSubsystem;
             UpdateHandSubsystemToggleText();
 #else
-            m_HandSubsystemToggleButton.SetActive(false);
+            if (m_HandSubsystemToggleButton != null)
+                m_HandSubsystemToggleButton.SetActive(false);
 #endif
         }
+
+#if UNITY_VISIONOS || UNITY_EDITOR
+        void OnEnable()
+        {
+            VisionOS.AuthorizationChanged += OnAuthorizationChanged;
+        }
+
+        void OnDisable()
+        {
+            VisionOS.AuthorizationChanged += OnAuthorizationChanged;
+        }
+
+        void UpdateAuthorizationText()
+        {
+            var type = VisionOSAuthorizationType.HandTracking;
+            var status = VisionOS.QueryAuthorizationStatus(type);
+            OnAuthorizationChanged(new VisionOSAuthorizationEventArgs { type = type, status = status });
+
+            type = VisionOSAuthorizationType.WorldSensing;
+            status = VisionOS.QueryAuthorizationStatus(type);
+            OnAuthorizationChanged(new VisionOSAuthorizationEventArgs { type = type, status = status });
+        }
+
+        void OnAuthorizationChanged(VisionOSAuthorizationEventArgs args)
+        {
+            switch (args.type)
+            {
+                case VisionOSAuthorizationType.HandTracking:
+                    m_HandTrackingAuthorizationText.text = string.Format(k_HandTrackingAuthorizationFormat, args.status);
+                    break;
+                case VisionOSAuthorizationType.WorldSensing:
+                    m_WorldSensingAuthorizationText.text = string.Format(k_WorldSensingAuthorizationFormat, args.status);
+                    break;
+                // We do not support CameraAccess yet so ignore it
+            }
+        }
+#endif
 
         public void SetParticleStartSpeed(float speed)
         {
@@ -122,6 +177,9 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
 #if INCLUDE_UNITY_XR_HANDS && (UNITY_VISIONOS || UNITY_EDITOR)
         void UpdateHandSubsystemToggleText()
         {
+            if (m_HandSubsystemToggleText == null)
+                return;
+
             m_HandSubsystemToggleText.text = m_HandSubsystem == null ? k_CreateHandSubsystemText : k_DestroyHandSubsystemText;
         }
 #endif

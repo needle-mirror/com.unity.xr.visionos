@@ -784,7 +784,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 482d0ea3d13b240169086c013494741d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  m_XROrigin: {fileID: 844625607}
   m_DrawDebugRay: 0
+  m_EnableSecondaryPointer: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
