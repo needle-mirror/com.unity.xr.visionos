@@ -1,6 +1,10 @@
 import CompositorServices
 import SwiftUI
 
+#if UNITY_POLYSPATIAL
+import PolySpatialRealityKit
+#endif
+
 let maxPointers = 2
 var currentEvents: Set<SpatialEventCollection.Event.ID> = .init()
 var existingEvents: [SpatialEventCollection.Event.ID: Bool] = .init()
@@ -25,6 +29,11 @@ private func setLayerRenderer(_ layerRenderer: LayerRenderer)
 @SceneBuilder
 var unityVisionOSCompositorSpace: some Scene {
     ImmersiveSpace(id: "CompositorSpace") {
+#if UNITY_POLYSPATIAL
+        // Define our own window and UUID because we can't use PolySpatialSceneDelegate
+        let window = PolySpatialWindow(UUID(), "CompositorSpace", .init(1.000, 1.000, 1.000))
+#endif
+
         // swiftlint:disable:next redundant_discardable_let
         let _ = UnityLibrary.getInstance()
         let configuration = UnityCompositorServicesConfiguration(
@@ -32,6 +41,12 @@ var unityVisionOSCompositorSpace: some Scene {
             enableFoveation: VisionOSEnableFoveation)
 
         CompositorLayer(configuration: configuration) { layerRenderer in
+ #if UNITY_POLYSPATIAL
+            // Manually call PolySpatialWindowManagerAccess.onCompositorSpaceOpened because we can't use PolySpatialSceneDelegate
+            // swiftlint:disable:next redundant_discardable_let
+            let _ = PolySpatialWindowManagerAccess.onCompositorSpaceOpened(window)
+#endif
+
             let compositorBridge = NSClassFromString("UnityVisionOSCompositorBridge") as? NSObject.Type
             compositorBridge?.perform(Selector(("setLayerRenderer:")), with: layerRenderer)
 
@@ -102,6 +117,6 @@ var unityVisionOSCompositorSpace: some Scene {
                 }
             }
         }
-    }.immersionStyle(selection: .constant(.full), in: .full)
-        .upperLimbVisibility(VisionOSUpperLimbVisibility ? .visible : .hidden)
+    }.immersionStyle(selection: .constant(VisionOSImmersionStyle), in: VisionOSImmersionStyle)
+        .upperLimbVisibility(VisionOSUpperLimbVisibility)
 }

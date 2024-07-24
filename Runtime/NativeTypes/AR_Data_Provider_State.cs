@@ -7,6 +7,7 @@ namespace UnityEngine.XR.VisionOS
     {
         Initialized,
         Running,
-        Paused
+        Paused,
+        Stopped
     }
 }

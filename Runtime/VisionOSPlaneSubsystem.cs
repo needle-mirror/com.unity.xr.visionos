@@ -53,7 +53,6 @@ namespace UnityEngine.XR.VisionOS
             public VisionOSPlaneProvider()
             {
                 s_Instance = this;
-                VisionOSProviderRegistration.RegisterProvider(k_PlaneTrackingFeature, this);
             }
 
             public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
@@ -66,6 +65,9 @@ namespace UnityEngine.XR.VisionOS
                 }
 
                 m_PlaneDetectionConfiguration = NativeApi.PlaneDetection.ar_plane_detection_configuration_create();
+
+                // NB: This assumes that AR_Plane_Alignment and PlaneDetectionMode line up exactly, which is currently the case. If this changes, we must
+                // explicitly define the conversion.
                 NativeApi.PlaneDetection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, (AR_Plane_Alignment)m_CurrentPlaneDetectionMode);
 
                 provider = NativeApi.PlaneDetection.ar_plane_detection_provider_create(m_PlaneDetectionConfiguration);
@@ -89,14 +91,16 @@ namespace UnityEngine.XR.VisionOS
                 m_TempAddedPlanes.Clear();
                 m_TempUpdatedPlanes.Clear();
                 m_TempRemovedPlanes.Clear();
-
-                VisionOSProviderRegistration.UnregisterProvider(k_PlaneTrackingFeature, this);
             }
 
-            public override void Start() { }
+            public override void Start()
+            {
+                VisionOSProviderRegistration.RegisterProvider(k_PlaneTrackingFeature, this);
+            }
 
             public override void Stop()
             {
+                VisionOSProviderRegistration.UnregisterProvider(k_PlaneTrackingFeature, this);
                 m_TempAddedPlanes.Clear();
                 m_TempUpdatedPlanes.Clear();
                 m_TempRemovedPlanes.Clear();
@@ -164,6 +168,9 @@ namespace UnityEngine.XR.VisionOS
                         break;
                     case AR_Plane_Alignment.Vertical:
                         planeAlignment = PlaneAlignment.Vertical;
+                        break;
+                    case AR_Plane_Alignment.Slanted:
+                        planeAlignment = PlaneAlignment.NotAxisAligned;
                         break;
                     default:
                         planeAlignment = PlaneAlignment.None;
@@ -369,6 +376,8 @@ namespace UnityEngine.XR.VisionOS
                         return;
 
                     // TODO: Do we need to restart the session when configurations change?
+                    // NB: This assumes that AR_Plane_Alignment and PlaneDetectionMode line up exactly, which is currently the case. If this changes, we must
+                    // explicitly define the conversion.
                     var nativeAlignment = (AR_Plane_Alignment)m_CurrentPlaneDetectionMode;
                     NativeApi.PlaneDetection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, nativeAlignment);
                 }

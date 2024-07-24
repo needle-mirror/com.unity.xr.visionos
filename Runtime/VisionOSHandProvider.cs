@@ -31,18 +31,18 @@ namespace UnityEngine.XR.VisionOS
 
         readonly Dictionary<Handedness, bool> m_HandTrackingStates = new();
 
-        public VisionOSHandProvider()
+        public override void Start()
         {
             VisionOSProviderRegistration.RegisterProvider(k_HandFeatureProxy, this);
         }
 
-        public override void Start() { }
-
-        public override void Stop() { }
+        public override void Stop()
+        {
+            VisionOSProviderRegistration.UnregisterProvider(k_HandFeatureProxy, this);
+        }
 
         public override void Destroy()
         {
-            VisionOSProviderRegistration.UnregisterProvider(k_HandFeatureProxy, this);
             CurrentProvider = IntPtr.Zero;
             m_LeftHandAnchor = IntPtr.Zero;
             m_RightHandAnchor = IntPtr.Zero;
@@ -102,11 +102,11 @@ namespace UnityEngine.XR.VisionOS
             if (m_RightHandAnchor == IntPtr.Zero)
                 m_RightHandAnchor = NativeApi.HandTracking.ar_hand_anchor_create();
 
-            var success = NativeApi.HandTracking.ar_hand_tracking_provider_get_latest_anchors(CurrentProvider, m_LeftHandAnchor, m_RightHandAnchor);
-
-            // get_latest_anchors will return false if we poll too quickly--in that case, return the last valid result
-            if (!success)
-                return m_LastSuccessFlags;
+            // TODO: How do we handle backward compatibility with visionOS 1.0?
+            var timestamp = NativeApi.HandTracking.GetLatestHandTrackingTiming();
+            var status = NativeApi.HandTracking.ar_hand_tracking_provider_query_anchors_at_timestamp(CurrentProvider, timestamp, m_LeftHandAnchor, m_RightHandAnchor);
+            if (status == AR_Hand_Anchor_Query_Status.Failure)
+                return XRHandSubsystem.UpdateSuccessFlags.None;
 
             m_LastSuccessFlags = XRHandSubsystem.UpdateSuccessFlags.None;
             GetHandData(ref leftHandRootPose, ref m_LastSuccessFlags, leftHandJoints, m_LeftHandAnchor, Handedness.Left);

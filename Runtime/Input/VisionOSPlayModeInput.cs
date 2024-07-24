@@ -1,9 +1,14 @@
 #if UNITY_EDITOR && UNITY_VISIONOS
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+#if INCLUDE_UNITY_POLYSPATIAL
+using Unity.PolySpatial;
+using Unity.PolySpatial.Internals;
+#endif
+
 #if INCLUDE_UNITY_XRI
-using System.Collections.Generic;
 using UnityEngine.XR.Interaction.Toolkit.UI;
 #endif
 #endif
@@ -22,6 +27,8 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         bool m_EnableSecondaryPointer;
 
 #if UNITY_EDITOR && UNITY_VISIONOS
+        bool m_WasInteracting;
+        Ray m_InteractionRay;
         Vector3 m_StartRayOrigin;
         Vector3 m_StartRayDirection;
         Vector2 m_PreviousMousePosition;
@@ -56,30 +63,62 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         }
 #endif
 
+#if INCLUDE_UNITY_POLYSPATIAL
+        bool m_IsMetalMode;
+
+        void Awake()
+        {
+            PolySpatialCore.UnitySimulation.VolumeCamerasChanged += UpdateMetalMode;
+            UpdateMetalMode();
+        }
+
+        void UpdateMetalMode()
+        {
+            m_IsMetalMode = PolySpatialCore.UnitySimulation.IsMetalMode;
+        }
+#endif
+
         void Update()
         {
+#if INCLUDE_UNITY_POLYSPATIAL
+            if (!m_IsMetalMode)
+            {
+                CancelCurrentInteractionIfNeeded();
+                return;
+            }
+#endif
+
             var mouse = Mouse.current;
             if (mouse == null)
+            {
+                CancelCurrentInteractionIfNeeded();
                 return;
+            }
 
             var inputCamera = Camera.main;
             if (inputCamera == null)
                 inputCamera = FindAnyObjectByType<Camera>();
 
             if (inputCamera == null)
+            {
+                CancelCurrentInteractionIfNeeded();
                 return;
+            }
 
             var mousePosition = mouse.position.ReadValue();
 
             // Reject clicks outside of game view
             if (mousePosition.x < 0 || mousePosition.y < 0 || mousePosition.x > Screen.width || mousePosition.y > Screen.height)
+            {
+                CancelCurrentInteractionIfNeeded();
                 return;
+            }
 
-            var ray = inputCamera.ScreenPointToRay(mousePosition);
+            m_InteractionRay= inputCamera.ScreenPointToRay(mousePosition);
 
             var leftButton = mouse.leftButton;
-            var rayOrigin = ray.origin;
-            var rayDirection = ray.direction;
+            var rayOrigin = m_InteractionRay.origin;
+            var rayDirection = m_InteractionRay.direction;
             if (m_DrawDebugRay)
             {
                 var direction = rayDirection * inputCamera.farClipPlane;
@@ -94,10 +133,12 @@ namespace UnityEngine.XR.VisionOS.InputDevices
                 phase = VisionOSSpatialPointerPhase.Began;
                 m_StartRayOrigin = rayOrigin;
                 m_StartRayDirection = rayDirection;
+                m_WasInteracting = true;
             }
             else if (leftButton.wasReleasedThisFrame)
             {
                 phase = VisionOSSpatialPointerPhase.Ended;
+                m_WasInteracting = false;
             }
             else if (leftButton.isPressed)
             {
@@ -112,6 +153,24 @@ namespace UnityEngine.XR.VisionOS.InputDevices
                 return;
             }
 
+            SendInputEvent(m_InteractionRay, phase);
+
+            m_PreviousMousePosition = mousePosition;
+        }
+
+        void CancelCurrentInteractionIfNeeded()
+        {
+            if (!m_WasInteracting)
+                return;
+
+            // Send a final Ended command, otherwise input can get "stuck"
+            SendInputEvent(m_InteractionRay, VisionOSSpatialPointerPhase.Ended);
+
+            m_WasInteracting = false;
+        }
+
+        void SendInputEvent(Ray ray, VisionOSSpatialPointerPhase phase)
+        {
             // Create a fake input device pose position roughly at arm's length along the ray
             var inputDevicePosition = ray.GetPoint(0.5f);
 
@@ -120,7 +179,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             var startRayOrigin = worldToLocal.MultiplyPoint(m_StartRayOrigin);
             var startRayDirection = worldToLocal.MultiplyVector(m_StartRayDirection);
             inputDevicePosition = worldToLocal.MultiplyPoint(inputDevicePosition);
-            rayDirection = worldToLocal.MultiplyVector(rayDirection);
+            var rayDirection = worldToLocal.MultiplyVector(ray.direction);
             var pointerEvent = new VisionOSSpatialPointerEvent
             {
                 interactionId = 0,
@@ -139,8 +198,6 @@ namespace UnityEngine.XR.VisionOS.InputDevices
                 pointerEvent.interactionId = 1;
                 VisionOSSpatialPointerEventListener.OnInputEvent(pointerEvent);
             }
-
-            m_PreviousMousePosition = mousePosition;
         }
 #endif
     }

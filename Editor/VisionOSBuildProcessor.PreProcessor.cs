@@ -10,7 +10,7 @@ namespace UnityEditor.XR.VisionOS
         class Preprocessor : IPreprocessBuildWithReport
         {
             const string k_PreCompiledLibraryName = "libUnityVisionOS.a";
-            const string k_VRMainSwiftFile = "UnityVRMainApp.swift";
+            const string k_MetalMainSwiftFile = "UnityMetalMainApp.swift";
 
             public int callbackOrder => 0;
 
@@ -39,7 +39,7 @@ namespace UnityEditor.XR.VisionOS
                     return;
                 }
 
-                if (settings.appMode == VisionOSSettings.AppMode.MR)
+                if (appMode is VisionOSSettings.AppMode.RealityKit or VisionOSSettings.AppMode.Hybrid)
                 {
 #if !UNITY_HAS_POLYSPATIAL_VISIONOS
                     throw new BuildFailedException("Mixed Reality app mode requires the PolySpatial visionOS support package");
@@ -95,9 +95,10 @@ namespace UnityEditor.XR.VisionOS
 
             static bool ShouldIncludeSourcePluginsInBuild(string path)
             {
-                // PoySpatial will replace UnityMain.swift
+                // PoySpatial will replace UnityMetalMainApp.swift
                 var settings = VisionOSSettings.currentSettings;
-                if (settings != null && settings.appMode == VisionOSSettings.AppMode.MR && path.Contains(k_VRMainSwiftFile))
+                var mixedRealitySupported = settings != null && settings.appMode is VisionOSSettings.AppMode.RealityKit or VisionOSSettings.AppMode.Hybrid;
+                if (mixedRealitySupported && path.Contains(k_MetalMainSwiftFile))
                     return false;
 
                 return settings.appMode != VisionOSSettings.AppMode.Windowed;

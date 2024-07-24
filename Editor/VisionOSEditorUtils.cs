@@ -65,12 +65,14 @@ namespace UnityEditor.XR.VisionOS
                     CapabilityProfileSelection.Clear();
                     CapabilityProfileSelection.Save();
                     break;
-                case VisionOSSettings.AppMode.VR:
-                    UpdateSelectedCapabilityProfiles("PolySpatialVRCapabilityProfile");
+                case VisionOSSettings.AppMode.Metal:
+                    UpdateSelectedCapabilityProfiles("PolySpatialMetalCapabilityProfile");
                     CapabilityProfileSelection.Save();
                     break;
-                case VisionOSSettings.AppMode.MR:
-                    UpdateSelectedCapabilityProfiles("PolySpatialMRCapabilityProfile");
+                // TODO: LXR-3771 Capability profile for hybrid?
+                case VisionOSSettings.AppMode.Hybrid:
+                case VisionOSSettings.AppMode.RealityKit:
+                    UpdateSelectedCapabilityProfiles("PolySpatialRealityKitCapabilityProfile");
                     CapabilityProfileSelection.Save();
                     break;
             }

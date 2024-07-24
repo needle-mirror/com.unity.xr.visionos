@@ -76,6 +76,24 @@ namespace UnityEngine.XR.VisionOS
             [DllImport(Constants.LibraryName,
                 EntryPoint = "ar_hand_tracking_provider_get_required_authorization_type")]
             public static extern AR_Authorization_Type ar_hand_tracking_provider_get_required_authorization_type();
+
+            /// <summary>
+            ///  Fill the given `ar_hand_anchor_t` instances with the best estimated tracking data given the provided `timestamp`.
+            /// The provided `timestamp`when rendering should be obtained from `cp_frame_timing_get_trackable_anchor_prediction_time`.
+            /// </summary>
+            /// <param name="hand_tracking_provider">The hand tracking provider.</param>
+            /// <param name="timestamp">Target timestamp, mach absolute time in seconds.</param>
+            /// <param name="hand_anchor_left">[out] The anchor instance for the left hand to be updated.</param>
+            /// <param name="hand_anchor_right">[out] The anchor instance for the right hand to be updated.</param>
+            /// <returns></returns>
+            [DllImport(Constants.LibraryName, EntryPoint = "ar_hand_tracking_provider_query_anchors_at_timestamp")]
+            public static extern AR_Hand_Anchor_Query_Status ar_hand_tracking_provider_query_anchors_at_timestamp(IntPtr hand_tracking_provider,
+                double timestamp,
+                IntPtr hand_anchor_left,
+                IntPtr hand_anchor_right);
+
+            [DllImport(Constants.LibraryName, EntryPoint = "UnityVisionOS_GetLatestHandTrackingTiming")]
+            public static extern double GetLatestHandTrackingTiming();
         }
     }
 }

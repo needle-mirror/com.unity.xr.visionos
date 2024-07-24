@@ -19,7 +19,7 @@ namespace UnityEditor.XR.VisionOS
             "UnityCompositorServicesConfiguration.swift",
             "UnityCompositorSpace.swift",
             "UnityTypeUtils.swift",
-            "UnityVRMainApp.swift",
+            "UnityMetalMainApp.swift",
         };
 
         static bool s_SplashScreenWasEnabled;

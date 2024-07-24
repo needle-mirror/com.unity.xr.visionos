@@ -21,6 +21,11 @@ namespace UnityEngine.XR.VisionOS
         /// <summary>
         /// Planes parallel to the gravity vector.
         /// </summary>
-        Vertical = 1 << 1
+        Vertical = 1 << 1,
+
+        /// <summary>
+        /// Planes that are neither horizontal nor vertical.
+        /// </summary>
+        Slanted = 1 << 2
     }
 }

@@ -159,6 +159,24 @@ namespace UnityEngine.XR.VisionOS
             [DllImport(Constants.LibraryName, EntryPoint = "UnityVisionOS_impl_get_reference_image_at_index")]
             public static extern IntPtr UnityVisionOS_impl_get_reference_image_at_index(IntPtr reference_images,
                 int index);
+
+
+            /// <summary>
+            /// Adds an image to track.
+            /// </summary>
+            /// <param name="reference_images">The collection the image will get added to</param>
+            /// <param name="bytes">Image data</param>
+            /// <param name="format">Texture format of the data</param>
+            /// <param name="width">Width in pixels</param>
+            /// <param name="height">Height in pixels</param>
+            /// <param name="physicalWidth">Width in meters</param>
+            /// <param name="name">Name that will get returned when the image gets tracked.</param>
+            /// <returns></returns>
+            [DllImport("__Internal", EntryPoint = "UnityVisionOS_impl_add_image")]
+            public static extern unsafe bool UnityVisionOS_impl_add_image(
+                IntPtr reference_images, void* bytes, TextureFormat format,
+                int width, int height, float physicalWidth, string name);
+
         }
     }
 }

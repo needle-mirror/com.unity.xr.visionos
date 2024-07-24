@@ -242,6 +242,81 @@ EXPORT(float*) UnityVisionOS_impl_simd_float4x4_to_float_array(simd_float4x4 mat
     return tmp_matrix_floats;
 }
 
+// UnityEngine.TextureFormat
+enum TextureFormat
+{
+    kTextureFormatAlpha8 = 1,
+    kTextureFormatRGB24 = 3,
+    kTextureFormatRGBA32 = 4,
+    kTextureFormatARGB32 = 5,
+    kTextureFormatR16 = 9,
+    kTextureFormatBGRA32 = 14,
+    kTextureFormatRFloat = 18,
+    kTextureFormatYUY2 = 21,
+    kTextureFormatR8 = 63,
+
+    // This value is not UnityEngine.TextureFormat but is needed to indicate a conversion does not exist.
+    kTextureFormatInvalid = 0xFFFFFFFF
+};
+
+EXPORT(void) UnityVisionOS_impl_add_image(ar_reference_images_t reference_images,
+                                          void* bytes,
+                                          TextureFormat format,
+                                          int width,
+                                          int height,
+                                          float physicalWidth,
+                                          const char * name)
+{
+    OSType pixelFormatType;
+    size_t bytesPerRow;
+    switch (format)
+    {
+        case TextureFormat::kTextureFormatR8:
+        case TextureFormat::kTextureFormatAlpha8:
+            pixelFormatType = kCVPixelFormatType_OneComponent8;
+            bytesPerRow = width;
+            break;
+        case TextureFormat::kTextureFormatR16:
+            pixelFormatType = kCVPixelFormatType_OneComponent16Half;
+            bytesPerRow = width * 2;
+            break;
+        case TextureFormat::kTextureFormatRFloat:
+            pixelFormatType = kCVPixelFormatType_OneComponent32Float;
+            bytesPerRow = width * 4;
+            break;
+        case TextureFormat::kTextureFormatRGB24:
+            pixelFormatType = kCVPixelFormatType_24RGB;
+            bytesPerRow = width * 3;
+            break;
+        case TextureFormat::kTextureFormatARGB32:
+            pixelFormatType = kCVPixelFormatType_32ARGB;
+            bytesPerRow = width * 4;
+            break;
+        case TextureFormat::kTextureFormatBGRA32:
+            pixelFormatType = kCVPixelFormatType_32BGRA;
+            bytesPerRow = width * 4;
+            break;
+        default:
+            NSLog(@"Error adding reference image: Unsupported texture format %d", (int)format);
+            return;
+    }
+
+    CVPixelBufferRef pixelBuffer = nil;
+    CVReturn result = CVPixelBufferCreateWithBytes(kCFAllocatorDefault, width, height, pixelFormatType, bytes, bytesPerRow, nil, nil, nil, &pixelBuffer);
+    if (result != kCVReturnSuccess) {
+        NSLog(@"Error adding reference image: CVPixelBufferCreateWithBytes returned %d", (int)result);
+        return;
+    }
+
+    ar_reference_image_t image_to_add = ar_reference_image_create_from_pixel_buffer(pixelBuffer, kCGImagePropertyOrientationDownMirrored, physicalWidth);
+
+    CFRelease(pixelBuffer);
+
+    ar_reference_images_add_image(reference_images, image_to_add);
+
+    ar_reference_image_set_name(image_to_add, name);
+}
+
 EXPORT(ar_reference_image_t) UnityVisionOS_impl_get_reference_image_at_index(ar_reference_images_t reference_images, int index)
 {
     __block size_t reference_image_count = ar_reference_images_get_count(reference_images);

@@ -6,7 +6,9 @@
         "Unity.XR.Management",
         "Unity.XR.Hands",
         "Unity.InputSystem",
-        "Unity.XR.Interaction.Toolkit"
+        "Unity.XR.Interaction.Toolkit",
+        "Unity.PolySpatial",
+        "Unity.PolySpatial.Core"
     ],
     "includePlatforms": [
         "Editor",
@@ -38,6 +40,11 @@
             "name": "com.unity.xr.interaction.toolkit",
             "expression": "1.0.0",
             "define": "INCLUDE_UNITY_XRI"
+        },
+        {
+            "name": "com.unity.polyspatial",
+            "expression": "2.0.0-pre.100",
+            "define": "INCLUDE_UNITY_POLYSPATIAL"
         }
     ],
     "noEngineReferences": false

@@ -7,6 +7,27 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-pre.9] - 2024-07-24
+
+## [2.0.0-pre.7] - 2024-07-02
+
+## [2.0.0-pre.6] - 2024-06-28
+
+### Added
+- Added `VisionOS.AuthorizationChanged` and `VisionOS.QueryAuthorizationStatus` APIs to enable user code to query and respond to changes in AR authorizations like Hand Tracking and World Sensing.
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Fixed a crash that can happen when unloading a scene after tracking an image with ARKit image tracking.
+- Fixed issues in the InputSystem UI sample scene.
+
+### Security
+
 ## [2.0.0-pre.3] - 2024-04-22
 
 ### Added

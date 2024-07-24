@@ -23,6 +23,11 @@ namespace UnityEngine.XR.VisionOS
         /// - Plane detection
         /// - Scene reconstruction
         /// </summary>
-        World_Sensing = 1 << 1
+        World_Sensing = 1 << 1,
+
+        /// <summary>
+        /// Authorization type used when requesting camera access.
+        /// </summary>
+        Camera_Access = 1 << 3
     }
 }

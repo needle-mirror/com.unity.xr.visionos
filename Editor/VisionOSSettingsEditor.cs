@@ -66,6 +66,8 @@ namespace UnityEditor.XR.VisionOS
         SerializedProperty m_InitializeHandTrackingOnStartupProperty;
         SerializedProperty m_UpperLimbVisibilityProperty;
         SerializedProperty m_FoveatedRenderingProperty;
+        SerializedProperty m_MetalImmersionStyleProperty;
+        SerializedProperty m_RealityKitImmersionStyleProperty;
         SerializedProperty m_IL2CPPLargeExeWorkaroundProperty;
 
         void OnEnable()
@@ -75,13 +77,15 @@ namespace UnityEditor.XR.VisionOS
             m_WorldSensingUsageDescriptionProperty = serializedObject.FindProperty("m_WorldSensingUsageDescription");
             m_UpperLimbVisibilityProperty = serializedObject.FindProperty("m_UpperLimbVisibility");
             m_FoveatedRenderingProperty = serializedObject.FindProperty("m_FoveatedRendering");
+            m_MetalImmersionStyleProperty = serializedObject.FindProperty("m_MetalImmersionStyle");
+            m_RealityKitImmersionStyleProperty = serializedObject.FindProperty("m_RealityKitImmersionStyle");
             m_IL2CPPLargeExeWorkaroundProperty = serializedObject.FindProperty("m_IL2CPPLargeExeWorkaround");
 
             // Initialize RuntimeSettings on a delay to prevent asset creation errors that can happen on first import
             EditorApplication.delayCall += InitializeRuntimeSettings;
 
 #if UNITY_HAS_POLYSPATIAL_XR
-            // If there was a serialized install request we just switched to mixed reality mode
+            // If there was a serialized install request we just switched to RealityKit or Hybrid mode
             if (m_InstallRequest != null)
             {
                 if (m_InstallRequest.Status == StatusCode.Success)
@@ -113,15 +117,17 @@ namespace UnityEditor.XR.VisionOS
 
             EditorGUILayout.PropertyField(m_AppModeProperty);
             var appMode = (VisionOSSettings.AppMode)m_AppModeProperty.intValue;
+            var hasMetalSupport = appMode is VisionOSSettings.AppMode.Metal or VisionOSSettings.AppMode.Hybrid;
+            var hasRealityKitSupport = appMode is VisionOSSettings.AppMode.RealityKit or VisionOSSettings.AppMode.Hybrid;
 
 #if !UNITY_HAS_POLYSPATIAL_VISIONOS
             // ChangeCheckScope can fire when first viewing the inspector, so just compare previous to current state
-            if (appMode == VisionOSSettings.AppMode.MR && previousAppMode != appMode)
+            if (hasRealityKitSupport && previousAppMode != appMode)
             {
                 EditorApplication.delayCall += () =>
                 {
                     if (EditorUtility.DisplayDialog("Install PolySpatial",
-                            "Mixed Reality apps require PolySpatial packages. Click Yes to install PolySpatial. Clicking No will revert this setting to its previous value.",
+                            "RealityKit apps require PolySpatial packages. Click Yes to install PolySpatial. Clicking No will revert this setting to its previous value.",
                             "Yes", "No"))
                     {
                         m_InstallRequest = Client.AddAndRemove(k_PolySpatialPackages);
@@ -156,7 +162,7 @@ namespace UnityEditor.XR.VisionOS
 
 #if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
             var hasUrpAsset = UniversalRenderPipeline.asset != null;
-            var foveationSupported = appMode == VisionOSSettings.AppMode.VR && hasUrpAsset;
+            var foveationSupported = hasMetalSupport && hasUrpAsset;
 #else
             const bool foveationSupported = false;
 #endif
@@ -202,6 +208,8 @@ namespace UnityEditor.XR.VisionOS
                 if (isLoaderEnabled && string.IsNullOrEmpty(m_WorldSensingUsageDescriptionProperty.stringValue))
                     EditorGUILayout.HelpBox(k_WorldSensingUsageWarning, MessageType.Warning);
 
+                EditorGUILayout.PropertyField(m_MetalImmersionStyleProperty);
+                EditorGUILayout.PropertyField(m_RealityKitImmersionStyleProperty);
                 EditorGUILayout.PropertyField(m_UpperLimbVisibilityProperty);
                 using (new EditorGUI.DisabledScope(!foveationSupported))
                 {
@@ -211,55 +219,55 @@ namespace UnityEditor.XR.VisionOS
 
             EditorGUILayout.PropertyField(m_IL2CPPLargeExeWorkaroundProperty);
 
-            switch (appMode)
+            if (hasMetalSupport)
             {
-                case VisionOSSettings.AppMode.VR:
-                    switch (PlayerSettings.VisionOS.sdkVersion)
-                    {
-                        case VisionOSSdkVersion.Device:
-                            EditorGUILayout.HelpBox("When building for visionOS Device SDK, Single-Pass Instanced rendering will be used.", MessageType.Info);
-                            break;
-                        case VisionOSSdkVersion.Simulator:
-                            EditorGUILayout.HelpBox("When building for visionOS Simulator SDK, Multi-Pass rendering will be used.", MessageType.Info);
+                switch (PlayerSettings.VisionOS.sdkVersion)
+                {
+                    case VisionOSSdkVersion.Device:
+                        EditorGUILayout.HelpBox("When building for visionOS Device SDK, Single-Pass Instanced rendering will be used.", MessageType.Info);
+                        break;
+                    case VisionOSSdkVersion.Simulator:
+                        EditorGUILayout.HelpBox("When building for visionOS Simulator SDK, Multi-Pass rendering will be used.", MessageType.Info);
 
 #if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
-                            if (m_FoveatedRenderingProperty.boolValue && hasUrpAsset)
-                                EditorGUILayout.HelpBox("Foveated rendering will be disabled for this build because it is not supported in the visionOS simulator.", MessageType.Info);
+                        if (m_FoveatedRenderingProperty.boolValue && hasUrpAsset)
+                            EditorGUILayout.HelpBox("Foveated rendering will be disabled for this build because it is not supported in the visionOS simulator.", MessageType.Info);
 #endif
 
-                            break;
-                    }
+                        break;
+                }
 
-                    if (!isLoaderEnabled)
-                        EditorGUILayout.HelpBox("Virtual Reality apps require the Apple visionOS plug-in to be enabled in the XR Plug-in Management.", MessageType.Error);
+                if (!isLoaderEnabled)
+                    EditorGUILayout.HelpBox("Metal and Hybrid apps require the Apple visionOS plug-in to be enabled in the XR Plug-in Management.", MessageType.Error);
+            }
 
-                    break;
-                case VisionOSSettings.AppMode.MR:
+            if (hasRealityKitSupport)
+            {
 #if UNITY_HAS_POLYSPATIAL_VISIONOS
-                    EditorGUILayout.HelpBox("The initial window configuration at app launch is determined by the default volume settings, found in Project " +
-                        "Settings > PolySpatial Settings.", MessageType.Info);
+                EditorGUILayout.HelpBox("The initial window configuration at app launch is determined by the default volume settings, found in Project " +
+                    "Settings > PolySpatial Settings.", MessageType.Info);
 #else
-                    if (m_InstallRequest != null && !m_InstallRequest.IsCompleted)
-                    {
-                        EditorGUILayout.HelpBox("Installing PolySpatial packages...", MessageType.Info);
-                    }
-                    else
-                    {
-                        EditorGUILayout.HelpBox("Mixed Reality on visionOS requires PolySpatial and the PolySpatial visionOS packages.", MessageType.Error);
-                        if (GUILayout.Button("Install Packages"))
-                            m_InstallRequest = Client.AddAndRemove(k_PolySpatialPackages);
-                    }
+                if (m_InstallRequest != null && !m_InstallRequest.IsCompleted)
+                {
+                    EditorGUILayout.HelpBox("Installing PolySpatial packages...", MessageType.Info);
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox("RealityKit on visionOS requires PolySpatial and the PolySpatial visionOS packages.", MessageType.Error);
+                    if (GUILayout.Button("Install Packages"))
+                        m_InstallRequest = Client.AddAndRemove(k_PolySpatialPackages);
+                }
 #endif
-                    break;
-                case VisionOSSettings.AppMode.Windowed:
-                    if (isLoaderEnabled)
-                    {
-                        EditorGUILayout.HelpBox("The Apple visionOS XR loader is not supported when building a visionOS Windowed application. It will be " +
-                            "disabled prior to builds and then re-enabled afterward. You may need to manually re-enable the loader in XR Plugin Management " +
-                            "settings if the build fails.", MessageType.Warning);
-                    }
+            }
 
-                    break;
+            if (appMode == VisionOSSettings.AppMode.Windowed)
+            {
+                if (isLoaderEnabled)
+                {
+                    EditorGUILayout.HelpBox("The Apple visionOS XR loader is not supported when building a visionOS Windowed application. It will be " +
+                        "disabled prior to builds and then re-enabled afterward. You may need to manually re-enable the loader in XR Plugin Management " +
+                        "settings if the build fails.", MessageType.Warning);
+                }
             }
 
             serializedObject.ApplyModifiedProperties();

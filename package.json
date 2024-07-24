@@ -1,7 +1,7 @@
 {
   "name": "com.unity.xr.visionos",
   "displayName": "Apple visionOS XR Plugin",
-  "version": "2.0.0-pre.3",
+  "version": "2.0.0-pre.9",
   "unity": "6000.0",
   "unityRelease": "0b16",
   "description": "Provides support for Apple visionOS XR features. This includes build post-processing code and the following subsystem implementations:\n  - XRSessionSubsystem\n  - XRDisplaySubsystem\n  - XRInputSubsystem\n  - XRMeshSubsystem\n  - XRPlaneSubsystem\n  - XRImageTrackingSubsystem\n  - XRAnchorSubsystem\n  - XRHandSubsystem\nUnity PolySpatial and visionOS support is only available to Unity Pro, Unity Enterprise, and Unity Industry users. Learn more about these plans at unity.com/pricing.",
@@ -14,27 +14,27 @@
     "com.unity.xr.management": "4.3.3"
   },
   "_upm": {
-    "changelog": "### Added\n- VisionOSTrackingState for hand joints to provide extra data about whether or not the joint is in view.\n\n### Changed\n- Updated VR samples to support two-handed interactions.\n- Enabled shadows in URP VR sample.\n- Tracking origin mode now correctly reports to XROrigin, which will vertically reposition content. The CameraOffset transform which is usually a child of XROrigin will now have it's local Y position set to 0 for all requested tracking origin modes. Some projects may need to be updated to account for this change. **Note: XR Interaction Toolkit samples and GameObject menu presets will behave differently than they did in prior versions.**\n- Re-organize Swift app trampoline for VR mode to be more modular and share code with MR mode. This should make it easier to extend and re-configure the Xcode project to implement custom SwiftUI solutions.\n- Add a floor object to VR sample scene and tweak XR Origin and interactable transforms to be in a more sensible location.\n- Always report ARKit hand joint tracking state as `XRHandJointTrackingState.Pose`, as long as part of the hand is tracked. This exposes estimated joint poses that were previously unavailable when using the result of `ar_skeleton_joint_is_tracked` to set the joint tracking state. Estimated poses are provided even when the joint is not in view, and `ar_skeleton_joint_is_tracked` returns `false`.\n\n### Deprecated\n\n### Removed\n\n### Fixed\n- Fix compilation issues when targeting tvOS.\n- Fix compilation issues when making a non-visionOS build while visionOS is the active build target.\n- Fixed random compilation issue when targeting visionOS, removed LaunchScreen-iPhone.storyboard from xcode project output.\n- Fix VR frame timing issues.\n\n### Security"
+    "changelog": ""
   },
   "upmCi": {
-    "footprint": "58e28462adea4066f715826b4b98b5976c2e74fa"
+    "footprint": "0af6f5861806ffe6d1bab059dc2557b9930ecab9"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.xr.visionos@2.0/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/quantum.git",
     "type": "git",
-    "revision": "e659612b73e657bb1ef826490f54a5d9c996c1dc"
+    "revision": "081c19ef938e521988be5958b7b9f70ca0a5f229"
   },
   "samples": [
     {
-      "displayName": "VR Sample - Built-in",
-      "description": "A sample scene and supporting assets for the built-in render pipeline demonstrating VR features. This sample requires the XR Interaction Toolkit to be added to your project.",
-      "path": "Samples~/VRSampleBuiltin"
+      "displayName": "Metal Sample - Built-in",
+      "description": "A sample scene and supporting assets for the built-in render pipeline demonstrating Metal app mode features. This sample requires the XR Interaction Toolkit to be added to your project.",
+      "path": "Samples~/MetalSampleBuiltin"
     },
     {
-      "displayName": "VR Sample - URP",
-      "description": "A sample scene and supporting assets for the Universal Render Pipeline demonstrating VR features. This sample requires the XR Interaction Toolkit to be added to your project.",
-      "path": "Samples~/VRSampleURP"
+      "displayName": "Metal Sample - URP",
+      "description": "A sample scene and supporting assets for the Universal Render Pipeline demonstrating Metal app mode features. This sample requires the XR Interaction Toolkit to be added to your project.",
+      "path": "Samples~/MetalSampleURP"
     }
   ]
 }

@@ -26,6 +26,7 @@ namespace UnityEngine.XR.VisionOS
         static readonly List<XRPlaneSubsystemDescriptor> k_PlaneSubsystemDescriptors = new();
         static readonly List<XRImageTrackingSubsystemDescriptor> k_ImageTrackingSubsystemDescriptors = new();
         static readonly List<XRAnchorSubsystemDescriptor> k_AnchorSubsystemDescriptors = new();
+        static readonly List<XREnvironmentProbeSubsystemDescriptor> k_EnvironmentProbeSubsystemDescriptors = new();
 
 #if INCLUDE_UNITY_XR_HANDS
         static List<XRHandSubsystemDescriptor> s_HandSubsystemDescriptors = new();
@@ -62,6 +63,12 @@ namespace UnityEngine.XR.VisionOS
         /// </summary>
         public XRMeshSubsystem meshSubsystem => GetLoadedSubsystem<XRMeshSubsystem>();
 
+        /// <summary>
+        /// The [XREnvironmentProbeSubsystem](xref:UnityEngine.XR.ARSubsystems.XREnvironmentProbeSubsystem) whose lifecycle is
+        /// managed by this loader.
+        /// </summary>
+        public XREnvironmentProbeSubsystem environmentProbeSubsystem => GetLoadedSubsystem<XREnvironmentProbeSubsystem>();
+
 #if INCLUDE_UNITY_XR_HANDS
         /// <summary>
         /// The [XRHandSubsystem](xref:UnityEngine.XR.XRHandSubsystem) whose lifecycle is
@@ -87,6 +94,7 @@ namespace UnityEngine.XR.VisionOS
             CreateSubsystem<XRPlaneSubsystemDescriptor, XRPlaneSubsystem>(k_PlaneSubsystemDescriptors, VisionOSPlaneSubsystem.planeSubsystemId);
             CreateSubsystem<XRImageTrackingSubsystemDescriptor, XRImageTrackingSubsystem>(k_ImageTrackingSubsystemDescriptors, VisionOSImageTrackingSubsystem.imageTrackingSubsystemId);
             CreateSubsystem<XRAnchorSubsystemDescriptor, XRAnchorSubsystem>(k_AnchorSubsystemDescriptors, VisionOSAnchorSubsystem.anchorSubsystemId);
+            CreateSubsystem<XREnvironmentProbeSubsystemDescriptor, XREnvironmentProbeSubsystem>(k_EnvironmentProbeSubsystemDescriptors, VisionOSEnvironmentProbeSubsystem.environmentProbeSubsystemId);
 
 #if INCLUDE_UNITY_XR_HANDS
             if (VisionOSRuntimeSettings.GetOrCreate().initializeHandTrackingOnStartup)
@@ -146,6 +154,7 @@ namespace UnityEngine.XR.VisionOS
             DestroySubsystem<XRPlaneSubsystem>();
             DestroySubsystem<XRImageTrackingSubsystem>();
             DestroySubsystem<XRAnchorSubsystem>();
+            DestroySubsystem<XREnvironmentProbeSubsystem>();
 
 #if INCLUDE_UNITY_XR_HANDS
             DestroyHandSubsystem();

@@ -9,6 +9,7 @@ using Unity.Jobs;
 using UnityEditor.XR.VisionOS;
 using UnityEngine.XR.ARSubsystems;
 using UnityEngine.Assertions;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace UnityEngine.XR.VisionOS
 {
@@ -37,7 +38,8 @@ namespace UnityEngine.XR.VisionOS
 
         static IntPtr CreateImageDatabase(XRReferenceImageLibrary library)
         {
-            if (library == null)
+            // Zero case added to support dynamically loading image later.
+            if (library == null || library.count == 0)
             {
                 return NativeApi.ImageTracking.ar_reference_images_create();
             }
@@ -102,15 +104,99 @@ namespace UnityEngine.XR.VisionOS
             }
         }
 
-        /// <summary>
-        /// (Read Only) Whether image validation is supported. `True` on iOS 13 and later.
-        /// </summary>
-
-        // TODO: Does VisionOS support validation?
-        protected override JobHandle ScheduleAddImageJobImpl(NativeSlice<byte> imageBytes, Vector2Int sizeInPixels, TextureFormat format, XRReferenceImage referenceImage, JobHandle inputDeps)
+        struct AddImageJob : IJob
         {
-            // TODO: add image
-            throw new NotImplementedException();
+            public NativeSlice<byte> image;
+            public IntPtr database;
+            public int width;
+            public int height;
+            public float physicalWidth;
+            public TextureFormat format;
+            public NativeArray<byte> name;
+
+            public unsafe void Execute()
+            {
+                var byteArrayInJob = name.ToArray();
+                var nameInJob = Encoding.ASCII.GetString(byteArrayInJob);
+                NativeApi.ImageTracking.UnityVisionOS_impl_add_image(database, image.GetUnsafePtr(),
+                    format, width, height, physicalWidth, nameInJob);
+            }
+        }
+
+        struct ConvertRGBA32ToARGB32Job : IJobParallelFor
+        {
+            public NativeSlice<uint> rgbaImage;
+
+            public NativeSlice<uint> argbImage;
+
+            public void Execute(int index)
+            {
+                var rgba = rgbaImage[index];
+                argbImage[index] = (rgba << 8) | ((rgba & 0xff000000) >> 24);
+            }
+        }
+
+        static NativeArray<byte> GetImageBytesToConvert(
+            NativeSlice<byte> imageBytes, Vector2Int sizeInPixels, ref TextureFormat format, ref JobHandle inputDeps)
+        {
+            // RGBA32 is not supported by CVPixelBuffer, but ARGB32 is, so
+            // we offer a conversion for this common case.
+            if (format == TextureFormat.RGBA32)
+            {
+                var numPixels = sizeInPixels.x * sizeInPixels.y;
+                var argb32ImageBytes = new NativeArray<byte>(
+                    numPixels * 4,
+                    Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory);
+
+                inputDeps = new ConvertRGBA32ToARGB32Job
+                {
+                    rgbaImage = imageBytes.SliceConvert<uint>(),
+                    argbImage = argb32ImageBytes.Slice().SliceConvert<uint>()
+                }.Schedule(numPixels, 64, inputDeps);
+
+                // Format is now ARGB32
+                format = TextureFormat.ARGB32;
+
+                return argb32ImageBytes;
+            }
+
+            // No conversion necessary; echo back inputs
+            return default;
+        }
+
+        protected override JobHandle ScheduleAddImageJobImpl(NativeSlice<byte> imageBytes, Vector2Int sizeInPixels,
+            TextureFormat format, XRReferenceImage referenceImage, JobHandle inputDeps)
+        {
+            if (!referenceImage.specifySize)
+                throw new InvalidOperationException("ARKit requires physical dimensions for all reference images.");
+
+            // Schedules a job to convert the image bytes if necessary
+            var convertedImage = GetImageBytesToConvert(imageBytes, sizeInPixels, ref format, ref inputDeps);
+
+            var name = new NativeArray<byte>(Encoding.ASCII.GetBytes(referenceImage.name), Allocator.Persistent);
+
+            m_NameToGuid[referenceImage.name] = AsSerializedGuid(referenceImage.guid);
+            m_NameToTextureGuid[referenceImage.name] = AsSerializedGuid(referenceImage.textureGuid);
+
+            inputDeps = new AddImageJob
+            {
+                image = convertedImage.IsCreated ? new NativeSlice<byte>(convertedImage) : imageBytes,
+                database = self,
+                width = sizeInPixels.x,
+                height = sizeInPixels.y,
+                physicalWidth = referenceImage.size.x,
+                format = format,
+                name = name
+            }.Schedule(inputDeps);
+
+            // If we had to perform a conversion, then release that memory
+            if (convertedImage.IsCreated)
+            {
+                inputDeps = convertedImage.Dispose(inputDeps);
+            }
+
+            return inputDeps;
         }
 
         static readonly TextureFormat[] k_SupportedFormats =

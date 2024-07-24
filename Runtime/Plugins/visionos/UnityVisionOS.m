@@ -12,6 +12,7 @@ extern "C" {
 void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces* unityInterfaces);
 
 void ObjC_SetDisplayProviderParameters(void* parameters);
+void ObjC_SetUseParameterizedDisplayProvider(int useParameterizedProvider);
 
 #ifdef __cplusplus
 } // extern "C"
@@ -22,6 +23,8 @@ void ObjC_SetDisplayProviderParameters(void* parameters);
 + (void)loadPlugin;
 
 + (void)setDisplayProviderParameters:(NSValue*)parameters;
+
++ (void)setUseParameterizedDisplayProvider:(NSNumber*)useParameterizedProvider;
 
 @end
 
@@ -37,6 +40,11 @@ void ObjC_SetDisplayProviderParameters(void* parameters);
     DisplayProviderParameters params;
     [parameters getValue:&params size:sizeof(DisplayProviderParameters)];
     ObjC_SetDisplayProviderParameters(&params);
+}
+
++ (void)setUseParameterizedDisplayProvider:(NSNumber*)useParameterizedProvider
+{
+    ObjC_SetUseParameterizedDisplayProvider(useParameterizedProvider.intValue);
 }
 
 @end

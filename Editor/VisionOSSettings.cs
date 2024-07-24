@@ -32,6 +32,7 @@ namespace UnityEditor.XR.VisionOS
         // TODO: Update this tooltip when we support volumes and immersive spaces simultaneously. In this case, tis setting will affect volume content
         // as long as the immersive space is open. In other words, when limb visibility is disabled, and the immersive space is open, the user's hands
         // will be occluded by content in a volume even though they can see pass-through.
+        // TODO: Expose UpperLimbVisibility for Metal and RealityKit separately (should probably be in volume camera config, along with immersion style)
         const string k_UpperLimbVisibilityTooltip = "Controls how your app displays passthrough video of the user's hands and forearms. In the " +
             "Virtual Reality App Mode, hands are only shown when you enable this setting and always render on top of virtual content. In the " +
             "Mixed Reality App Mode, this setting controls how the user's hands and arms are blended with virtual objects. When enabled, hands " +
@@ -41,37 +42,96 @@ namespace UnityEditor.XR.VisionOS
         const string k_FoveatedRenderingTooltip = "Controls if foveated rendering is enabled or disabled. This setting only applies to Virtual Reality apps. " +
             "Foveated rendering requires the Universal Render Pipeline.";
 
+        const string k_MetalImmersionStyleTooltip = "The ImmersionStyle to be used for the Metal ImmersiveSpace.";
+        const string k_RealityKitImmersionStyleTooltip = "The ImmersionStyle to be used for the RealityKit ImmersiveSpace.";
+
         const string k_IL2CPPLargeExeWorkaroundTooltip = "Patches the `Unity-VisionOS` project to work around linker errors that can occur in some " +
             "large projects. Check this box if you encounter the \"ARM64 branch out of range\" error when building the project in Xcode.";
 
         const string k_RuntimeSettingsFileName = "VisionOS Runtime Settings.asset";
 
         /// <summary>
-        /// Which mode the app will use: MR or VR.
+        /// Which mode the app will use.
         /// </summary>
         public enum AppMode
         {
             /// <summary>
-            /// Virtual Reality - Full Immersive Space
+            /// Metal Rendering with Compositor Services
             /// </summary>
-            [InspectorName("Virtual Reality - Fully Immersive Space")]
-            VR,
+            [InspectorName("Metal Rendering with Compositor Services")]
+            Metal,
 
             /// <summary>
-            /// Mixed Reality - Volume or Immersive Space
+            /// RealityKit with PolySpatial
             /// </summary>
-            [InspectorName("Mixed Reality - Volume or Immersive Space")]
-            MR,
+            [InspectorName("RealityKit with PolySpatial")]
+            RealityKit,
 
             /// <summary>
             /// Windowed - 2D Window
             /// </summary>
             [InspectorName("Windowed - 2D Window")]
-            Windowed
+            Windowed,
+
+            /// <summary>
+            /// Hybrid - Switch between Metal and RealityKit
+            /// </summary>
+            [InspectorName("Hybrid - Switch between Metal and RealityKit")]
+            Hybrid,
+        }
+
+        /// <summary>
+        /// The ImmersionStyle for a given ImmersiveSpace. These enums correspond to their equivalently named Apple APIs.
+        /// Refer to Apple Developer documentation for more information.
+        /// </summary>
+        public enum ImmersionStyle
+        {
+            /// <summary>
+            /// The default immersion style. It currently defaults to Mixed.
+            /// </summary>
+            Automatic,
+
+            /// <summary>
+            /// Displays unbounded content that completely replaces passthrough.
+            /// </summary>
+            Full,
+
+            /// <summary>
+            /// Displays unbounded content mixed with passthrough.
+            /// </summary>
+            Mixed,
+
+            /// <summary>
+            /// Displays unbounded content that partially replaces passthrough.
+            /// </summary>
+            Progressive
+        }
+
+        /// <summary>
+        /// The UpperLimbVisibility for a given ImmersiveSpace. Theis enum corresponds to the Visibilty type used in SwiftUI, and can be used to control whether
+        /// the user's upper limbs (hands and forearms) are visible.
+        /// Refer to Apple Developer documentation for more information.
+        /// </summary>
+        public enum UpperLimbVisibility
+        {
+            /// <summary>
+            /// Hands and arms may be visible or hidden depending on the situation.
+            /// </summary>
+            Automatic,
+
+            /// <summary>
+            /// Hands and arms are always visible.
+            /// </summary>
+            Visible,
+
+            /// <summary>
+            /// Hands and arms are never visible in fully immersive spaces, or when overlapping with virtual content.
+            /// </summary>
+            Hidden
         }
 
         [SerializeField, Tooltip("Initial mode of the app.")]
-        AppMode m_AppMode = AppMode.VR;
+        AppMode m_AppMode = AppMode.Metal;
 
         [SerializeField, Tooltip(k_HandTrackingUsageTooltip)]
         string m_HandsTrackingUsageDescription;
@@ -114,10 +174,16 @@ namespace UnityEditor.XR.VisionOS
         }
 
         [SerializeField, Tooltip(k_UpperLimbVisibilityTooltip)]
-        bool m_UpperLimbVisibility;
+        UpperLimbVisibility m_UpperLimbVisibility;
 
         [SerializeField, Tooltip(k_FoveatedRenderingTooltip)]
         bool m_FoveatedRendering = true;
+
+        [SerializeField, Tooltip(k_MetalImmersionStyleTooltip)]
+        ImmersionStyle m_MetalImmersionStyle;
+
+        [SerializeField, Tooltip(k_RealityKitImmersionStyleTooltip)]
+        ImmersionStyle m_RealityKitImmersionStyle;
 
         [SerializeField, Tooltip(k_IL2CPPLargeExeWorkaroundTooltip)]
         bool m_IL2CPPLargeExeWorkaround;
@@ -152,7 +218,7 @@ namespace UnityEditor.XR.VisionOS
         /// <summary>
         /// Upper limb visibility setting (currently only set at the beginning of an app)
         /// </summary>
-        public bool upperLimbVisibility
+        public UpperLimbVisibility upperLimbVisibility
         {
             get => m_UpperLimbVisibility;
             set => m_UpperLimbVisibility = value;
@@ -166,6 +232,24 @@ namespace UnityEditor.XR.VisionOS
         {
             get => m_FoveatedRendering;
             set => m_FoveatedRendering = value;
+        }
+
+        /// <summary>
+        /// The ImmersionStyle to be used for the Metal ImmersiveSpace.
+        /// </summary>
+        public ImmersionStyle metalImmersionStyle
+        {
+            get => m_MetalImmersionStyle;
+            set => m_MetalImmersionStyle = value;
+        }
+
+        /// <summary>
+        /// The ImmersionStyle to be used for the RealityKit ImmersiveSpace.
+        /// </summary>
+        public ImmersionStyle realityKitImmersionStyle
+        {
+            get => m_RealityKitImmersionStyle;
+            set => m_RealityKitImmersionStyle = value;
         }
 
         /// <summary>
@@ -250,6 +334,38 @@ namespace UnityEditor.XR.VisionOS
             }
 
             return parentFolder;
+        }
+
+        public static string UpperLimbVisibilityToString(UpperLimbVisibility upperLimbVisibility)
+        {
+            switch (upperLimbVisibility)
+            {
+                case UpperLimbVisibility.Automatic:
+                    return ".automatic";
+                case UpperLimbVisibility.Visible:
+                    return ".visible";
+                case UpperLimbVisibility.Hidden:
+                    return ".hidden";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(upperLimbVisibility), upperLimbVisibility, null);
+            }
+        }
+
+        public static string ImmersionStyleToString(ImmersionStyle immersionStyle)
+        {
+            switch (immersionStyle)
+            {
+                case ImmersionStyle.Automatic:
+                    return ".automatic";
+                case ImmersionStyle.Full:
+                    return ".full";
+                case ImmersionStyle.Mixed:
+                    return ".mixed";
+                case ImmersionStyle.Progressive:
+                    return ".progressive";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(immersionStyle), immersionStyle, null);
+            }
         }
     }
 }

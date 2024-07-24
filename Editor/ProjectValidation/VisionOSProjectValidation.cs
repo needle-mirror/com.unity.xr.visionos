@@ -16,8 +16,8 @@ namespace UnityEditor.XR.VisionOS
     static class VisionOSProjectValidation
     {
         const string k_CategoryFormat = "VisionOS - {0}";
-        const string k_ARSessionMessageVR = "An ARSession component is required to be active in the scene.";
-        const string k_ARSessionMessageMR = "An ARSession component is required to be active in the scene to provide access to ARKit features.";
+        const string k_ARSessionMessageMetal = "An ARSession component is required to be active in the scene.";
+        const string k_ARSessionMessageRealityKit = "An ARSession component is required to be active in the scene to provide access to ARKit features.";
         const string k_RendererDataListPropertyName = "m_RendererDataList";
         const string k_CopyDepthModePropertyName = "m_CopyDepthMode";
 
@@ -40,7 +40,7 @@ namespace UnityEditor.XR.VisionOS
 
                 new ()
                 {
-                    Message = k_ARSessionMessageVR,
+                    Message = k_ARSessionMessageMetal,
                     Category = string.Format(k_CategoryFormat, "ARSession"),
                     Error = true,
                     CheckPredicate = () =>
@@ -48,9 +48,9 @@ namespace UnityEditor.XR.VisionOS
                         var thisRule = k_Rules?[1];
                         if (thisRule != null)
                         {
-                            var isVR = CheckAppMode(VisionOSSettings.AppMode.VR);
-                            thisRule.Error = isVR;
-                            thisRule.Message = isVR ? k_ARSessionMessageVR : k_ARSessionMessageMR;
+                            var isMetal = CheckAppMode(VisionOSSettings.AppMode.Metal);
+                            thisRule.Error = isMetal;
+                            thisRule.Message = isMetal ? k_ARSessionMessageMetal : k_ARSessionMessageRealityKit;
                         }
 
                         return UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include) != null;
@@ -83,18 +83,8 @@ namespace UnityEditor.XR.VisionOS
                         if (settings == null)
                             return false;
 
-                        return settings.appMode == VisionOSSettings.AppMode.VR && !VisionOSEditorUtils.IsLoaderEnabled();
+                        return settings.appMode == VisionOSSettings.AppMode.Metal && !VisionOSEditorUtils.IsLoaderEnabled();
                     }
-                },
-
-                new ()
-                {
-                    Message = "An ARInputManager component is required to be active in the scene.",
-                    Category = string.Format(k_CategoryFormat, "ARInputManager"),
-                    Error = true,
-                    CheckPredicate = () => UnityObject.FindAnyObjectByType<ARInputManager>(FindObjectsInactive.Include) != null,
-                    FixIt = CreateARInputManager,
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
                 },
 #if UNITY_HAS_URP
                 new ()
@@ -104,16 +94,16 @@ namespace UnityEditor.XR.VisionOS
                     Error = true,
                     CheckPredicate = IsCamerasDepthTextureDisabled,
                     FixIt = SetCamerasDepthTextureToEnabled,
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal()
                 },
                 new ()
                 {
-                    Message = "After Opaques is the only supported Depth Texture Mode for visionOS VR applications.",
+                    Message = "After Opaques is the only supported Depth Texture Mode for visionOS Metal applications.",
                     Category = string.Format(k_CategoryFormat, "DepthTextureMode"),
                     Error = true,
                     CheckPredicate = IsDepthTextureModeNotAfterOpaques,
                     FixIt = SetDepthTextureModeToAfterOpaques,
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal()
                 },
 #endif
 
@@ -182,6 +172,17 @@ namespace UnityEditor.XR.VisionOS
             return GetEditorSettings(out var editorSettings) && editorSettings.appMode == mode;
         }
 
+        static bool AppModeSupportsMetal()
+        {
+            if (GetEditorSettings(out var editorSettings))
+            {
+                var appMode = editorSettings.appMode;
+                return appMode is VisionOSSettings.AppMode.Metal or VisionOSSettings.AppMode.Hybrid;
+            }
+
+            return false;
+        }
+
         static bool GetEditorSettings(out VisionOSSettings editorSettings)
         {
             editorSettings = VisionOSSettings.currentSettings;
@@ -206,12 +207,6 @@ namespace UnityEditor.XR.VisionOS
             newARSession.AddComponent<ARSession>();
             Undo.RegisterCreatedObjectUndo(newARSession, "Create AR Session");
             return newARSession;
-        }
-
-        static void CreateARInputManager()
-        {
-            var arSession = CreateARSession();
-            Undo.AddComponent(arSession, typeof(ARInputManager));
         }
 
 #if UNITY_HAS_URP

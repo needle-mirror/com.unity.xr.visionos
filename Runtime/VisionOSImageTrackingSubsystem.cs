@@ -16,6 +16,7 @@ namespace UnityEngine.XR.VisionOS
     public sealed class VisionOSImageTrackingSubsystem : XRImageTrackingSubsystem
     {
         internal const string imageTrackingSubsystemId = "VisionOS-ImageTracking";
+
         const Feature k_ImageTrackingFeature = Feature.ImageTracking;
 
         class VisionOSImageTrackingProvider : Provider, IVisionOSProvider
@@ -45,16 +46,20 @@ namespace UnityEngine.XR.VisionOS
             public VisionOSImageTrackingProvider()
             {
                 s_Instance = this;
+            }
+
+            public override void Start()
+            {
                 VisionOSProviderRegistration.RegisterProvider(k_ImageTrackingFeature, this);
             }
 
-            public override void Start() { }
-
-            public override void Stop() { }
+            public override void Stop()
+            {
+                VisionOSProviderRegistration.UnregisterProvider(k_ImageTrackingFeature, this);
+            }
 
             public override void Destroy()
             {
-                VisionOSProviderRegistration.UnregisterProvider(k_ImageTrackingFeature, this);
                 m_AddedImages.Dispose();
                 m_UpdatedImages.Dispose();
                 m_RemovedImages.Dispose();
@@ -72,12 +77,22 @@ namespace UnityEngine.XR.VisionOS
                     return false;
                 }
 
-                // TODO: Warn about starting with no reference images?
-                // Configuration may have already been created by imageLibrary setter, otherwise no library is selected, so use an empty configuration
+                if (m_ImageDatabase == null || NativeApi.ImageTracking.ar_reference_images_get_count(m_ImageDatabase.self) < 1)
+                {
+                    provider = IntPtr.Zero;
+                    return false;
+                }
+
+                // Configuration may have already been created by imageLibrary setter, otherwise no library is selected
                 if (m_ImageTrackingConfiguration == IntPtr.Zero)
-                    m_ImageTrackingConfiguration = NativeApi.ImageTracking.ar_image_tracking_configuration_create();
+                {
+                    Debug.LogWarning("Image tracking configuration is null.");
+                }
+
+                NativeApi.ImageTracking.ar_image_tracking_configuration_add_reference_images(m_ImageTrackingConfiguration, m_ImageDatabase.self);
 
                 provider = NativeApi.ImageTracking.ar_image_tracking_provider_create(m_ImageTrackingConfiguration);
+
                 CurrentProvider = provider;
                 if (provider == IntPtr.Zero)
                 {
@@ -198,9 +213,7 @@ namespace UnityEngine.XR.VisionOS
                     {
                         m_ImageDatabase = database;
 
-                        // TODO: Is it possible to remove images without creating a new configuration?
                         m_ImageTrackingConfiguration = NativeApi.ImageTracking.ar_image_tracking_configuration_create();
-                        NativeApi.ImageTracking.ar_image_tracking_configuration_add_reference_images(m_ImageTrackingConfiguration, database.self);
 
                         // Restart session with new provider if one exists, otherwise assume subsystem is not started, and we will create one with the correct configuration at start
                         if (CurrentProvider != IntPtr.Zero)
@@ -231,7 +244,7 @@ namespace UnityEngine.XR.VisionOS
                         m_AddedImages.GetUnsafePtr(), m_TempAddedImages.Count,
                         m_UpdatedImages.GetUnsafePtr(), m_TempUpdatedImages.Count,
                         m_RemovedImages.GetUnsafePtr(), m_TempRemovedImages.Count,
-                        defaultTrackedImage, sizeof(BoundedPlane), allocator);
+                        defaultTrackedImage, sizeof(XRTrackedImage), allocator);
 
                     return changes;
                 }

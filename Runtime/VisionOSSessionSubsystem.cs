@@ -54,9 +54,10 @@ namespace UnityEngine.XR.VisionOS
 
             public static VisionOSSessionProvider Instance { get; private set; }
 
-            readonly IntPtr m_ARSession;
+            IntPtr m_ARSession = IntPtr.Zero;
             GCHandle m_NativeSessionHandle;
-            IntPtr m_ProviderCollection;
+            IntPtr m_ProviderCollection = IntPtr.Zero;
+            IntPtr m_NativePtr = IntPtr.Zero;
 
             bool m_ProviderStateCallbackReceived;
             float m_StartTime = Mathf.Infinity;
@@ -75,11 +76,15 @@ namespace UnityEngine.XR.VisionOS
 
             public override Feature requestedFeatures => m_RequestedFeatures;
 
-            public override IntPtr nativePtr { get; } = IntPtr.Zero;
+            public override IntPtr nativePtr => m_NativePtr;
 
             public VisionOSSessionProvider()
             {
                 Instance = this;
+            }
+
+            public override void Start()
+            {
                 m_ARSession = NativeApi.Session.ar_session_create();
                 var nativeSession = new XRNativeSession
                 {
@@ -88,19 +93,16 @@ namespace UnityEngine.XR.VisionOS
                 };
 
                 m_NativeSessionHandle = GCHandle.Alloc(nativeSession, GCHandleType.Pinned);
-                nativePtr = GCHandle.ToIntPtr(m_NativeSessionHandle);
+                m_NativePtr = GCHandle.ToIntPtr(m_NativeSessionHandle);
 
                 NativeApi.Session.UnityVisionOS_impl_ar_session_set_data_provider_state_change_handler(m_ARSession, k_DataProviderStateChangeHandler);
                 NativeApi.Session.UnityVisionOS_impl_ar_session_set_authorization_update_handler(m_ARSession, k_AuthorizationUpdateHandler);
 
-                VisionOSProviderRegistration.RegisterProvider(k_MeshingFeature, m_MeshProvider);
-                VisionOSProviderRegistration.RegisterProvider(k_WorldTrackingFeature, m_WorldTrackingProvider);
-            }
-
-            public override void Start()
-            {
                 m_StartTime = Time.realtimeSinceStartup;
                 m_TimeoutWarningRaised = false;
+
+                VisionOSProviderRegistration.RegisterProvider(k_MeshingFeature, m_MeshProvider);
+                VisionOSProviderRegistration.RegisterProvider(k_WorldTrackingFeature, m_WorldTrackingProvider);
             }
 
             public override void Update(XRSessionUpdateParams updateParams, Configuration configuration)
@@ -223,20 +225,31 @@ namespace UnityEngine.XR.VisionOS
             {
                 m_ProviderStateCallbackReceived = false;
                 NativeApi.Session.ar_session_stop(m_ARSession);
+                VisionOSProviderRegistration.UnregisterProvider(k_MeshingFeature, m_MeshProvider);
+                VisionOSProviderRegistration.UnregisterProvider(k_WorldTrackingFeature, m_WorldTrackingProvider);
                 m_CurrentConfiguration = null;
+                m_ARSession = IntPtr.Zero;
+                m_NativePtr = IntPtr.Zero;
+                m_ProviderCollection = IntPtr.Zero;
+                m_NativeSessionHandle.Free();
             }
 
             public override void Destroy()
             {
-                m_NativeSessionHandle.Free();
             }
 
             public override void OnApplicationResume()
             {
-                if (m_ProviderStateCallbackReceived)
+                if (m_ProviderStateCallbackReceived && m_ARSession != IntPtr.Zero)
                 {
                     // Restart session, which was paused by the system
                     Debug.Log("Resuming AR session after pause.");
+                    if (m_ProviderCollection == IntPtr.Zero)
+                    {
+                        Debug.LogError("Provider collection is null while m_ARSession is not.");
+                        return;
+                    }
+
                     NativeApi.Session.ar_session_run(m_ARSession, m_ProviderCollection);
                 }
             }
@@ -317,6 +330,10 @@ namespace UnityEngine.XR.VisionOS
                 var resultType = NativeApi.Authorization.ar_authorization_result_get_authorization_type(authorizationResult);
                 var resultStatus = NativeApi.Authorization.ar_authorization_result_get_status(authorizationResult);
                 Debug.Log($"AR authorization result - Type: {resultType} Status: {resultStatus}");
+
+                // Note: We assume here that our public enums for authorization type and status are value-equal to the native APIs, so we can just cast here.
+                // If this changes, we will need methods to convert between divergent values.
+                VisionOS.OnAuthorizationChanged((VisionOSAuthorizationType)resultType, (VisionOSAuthorizationStatus)resultStatus);
 
                 switch (resultStatus)
                 {
@@ -420,6 +437,23 @@ namespace UnityEngine.XR.VisionOS
             public void SetSceneReconstructionMode(AR_Scene_Reconstruction_Mode mode)
             {
                 m_SceneReconstructionMode = mode;
+            }
+
+            public static VisionOSAuthorizationStatus QueryAuthorizationStatus(VisionOSAuthorizationType type)
+            {
+                if (Instance == null)
+                    return VisionOSAuthorizationStatus.NotDetermined;
+
+                // Note: We assume here that our public enums for authorization type and status are value-equal to the native APIs, so we can just cast here.
+                // If this changes, we will need methods to convert between divergent values.
+                var nativeType = (AR_Authorization_Type)type;
+                if ((Instance.m_AllowedAuthorizations & nativeType) != 0)
+                    return VisionOSAuthorizationStatus.Allowed;
+
+                if ((Instance.m_DeniedAuthorizations & nativeType) != 0)
+                    return VisionOSAuthorizationStatus.Denied;
+
+                return VisionOSAuthorizationStatus.NotDetermined;
             }
         }
 

@@ -1,0 +1,4 @@
+{
+    "displayName": "Metal Sample - Built-in",
+    "description": "A sample scene and supporting assets for the built-in render pipeline demonstrating Metal app mode features. This sample requires the XR Interaction Toolkit to be added to your project."
+}
