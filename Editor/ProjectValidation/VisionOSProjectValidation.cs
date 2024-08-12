@@ -162,6 +162,31 @@ namespace UnityEditor.XR.VisionOS
                     CheckPredicate = () => !PlayerSettings.SplashScreen.show,
                     FixIt = () => PlayerSettings.SplashScreen.show = false
                 },
+#if UNITY_6000_0_11_OR_NEWER
+                new ()
+                {
+                    Message = "The Skip Present to Main Screen setting strongly recommended on Unity 6000.0.11f1 or newer. Apps configured for Metal rendering " +
+                        "will have frame pacing issues if it is not enabled.",
+                    FixItMessage = "Enable Skip Present to Main Screen",
+                    Category = string.Format(k_CategoryFormat, "Skip Present to Main Screen"),
+                    Error = true,
+                    CheckPredicate = () => VisionOSSettings.currentSettings.skipPresentToMainScreen,
+                    FixIt = () => VisionOSSettings.currentSettings.skipPresentToMainScreen = true,
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal()
+                },
+#else
+                new ()
+                {
+                    Message = "The Skip Present to Main Screen setting is only intended to be used on Unity 6000.0.11f1 or newer. Using it results in leaked " +
+                        "GPU resources in earlier Unity versions.",
+                    FixItMessage = "Disable Skip Present to Main Screen",
+                    Category = string.Format(k_CategoryFormat, "Skip Present to Main Screen"),
+                    Error = true,
+                    CheckPredicate = () => !VisionOSSettings.currentSettings.skipPresentToMainScreen,
+                    FixIt = () => VisionOSSettings.currentSettings.skipPresentToMainScreen = false,
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal()
+                },
+#endif
             };
 
             BuildValidator.AddRules(k_VisionOSBuildTarget, k_Rules);

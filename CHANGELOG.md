@@ -7,16 +7,36 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-pre.11] - 2024-08-12
+
+### Added
+- Exposed `SkipPresentToMainScreen` setting in `VisionOSSettings`. This will be enabled by default, along with a Project Validation rule to encourage its use, on Unity 6000.0.11f1, which includes fixes for this mode. This version of Unity fixes frame pacing issues for visionOS apps using Metal rendering, along with a GPU resource leak related to this setting.
+- Added `VisionOS.SetMinimumFrameRepeatCount` API to enable content that can't hit 90hz to ask for more time to render each frame.
+- Added Initial Target Frame Rate runtime setting which sets `Application.targetFrameRate` and `VisionOS.SetMinimumFrameRepeatCount` at start-up based on the selected option.
+- Added more details to Metal App Mode documentation page, including how to set up pass-through in Metal-based apps. 
+
+### Changed
+- Use new `cp_frame_binocular_frustum_matrix` API to query a proper culling matrix from the system. 2.0.0-pre.9 used a hard-coded 150-degree FOV to ensure nothing was culled prematurely, but may have regressed performance due to more objects being considered "in-view" than was necessary.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Wrap all MonoPInvokeCallback methods in try/catch to avoid potential crashes in player builds.
+- Fixed potential exceptions in OnAuthorizationChanged that can happen if the original call was made off the main thread.
+- Fixed an issue where the app can crash if the AR Session is restarted when rendering with Metal. This may also fix other Metal rendering crashes accompanied by error logs that start with `BUG IN CLIENT:`.
+- Fixed an issue where visionOS player builds can crash when trying to collect crash logs.
+
+### Security
+
 ## [2.0.0-pre.9] - 2024-07-24
-
-## [2.0.0-pre.7] - 2024-07-02
-
-## [2.0.0-pre.6] - 2024-06-28
 
 ### Added
 - Added `VisionOS.AuthorizationChanged` and `VisionOS.QueryAuthorizationStatus` APIs to enable user code to query and respond to changes in AR authorizations like Hand Tracking and World Sensing.
 
 ### Changed
+- The visionOS ARKit plugin now uses a separate AR Session for each data provider. This means that individual systems like Hand Tacking can be started and stopped without interrupting others, like Head Tracking.
 
 ### Deprecated
 

@@ -5,6 +5,8 @@ using UnityEngine.XR.ARSubsystems;
 
 namespace UnityEngine.XR.VisionOS
 {
+    using SessionProvider = VisionOSSessionSubsystem.VisionOSSessionProvider;
+
     class VisionOSWorldTrackingProvider : IVisionOSProvider
     {
         internal static VisionOSWorldTrackingProvider Instance { get; private set; }
@@ -17,29 +19,49 @@ namespace UnityEngine.XR.VisionOS
 
         public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
 
+        IntPtr m_ARSession = IntPtr.Zero;
+
         public VisionOSWorldTrackingProvider()
         {
             Instance = this;
         }
 
-        public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
+        public bool TryStartNativeSession(Feature features)
         {
             if (!IsSupported)
             {
                 Debug.LogWarning("World tracking provider is not supported.");
-                provider = IntPtr.Zero;
                 return false;
             }
 
-            provider = CreateWorldTrackingProvider();
-            CurrentProvider = provider;
-            OnCreated?.Invoke(provider);
-            if (provider == IntPtr.Zero)
+            // Early-out if provider is already running
+            if (m_ARSession != IntPtr.Zero)
+                return true;
+
+            CurrentProvider = CreateWorldTrackingProvider();
+            OnCreated?.Invoke(CurrentProvider);
+            if (CurrentProvider == IntPtr.Zero)
             {
                 Debug.LogWarning("Failed to create world tracking provider.");
                 return false;
             }
 
+            Debug.Log("Starting world tracking provider.");
+            m_ARSession = SessionProvider.StartProviderSession(CurrentProvider);
+            return true;
+        }
+
+        public bool TryStopNativeSession()
+        {
+            // Early-out if provider has not been started
+            if (m_ARSession == IntPtr.Zero)
+                return false;
+
+            Debug.Log("Stopping world tracking provider.");
+            NativeApi.Session.ar_session_stop(m_ARSession);
+
+            m_ARSession = IntPtr.Zero;
+            CurrentProvider = IntPtr.Zero;
             return true;
         }
 

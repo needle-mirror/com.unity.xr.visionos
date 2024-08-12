@@ -257,18 +257,24 @@ namespace UnityEditor.XR.VisionOS
 
             static string GetSettingsString()
             {
-                const string format = "import SwiftUI\n\nvar VisionOSEnableFoveation = {0}\nvar VisionOSUpperLimbVisibility: Visibility = {1}\nvar VisionOSImmersionStyle: ImmersionStyle = {2}";
-
+                var settings = VisionOSSettings.currentSettings;
                 var enableFoveation = "false";
 #if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
                 var hasUrpAsset = UniversalRenderPipeline.asset != null;
-                if (VisionOSSettings.currentSettings.foveatedRendering && PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device && hasUrpAsset)
+                if (settings.foveatedRendering && PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device && hasUrpAsset)
                     enableFoveation = "true";
 #endif
 
-                var upperLimbVisibility = VisionOSSettings.UpperLimbVisibilityToString(VisionOSSettings.currentSettings.upperLimbVisibility);
-                var immersionStyle = VisionOSSettings.ImmersionStyleToString(VisionOSSettings.currentSettings.metalImmersionStyle);
-                return string.Format(format, enableFoveation, upperLimbVisibility, immersionStyle);
+                var upperLimbVisibility = VisionOSSettings.UpperLimbVisibilityToString(settings.upperLimbVisibility);
+                var immersionStyle = VisionOSSettings.ImmersionStyleToString(settings.metalImmersionStyle);
+                var skipPresent = settings.skipPresentToMainScreen ? "true" : "false";
+                return $@"import SwiftUI
+
+var VisionOSEnableFoveation = {enableFoveation}
+var VisionOSUpperLimbVisibility: Visibility = {upperLimbVisibility}
+var VisionOSImmersionStyle: ImmersionStyle = {immersionStyle}
+var VisionOSSkipPresent = {skipPresent}
+";
             }
         }
     }

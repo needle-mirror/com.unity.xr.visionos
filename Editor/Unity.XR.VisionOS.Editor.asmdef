@@ -50,6 +50,11 @@
             "name": "com.unity.xr.hands",
             "expression": "1.0.0-pre.1",
             "define": "INCLUDE_UNITY_XR_HANDS"
+        },
+        {
+            "name": "Unity",
+            "expression": "6000.0.11f1",
+            "define": "UNITY_6000_0_11_OR_NEWER"
         }
     ],
     "noEngineReferences": false

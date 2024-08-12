@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using AOT;
 using Unity.Collections;
@@ -27,10 +28,15 @@ namespace UnityEngine.XR.VisionOS
             }
             // ReSharper restore NotAccessedField.Local
 
+            struct AuthorizationUpdate
+            {
+                public VisionOSAuthorizationType type;
+                public VisionOSAuthorizationStatus status;
+            }
+
             // ReSharper disable once InconsistentNaming
             const int kUnityXRNativeSessionVersion = 1;
 
-            // TODO: How to get back to instance from callbacks?
             // TODO: How to connect subsystems together without singleton?
             static readonly NativeApi.Session.AR_Session_Data_Provider_State_Change_Handler k_DataProviderStateChangeHandler = DataProviderStateChangeHandler;
             static readonly NativeApi.Session.AR_Authorization_Update_Handler k_AuthorizationUpdateHandler = AuthorizationUpdateHandler;
@@ -56,7 +62,6 @@ namespace UnityEngine.XR.VisionOS
 
             IntPtr m_ARSession = IntPtr.Zero;
             GCHandle m_NativeSessionHandle;
-            IntPtr m_ProviderCollection = IntPtr.Zero;
             IntPtr m_NativePtr = IntPtr.Zero;
 
             bool m_ProviderStateCallbackReceived;
@@ -70,6 +75,8 @@ namespace UnityEngine.XR.VisionOS
             AR_Authorization_Type m_AllowedAuthorizations = AR_Authorization_Type.None;
             AR_Authorization_Type m_DeniedAuthorizations = AR_Authorization_Type.None;
             AR_Authorization_Type m_RequestedAuthorizations = AR_Authorization_Type.None;
+
+            readonly ConcurrentQueue<AuthorizationUpdate> m_AuthorizationUpdates = new();
 
             readonly VisionOSMeshProvider m_MeshProvider = new();
             readonly VisionOSWorldTrackingProvider m_WorldTrackingProvider = new();
@@ -109,6 +116,8 @@ namespace UnityEngine.XR.VisionOS
             {
                 s_LastUpdateTime = Time.realtimeSinceStartup;
 
+                DispatchAuthorizationUpdates();
+
                 // Check if authorization needs to be requested
                 if (!CheckAuthorization())
                     return;
@@ -136,43 +145,25 @@ namespace UnityEngine.XR.VisionOS
                 m_ProviderStateCallbackReceived = true;
 #endif
 
-                if (m_CurrentConfiguration.HasValue)
-                    NativeApi.Session.ar_session_stop(m_ARSession);
-
                 var features = configuration.features;
-                m_ProviderCollection = NativeApi.DataProvider.ar_data_providers_create();
-                foreach (var kvp in VisionOSProviderRegistration.EnumerateProviders())
-                {
-                    // Do not attempt to create provider if not supported
-                    var provider = kvp.Value;
-                    if (!provider.IsSupported)
-                        continue;
-
-                    // Do not create provider if feature is not requested
-                    var feature = kvp.Key;
-                    if ((feature & features) == 0)
-                        continue;
-
-                    // Do not create provider if authorization is not allowed
-                    var requiredAuthorization = provider.RequiredAuthorizationType;
-                    var hasRequiredAuthorization = requiredAuthorization != AR_Authorization_Type.None;
-                    if (hasRequiredAuthorization && (m_AllowedAuthorizations & requiredAuthorization) == 0)
-                        continue;
-
-                    if (!provider.TryCreateNativeProvider(features, out var providerPointer))
-                    {
-                        Debug.LogError($"Failed to create provider for {feature}");
-                        continue;
-                    }
-
-                    Debug.Log($"Adding AR data provider for feature {feature}");
-                    NativeApi.DataProvider.ar_data_providers_add_data_provider(m_ProviderCollection, providerPointer);
-                }
-
+                TryStartProviders(features);
                 m_CurrentConfiguration = configuration;
+            }
 
-                Debug.Log("Running AR session.");
-                NativeApi.Session.ar_session_run(m_ARSession, m_ProviderCollection);
+            void DispatchAuthorizationUpdates()
+            {
+                while (m_AuthorizationUpdates.TryDequeue(out var update))
+                {
+                    // OnAuthorizationChanged will call into user code; catch any exceptions to prevent disrupting other updates
+                    try
+                    {
+                        VisionOS.OnAuthorizationChanged(update.type, update.status);
+                    }
+                    catch (Exception exception)
+                    {
+                        Debug.LogException(exception);
+                    }
+                }
             }
 
             void CalculateFeaturesAndAuthorizations()
@@ -224,13 +215,16 @@ namespace UnityEngine.XR.VisionOS
             public override void Stop()
             {
                 m_ProviderStateCallbackReceived = false;
-                NativeApi.Session.ar_session_stop(m_ARSession);
+                foreach (var kvp in VisionOSProviderRegistration.EnumerateProviders())
+                {
+                    kvp.Value.TryStopNativeSession();
+                }
+
                 VisionOSProviderRegistration.UnregisterProvider(k_MeshingFeature, m_MeshProvider);
                 VisionOSProviderRegistration.UnregisterProvider(k_WorldTrackingFeature, m_WorldTrackingProvider);
                 m_CurrentConfiguration = null;
                 m_ARSession = IntPtr.Zero;
                 m_NativePtr = IntPtr.Zero;
-                m_ProviderCollection = IntPtr.Zero;
                 m_NativeSessionHandle.Free();
             }
 
@@ -240,17 +234,40 @@ namespace UnityEngine.XR.VisionOS
 
             public override void OnApplicationResume()
             {
-                if (m_ProviderStateCallbackReceived && m_ARSession != IntPtr.Zero)
+                if (m_ProviderStateCallbackReceived && m_CurrentConfiguration.HasValue)
                 {
-                    // Restart session, which was paused by the system
-                    Debug.Log("Resuming AR session after pause.");
-                    if (m_ProviderCollection == IntPtr.Zero)
+                    // Restart data providers, which have been paused by the system
+                    TryStartProviders(m_CurrentConfiguration.Value.features);
+                }
+            }
+
+            void TryStartProviders(Feature features)
+            {
+                foreach (var kvp in VisionOSProviderRegistration.EnumerateProviders())
+                {
+                    // Do not attempt to create provider if not supported
+                    var provider = kvp.Value;
+                    if (!provider.IsSupported)
+                        continue;
+
+                    // Try to stop and skip provider if feature is not requested
+                    var feature = kvp.Key;
+                    if ((feature & features) == 0)
                     {
-                        Debug.LogError("Provider collection is null while m_ARSession is not.");
-                        return;
+                        provider.TryStopNativeSession();
+                        continue;
                     }
 
-                    NativeApi.Session.ar_session_run(m_ARSession, m_ProviderCollection);
+                    // Do not create provider if authorization is not allowed
+                    var requiredAuthorization = provider.RequiredAuthorizationType;
+                    var hasRequiredAuthorization = requiredAuthorization != AR_Authorization_Type.None;
+                    if (hasRequiredAuthorization && (m_AllowedAuthorizations & requiredAuthorization) == 0)
+                        continue;
+
+                    if (!provider.TryStartNativeSession(features))
+                    {
+                        Debug.LogError($"Failed to start provider for {feature}");
+                    }
                 }
             }
 
@@ -278,33 +295,41 @@ namespace UnityEngine.XR.VisionOS
             [MonoPInvokeCallback(typeof(NativeApi.Session.AR_Session_Data_Provider_State_Change_Handler))]
             static void DataProviderStateChangeHandler(IntPtr data_providers, AR_Data_Provider_State new_state, IntPtr error, IntPtr failed_data_provider)
             {
-                if (failed_data_provider != IntPtr.Zero || error != IntPtr.Zero)
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
                 {
-                    var failedProviderFeature = Feature.None;
-                    foreach (var kvp in VisionOSProviderRegistration.EnumerateProviders())
+                    if (failed_data_provider != IntPtr.Zero || error != IntPtr.Zero)
                     {
-                        if (kvp.Value.CurrentProvider == failed_data_provider)
+                        var failedProviderFeature = Feature.None;
+                        foreach (var kvp in VisionOSProviderRegistration.EnumerateProviders())
                         {
-                            failedProviderFeature = kvp.Key;
-                            break;
+                            if (kvp.Value.CurrentProvider == failed_data_provider)
+                            {
+                                failedProviderFeature = kvp.Key;
+                                break;
+                            }
                         }
+
+                        var errorCodeString = "Unknown";
+                        if (error != IntPtr.Zero)
+                        {
+                            var errorCode = (AR_Session_Error_Code)NativeApi.Error.ar_error_get_error_code(error);
+                            errorCodeString = errorCode.ToString();
+                        }
+
+                        var failedProviderName = failedProviderFeature == Feature.None ? "Unknown" : failedProviderFeature.ToString();
+                        Debug.LogError($"Error in AR data provider state change handler. Error: {errorCodeString}, Failed provider: {failedProviderName}.");
+                        return;
                     }
 
-                    var errorCodeString = "Unknown";
-                    if (error != IntPtr.Zero)
-                    {
-                        var errorCode = (AR_Session_Error_Code)NativeApi.Error.ar_error_get_error_code(error);
-                        errorCodeString = errorCode.ToString();
-                    }
+                    Debug.Log($"AR data provider state changed. New state is {new_state}.");
 
-                    var failedProviderName = failedProviderFeature == Feature.None ? "Unknown" : failedProviderFeature.ToString();
-                    Debug.LogError($"Error in AR data provider state change handler. Error: {errorCodeString}, Failed provider: {failedProviderName}.");
-                    return;
+                    Instance.m_ProviderStateCallbackReceived = true;
                 }
-
-                Debug.Log($"AR data provider state changed. New state is {new_state}.");
-
-                Instance.m_ProviderStateCallbackReceived = true;
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
             }
 
             // ReSharper restore InconsistentNaming
@@ -312,17 +337,25 @@ namespace UnityEngine.XR.VisionOS
             [MonoPInvokeCallback(typeof(NativeApi.Session.AR_Authorization_Update_Handler))]
             static void AuthorizationUpdateHandler(IntPtr authorizationResult)
             {
-                if (Instance == null)
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
                 {
-                    Debug.LogError("Received AR authorization update without a provider instance.");
-                    return;
+                    if (Instance == null)
+                    {
+                        Debug.LogError("Received AR authorization update without a provider instance.");
+                        return;
+                    }
+
+                    Debug.Log("Received AR authorization update");
+
+                    // Assume authorization has changed, and data providers will be stopped
+                    Instance.RequestRestart();
+                    Instance.ProcessAuthorizationResult(authorizationResult);
                 }
-
-                Debug.Log("Received AR authorization update");
-
-                // Assume authorization has changed, and data providers will be stopped
-                Instance.RequestRestart();
-                Instance.ProcessAuthorizationResult(authorizationResult);
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
             }
 
             void ProcessAuthorizationResult(IntPtr authorizationResult)
@@ -333,7 +366,12 @@ namespace UnityEngine.XR.VisionOS
 
                 // Note: We assume here that our public enums for authorization type and status are value-equal to the native APIs, so we can just cast here.
                 // If this changes, we will need methods to convert between divergent values.
-                VisionOS.OnAuthorizationChanged((VisionOSAuthorizationType)resultType, (VisionOSAuthorizationStatus)resultStatus);
+                // This method can be called from threads that are not the main thread, so queue this result to be dispatched on the main thread in Update
+                m_AuthorizationUpdates.Enqueue(new AuthorizationUpdate
+                {
+                    type = (VisionOSAuthorizationType)resultType,
+                    status = (VisionOSAuthorizationStatus)resultStatus
+                });
 
                 switch (resultStatus)
                 {
@@ -355,28 +393,44 @@ namespace UnityEngine.XR.VisionOS
             [MonoPInvokeCallback(typeof(NativeApi.Session.AR_Authorization_Results_Handler))]
             static void QueryAuthorizationResultsHandler(IntPtr authorizationResults, IntPtr error)
             {
-                if (error != IntPtr.Zero)
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
                 {
-                    var errorCode = NativeApi.Error.ar_error_get_error_code(error);
-                    Debug.LogError($"Error trying to query AR authorization. Error code: {errorCode}");
+                    if (error != IntPtr.Zero)
+                    {
+                        var errorCode = NativeApi.Error.ar_error_get_error_code(error);
+                        Debug.LogError($"Error trying to query AR authorization. Error code: {errorCode}");
 
-                    // TODO: Not sure how to interpret error code--just log it for now
+                        // TODO: Not sure how to interpret error code--just log it for now
+                    }
+
+                    if (Instance == null)
+                    {
+                        Debug.LogError("Received AR authorization query result without a provider instance.");
+                        return;
+                    }
+
+                    NativeApi.Authorization.UnityVisionOS_impl_ar_authorization_results_enumerate_results(authorizationResults,
+                        k_EnumerateAuthorizationStepCallback, k_QueryAuthorizationResultsHanEnumerationCompletedCallback);
                 }
-
-                if (Instance == null)
+                catch (Exception exception)
                 {
-                    Debug.LogError("Received AR authorization query result without a provider instance.");
-                    return;
+                    Debug.LogException(exception);
                 }
-
-                NativeApi.Authorization.UnityVisionOS_impl_ar_authorization_results_enumerate_results(authorizationResults,
-                    k_EnumerateAuthorizationStepCallback, k_QueryAuthorizationResultsHanEnumerationCompletedCallback);
             }
 
             [MonoPInvokeCallback(typeof(NativeApi.Authorization.Authorization_Results_Enumeration_Completed_Callback))]
             static void QueryAuthorizationResultsEnumerationCompletedCallback()
             {
-                Instance.RequestAuthorizationIfNeeded();
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
+                {
+                    Instance.RequestAuthorizationIfNeeded();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
             }
 
             void RequestAuthorizationIfNeeded()
@@ -398,35 +452,59 @@ namespace UnityEngine.XR.VisionOS
             [MonoPInvokeCallback(typeof(NativeApi.Session.AR_Authorization_Results_Handler))]
             static void RequestAuthorizationResultsHandler(IntPtr authorizationResults, IntPtr error)
             {
-                if (error != IntPtr.Zero)
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
                 {
-                    var errorCode = NativeApi.Error.ar_error_get_error_code(error);
-                    Debug.LogError($"Error trying to request AR authorization. Error code: {errorCode}");
+                    if (error != IntPtr.Zero)
+                    {
+                        var errorCode = NativeApi.Error.ar_error_get_error_code(error);
+                        Debug.LogError($"Error trying to request AR authorization. Error code: {errorCode}");
 
-                    // TODO: Not sure how to interpret error code--just log it for now
+                        // TODO: Not sure how to interpret error code--just log it for now
+                    }
+
+                    if (Instance == null)
+                    {
+                        Debug.LogError("Received AR authorization request result without a provider instance.");
+                        return;
+                    }
+
+                    NativeApi.Authorization.UnityVisionOS_impl_ar_authorization_results_enumerate_results(authorizationResults,
+                        k_EnumerateAuthorizationStepCallback, k_RequestAuthorizationResultsHanEnumerationCompletedCallback);
                 }
-
-                if (Instance == null)
+                catch (Exception exception)
                 {
-                    Debug.LogError("Received AR authorization request result without a provider instance.");
-                    return;
+                    Debug.LogException(exception);
                 }
-
-                NativeApi.Authorization.UnityVisionOS_impl_ar_authorization_results_enumerate_results(authorizationResults,
-                    k_EnumerateAuthorizationStepCallback, k_RequestAuthorizationResultsHanEnumerationCompletedCallback);
             }
 
             [MonoPInvokeCallback(typeof(NativeApi.Authorization.Authorization_Results_Enumeration_Completed_Callback))]
             static void RequestAuthorizationResultsEnumerationCompletedCallback()
             {
-                Instance.m_AwaitingAuthorization = false;
-                Instance.m_StartTime = s_LastUpdateTime;
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
+                {
+                    Instance.m_AwaitingAuthorization = false;
+                    Instance.m_StartTime = s_LastUpdateTime;
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
             }
 
             [MonoPInvokeCallback(typeof(NativeApi.Authorization.Authorization_Results_Enumeration_Step_Callback))]
             static void EnumerateAuthorizationStepCallback(IntPtr authorizationResult)
             {
-                Instance.ProcessAuthorizationResult(authorizationResult);
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
+                {
+                    Instance.ProcessAuthorizationResult(authorizationResult);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
             }
 
             public AR_Scene_Reconstruction_Mode GetSceneReconstructionMode()
@@ -454,6 +532,17 @@ namespace UnityEngine.XR.VisionOS
                     return VisionOSAuthorizationStatus.Denied;
 
                 return VisionOSAuthorizationStatus.NotDetermined;
+            }
+
+            public static IntPtr StartProviderSession(IntPtr provider)
+            {
+                var session = NativeApi.Session.ar_session_create();
+                var providers = NativeApi.DataProvider.ar_data_providers_create();
+                NativeApi.Session.UnityVisionOS_impl_ar_session_set_data_provider_state_change_handler(session, k_DataProviderStateChangeHandler);
+                NativeApi.Session.UnityVisionOS_impl_ar_session_set_authorization_update_handler(session, k_AuthorizationUpdateHandler);
+                NativeApi.DataProvider.ar_data_providers_add_data_provider(providers, provider);
+                NativeApi.Session.ar_session_run(session, providers);
+                return session;
             }
         }
 

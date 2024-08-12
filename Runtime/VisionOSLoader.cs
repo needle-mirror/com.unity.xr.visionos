@@ -85,8 +85,6 @@ namespace UnityEngine.XR.VisionOS
         /// <returns>`True` if the session subsystem was successfully created, otherwise `false`.</returns>
         public override bool Initialize()
         {
-            // TODO: Remove targetFrameRate setting or find a better place to put it (or make it optional?)
-            Application.targetFrameRate = 90;
             CreateSubsystem<XRDisplaySubsystemDescriptor, XRDisplaySubsystem>(k_DisplaySubsystemDescriptors, k_DisplaySubsystemId);
             CreateSubsystem<XRInputSubsystemDescriptor, XRInputSubsystem>(k_InputSubsystemDescriptors, k_InputSubsystemId);
             CreateSubsystem<XRMeshSubsystemDescriptor, XRMeshSubsystem>(k_MeshSubsystemDescriptors, k_MeshSubsystemId);

@@ -10,6 +10,8 @@ using UnityEngine.XR.ARSubsystems;
 
 namespace UnityEngine.XR.VisionOS
 {
+    using SessionProvider = VisionOSSessionSubsystem.VisionOSSessionProvider;
+
     /// <summary>
     /// The VisionOS implementation of the <c>XRPlaneSubsystem</c>. Do not create this directly. Use the <c>SubsystemManager</c> instead.
     /// </summary>
@@ -45,6 +47,8 @@ namespace UnityEngine.XR.VisionOS
             public bool ShouldBeActive => running;
             public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
 
+            IntPtr m_ARSession = IntPtr.Zero;
+
             /// <summary>
             /// Get the current plane detection mode in use.
             /// </summary>
@@ -55,14 +59,17 @@ namespace UnityEngine.XR.VisionOS
                 s_Instance = this;
             }
 
-            public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
+            public bool TryStartNativeSession(Feature features)
             {
                 if (!IsSupported)
                 {
                     Debug.LogWarning("Plane detection provider is not supported");
-                    provider = IntPtr.Zero;
                     return false;
                 }
+
+                // Early-out if provider is already running
+                if (m_ARSession != IntPtr.Zero)
+                    return true;
 
                 m_PlaneDetectionConfiguration = NativeApi.PlaneDetection.ar_plane_detection_configuration_create();
 
@@ -70,27 +77,49 @@ namespace UnityEngine.XR.VisionOS
                 // explicitly define the conversion.
                 NativeApi.PlaneDetection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, (AR_Plane_Alignment)m_CurrentPlaneDetectionMode);
 
-                provider = NativeApi.PlaneDetection.ar_plane_detection_provider_create(m_PlaneDetectionConfiguration);
-                CurrentProvider = provider;
-                if (provider == IntPtr.Zero)
+                CurrentProvider = NativeApi.PlaneDetection.ar_plane_detection_provider_create(m_PlaneDetectionConfiguration);
+                if (CurrentProvider == IntPtr.Zero)
                 {
                     Debug.LogWarning("Failed to create plane detection provider.");
                     return false;
                 }
 
-                NativeApi.PlaneDetection.UnityVisionOS_impl_ar_plane_detection_provider_set_update_handler(provider, k_PlaneDetectionUpdateHandler);
+                Debug.Log("Starting plane detection provider.");
+                NativeApi.PlaneDetection.UnityVisionOS_impl_ar_plane_detection_provider_set_update_handler(CurrentProvider, k_PlaneDetectionUpdateHandler);
+                m_ARSession = SessionProvider.StartProviderSession(CurrentProvider);
+                return true;
+            }
 
+            public bool TryStopNativeSession()
+            {
+                // Early-out if provider has not been started
+                if (m_ARSession == IntPtr.Zero)
+                    return false;
+
+                Debug.Log("Stopping plane detection provider.");
+                NativeApi.Session.ar_session_stop(m_ARSession);
+
+                // Clear any data in temp collections so it can't be consumed by Unity; it is invalid now
+                ClearTempCollections();
+                m_ARSession = IntPtr.Zero;
+                CurrentProvider = IntPtr.Zero;
                 return true;
             }
 
             public override void Destroy()
             {
+                // Try to stop the native session in case TryStop hasn't been called yet.
+                if (!TryStopNativeSession())
+                {
+                    // Clear things out in case TryStopNativeSession didn't do its job previously
+                    m_ARSession = IntPtr.Zero;
+                    CurrentProvider = IntPtr.Zero;
+                    ClearTempCollections();
+                }
+
                 m_AddedPlanes.Dispose();
                 m_UpdatedPlanes.Dispose();
                 m_RemovedPlanes.Dispose();
-                m_TempAddedPlanes.Clear();
-                m_TempUpdatedPlanes.Clear();
-                m_TempRemovedPlanes.Clear();
             }
 
             public override void Start()
@@ -100,7 +129,13 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Stop()
             {
+                // Do not call TryStopNativeSession in Subsystem Stop callback. This will be handled by SessionSubsystem
                 VisionOSProviderRegistration.UnregisterProvider(k_PlaneTrackingFeature, this);
+                ClearTempCollections();
+            }
+
+            void ClearTempCollections()
+            {
                 m_TempAddedPlanes.Clear();
                 m_TempUpdatedPlanes.Clear();
                 m_TempRemovedPlanes.Clear();
@@ -112,7 +147,15 @@ namespace UnityEngine.XR.VisionOS
             static unsafe void PlaneDetectionUpdateHandler(void* added_anchors, int added_anchor_count,
                 void* updated_anchors, int updated_anchor_count, void* removed_anchors, int removed_anchor_count)
             {
-                s_Instance.ProcessPlaneUpdates(added_anchors, added_anchor_count, updated_anchors, updated_anchor_count, removed_anchors, removed_anchor_count);
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
+                {
+                    s_Instance.ProcessPlaneUpdates(added_anchors, added_anchor_count, updated_anchors, updated_anchor_count, removed_anchors, removed_anchor_count);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
             }
 
             static PlaneClassifications AR_Plane_ClassificationToPlaneClassification(AR_Plane_Classification classification)
@@ -355,9 +398,7 @@ namespace UnityEngine.XR.VisionOS
                 }
                 finally
                 {
-                    m_TempAddedPlanes.Clear();
-                    m_TempUpdatedPlanes.Clear();
-                    m_TempRemovedPlanes.Clear();
+                    ClearTempCollections();
                 }
             }
 

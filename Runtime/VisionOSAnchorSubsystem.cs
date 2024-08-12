@@ -79,11 +79,19 @@ namespace UnityEngine.XR.VisionOS
             static unsafe void WorldTrackingUpdateHandler(void* added_anchors, int added_anchor_count,
                 void* updated_anchors, int updated_anchor_count, void* removed_anchors, int removed_anchor_count)
             {
-                // TODO: Unsubscribe from updates? Re-create provider?
-                if (!s_Instance.running)
-                    return;
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
+                {
+                    // TODO: Unsubscribe from updates? Re-create provider?
+                    if (!s_Instance.running)
+                        return;
 
-                s_Instance.ProcessAnchorUpdates(added_anchors, added_anchor_count, updated_anchors, updated_anchor_count, removed_anchors, removed_anchor_count);
+                    s_Instance.ProcessAnchorUpdates(added_anchors, added_anchor_count, updated_anchors, updated_anchor_count, removed_anchors, removed_anchor_count);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
             }
 
             static XRAnchor GetWorldAnchor(IntPtr worldAnchor)
@@ -212,13 +220,21 @@ namespace UnityEngine.XR.VisionOS
             [MonoPInvokeCallback(typeof(NativeApi.WorldTracking.AR_World_Tracking_Add_Anchor_Completion_Handler))]
             static void AddAnchorCompletionHandler(IntPtr anchor, bool successful, IntPtr error)
             {
-                if (!successful)
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
                 {
-                    var errorCode = (AR_World_Tracking_Error_Code)0;
-                    if (error != IntPtr.Zero)
-                        errorCode = (AR_World_Tracking_Error_Code)NativeApi.Error.ar_error_get_error_code(error);
+                    if (!successful)
+                    {
+                        var errorCode = (AR_World_Tracking_Error_Code)0;
+                        if (error != IntPtr.Zero)
+                            errorCode = (AR_World_Tracking_Error_Code)NativeApi.Error.ar_error_get_error_code(error);
 
-                    Debug.LogError($"Failed to add AR anchor. Error code: {errorCode}");
+                        Debug.LogError($"Failed to add AR anchor. Error code: {errorCode}");
+                    }
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
                 }
             }
 
@@ -241,13 +257,21 @@ namespace UnityEngine.XR.VisionOS
             [MonoPInvokeCallback(typeof(NativeApi.WorldTracking.AR_World_Tracking_Remove_Anchor_Completion_Handler))]
             static void RemoveAnchorCompletionHandler(IntPtr anchor, bool successful, IntPtr error)
             {
-                if (!successful)
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
                 {
-                    var errorCode = (AR_World_Tracking_Error_Code)0;
-                    if (error != IntPtr.Zero)
-                        errorCode = (AR_World_Tracking_Error_Code)NativeApi.Error.ar_error_get_error_code(error);
+                    if (!successful)
+                    {
+                        var errorCode = (AR_World_Tracking_Error_Code)0;
+                        if (error != IntPtr.Zero)
+                            errorCode = (AR_World_Tracking_Error_Code)NativeApi.Error.ar_error_get_error_code(error);
 
-                    Debug.LogError($"Failed to remove AR anchor. Error code: {errorCode}");
+                        Debug.LogError($"Failed to remove AR anchor. Error code: {errorCode}");
+                    }
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
                 }
             }
         }

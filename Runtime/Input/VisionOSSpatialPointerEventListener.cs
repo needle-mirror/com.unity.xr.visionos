@@ -15,12 +15,26 @@ namespace UnityEngine.XR.VisionOS.InputDevices
     /// <summary>
     /// Receives serialized PolySpatialInput events and feeds them to the InputSystem
     /// </summary>
-    class VisionOSSpatialPointerEventListener
+    internal class VisionOSSpatialPointerEventListener
     {
-        readonly Dictionary<int, VisionOSSpatialPointerState> m_Inputs = new();
+        readonly Dictionary<int, VisionOSSpatialPointerEventState> m_Inputs = new();
         readonly Dictionary<int, Vector3> m_StartInputDevicePositions = new();
         readonly VisionOSSpatialPointerDevice m_PointerDevice;
         static readonly Lazy<VisionOSSpatialPointerEventListener> k_Instance = new(() => new VisionOSSpatialPointerEventListener());
+
+        struct QueuedEvent
+        {
+            public VisionOSSpatialPointerEvent Pointer;
+        }
+
+        // Store in class so can pass by ref easily
+        class VisionOSSpatialPointerEventState
+        {
+            public readonly Queue<QueuedEvent> EventQueue = new();
+            public VisionOSSpatialPointerPhase LastQueuedPhase;
+            public VisionOSSpatialPointerState Pointer;
+            // public TouchState touch;
+        }
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         unsafe delegate void VisionOSInputEventCallback(int eventCount, void* eventsPtr);
@@ -28,17 +42,25 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         [MonoPInvokeCallback(typeof(VisionOSInputEventCallback))]
         static unsafe void OnInputEvent(int eventCount, void* eventsPtr)
         {
-            var inputEvents = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<VisionOSSpatialPointerEvent>(
-                eventsPtr,
-                eventCount,
-                Allocator.None);
+            // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+            try
+            {
+                var inputEvents = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<VisionOSSpatialPointerEvent>(
+                    eventsPtr,
+                    eventCount,
+                    Allocator.None);
 
-            k_Instance.Value.OnInputEvents(inputEvents);
+                k_Instance.Value.OnInputEvents(inputEvents);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
         }
 
         internal static void OnInputEvent(VisionOSSpatialPointerEvent @event)
         {
-            k_Instance.Value.ProcessEvent(@event);
+            k_Instance.Value.QueueEvent(@event);
         }
 
 #if !UNITY_EDITOR
@@ -56,6 +78,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         {
             AddDevice(out VisionOSSpatialPointerDevice inputDevice);
             m_PointerDevice = inputDevice;
+            m_PointerDevice.eventListener = this;
 
 #if UNITY_EDITOR
             EditorApplication.playModeStateChanged += EditorApplicationOnplayModeStateChanged;
@@ -89,7 +112,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             }
         }
 
-        VisionOSSpatialPointerState GetPointerId(int rawId)
+        VisionOSSpatialPointerEventState GetPointerId(int rawId)
         {
             if (m_Inputs.TryGetValue(rawId, out var input))
             {
@@ -97,9 +120,12 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             }
 
             var newId = m_Inputs.Count + 1; // touch id must be non-zero for actual touch, so +1
-            var inputEvent = new VisionOSSpatialPointerState
+            var inputEvent = new VisionOSSpatialPointerEventState
             {
-                interactionId = newId
+                Pointer = new VisionOSSpatialPointerState
+                {
+                    interactionId = newId
+                }
             };
 
             m_Inputs.Add(rawId, inputEvent);
@@ -110,16 +136,63 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         {
             foreach (var pointerEvent in events)
             {
-                ProcessEvent(pointerEvent);
+                QueueEvent(pointerEvent);
             }
         }
 
-        void ProcessEvent(VisionOSSpatialPointerEvent inputEvent)
+        void QueueEvent(VisionOSSpatialPointerEvent inputEvent)
         {
             var state = GetPointerId(inputEvent.interactionId);
+
+            switch (inputEvent.phase, state.LastQueuedPhase)
+            {
+                case (VisionOSSpatialPointerPhase.Began, VisionOSSpatialPointerPhase.Moved):
+                case (VisionOSSpatialPointerPhase.Began, VisionOSSpatialPointerPhase.Began):
+                    // Reality kit does not explicitly send cancel or ended if a particular input event stops.
+                    // Currently appears to be for situation where input may have an error, out of sight or you click
+                    // and move your so quickly, or multiple times fast, that it doesn't consider the prior input even
+                    // to officially 'End' or 'Cancel', it just stops. So we must manually infer here.
+                    var cancelledInputEvent = inputEvent;
+                    cancelledInputEvent.phase = VisionOSSpatialPointerPhase.Cancelled;
+                    state.EventQueue.Enqueue(new QueuedEvent {Pointer=cancelledInputEvent});
+                    break;
+                case (VisionOSSpatialPointerPhase.Moved, VisionOSSpatialPointerPhase.Cancelled):
+                case (VisionOSSpatialPointerPhase.Moved, VisionOSSpatialPointerPhase.Ended):
+                case (VisionOSSpatialPointerPhase.Moved, VisionOSSpatialPointerPhase.None):
+                    // Reality kit does not have it's own explicit 'Began' phase so sometimes it must be inferred.
+                    // The swift code attempts to infer began phase if the id unique for each input event changes
+                    // but currently input events don't always change to a new unique id when they should have a began phase.
+                    var beganInputEvent = inputEvent;
+                    beganInputEvent.phase = VisionOSSpatialPointerPhase.Began;
+                    state.EventQueue.Enqueue(new QueuedEvent {Pointer=beganInputEvent});
+                    break;
+            }
+
+            // Multiple events may arrive from realitykit in a single update cycle and due to the way Unity
+            // InputSystem.QueueStateEvent works, setting multiple events in one cycle may overwrite a prior one
+            // and it also won't enable it to proliferate through the system for things like EnhancedTouch to poll.
+            // So we have to manage our own additional queue to send them one at a time.
+            state.LastQueuedPhase = inputEvent.phase;
+            state.EventQueue.Enqueue(new QueuedEvent {Pointer = inputEvent});
+        }        
+
+        internal void ProcessEventQueue()
+        {
+            // Right now this isn't more than two values, it should never be that many, so looping through shouldn't be an issue
+            foreach (var state in m_Inputs.Values)
+            {
+                if (state.EventQueue.TryDequeue(out var inputEvent))
+                {
+                    ProcessEvent(state.Pointer, inputEvent.Pointer);
+                }
+            }
+        }
+
+        void ProcessEvent(VisionOSSpatialPointerState pointerState, VisionOSSpatialPointerEvent inputEvent)
+        {
             var phase = inputEvent.phase;
             var inputDevicePosition = inputEvent.inputDevicePosition;
-            var interactionId = state.interactionId;
+            var interactionId = pointerState.interactionId;
             if (phase == VisionOSSpatialPointerPhase.Began)
                 m_StartInputDevicePositions[interactionId] = inputDevicePosition;
 
@@ -135,7 +208,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
                 // Update current position based on distance inputDevicePosition has moved
                 var currentPosition = startPosition + (inputDevicePosition - startInputDevicePosition);
                 var interactionRayDirection = Vector3.Normalize(currentPosition - rayOrigin);
-                state.interactionRayRotation = interactionRayDirection == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(interactionRayDirection);
+                pointerState.interactionRayRotation = interactionRayDirection == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(interactionRayDirection);
             }
 
             switch (phase)
@@ -147,18 +220,18 @@ namespace UnityEngine.XR.VisionOS.InputDevices
                     break;
             }
 
-            state.phaseId = (byte)phase;
-            state.startRayOrigin = inputEvent.rayOrigin;
-            state.startRayDirection = rayDirection;
-            state.startRayRotation = rayDirection == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(rayDirection);
-            state.kindId = (byte)inputEvent.kind;
-            state.modifierKeys = (ushort)inputEvent.modifierKeys;
-            state.inputDevicePosition = inputEvent.inputDevicePosition;
-            state.inputDeviceRotation = inputEvent.inputDeviceRotation;
+            pointerState.phaseId = (byte)phase;
+            pointerState.startRayOrigin = inputEvent.rayOrigin;
+            pointerState.startRayDirection = rayDirection;
+            pointerState.startRayRotation = rayDirection == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(rayDirection);
+            pointerState.kindId = (byte)inputEvent.kind;
+            pointerState.modifierKeys = (ushort)inputEvent.modifierKeys;
+            pointerState.inputDevicePosition = inputEvent.inputDevicePosition;
+            pointerState.inputDeviceRotation = inputEvent.inputDeviceRotation;
             var isTracked = phase == VisionOSSpatialPointerPhase.Began || phase == VisionOSSpatialPointerPhase.Moved;
-            state.isTracked = isTracked;
-            state.trackingState = isTracked ? InputTrackingState.Position | InputTrackingState.Rotation : InputTrackingState.None;
-            InputSystem.QueueStateEvent(m_PointerDevice, state);
+            pointerState.isTracked = isTracked;
+            pointerState.trackingState = isTracked ? InputTrackingState.Position | InputTrackingState.Rotation : InputTrackingState.None;
+            InputSystem.QueueStateEvent(m_PointerDevice, pointerState);
         }
     }
 }

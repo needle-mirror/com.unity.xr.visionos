@@ -48,6 +48,11 @@ namespace UnityEditor.XR.VisionOS
         const string k_IL2CPPLargeExeWorkaroundTooltip = "Patches the `Unity-VisionOS` project to work around linker errors that can occur in some " +
             "large projects. Check this box if you encounter the \"ARM64 branch out of range\" error when building the project in Xcode.";
 
+        const string k_SkipPresentToMainScreenTooltip = "Enables the SkipPresentToMainScreen XR setting. This setting was previously disabled to work around" +
+            "an issue that caused Unity versions prior to 6000.0.11f1 to leak GPU resources. In Unity 6000.0.11f1 and above, enabling this setting will fix" +
+            "a known issue with frame pacing on visionOS. Do not modify this setting from its default value unless you have a specific reason. It should " +
+            "be enabled on Unity 6000.0.11f1 and above, and disabled otherwise.";
+
         const string k_RuntimeSettingsFileName = "VisionOS Runtime Settings.asset";
 
         /// <summary>
@@ -188,6 +193,13 @@ namespace UnityEditor.XR.VisionOS
         [SerializeField, Tooltip(k_IL2CPPLargeExeWorkaroundTooltip)]
         bool m_IL2CPPLargeExeWorkaround;
 
+        [SerializeField, Tooltip(k_SkipPresentToMainScreenTooltip)]
+#if UNITY_6000_0_11_OR_NEWER
+        bool m_SkipPresentToMainScreen = true;
+#else
+        bool m_SkipPresentToMainScreen;
+#endif
+
         /// <summary>
         /// App mode.
         /// </summary>
@@ -259,6 +271,18 @@ namespace UnityEditor.XR.VisionOS
         {
             get => m_IL2CPPLargeExeWorkaround;
             set => m_IL2CPPLargeExeWorkaround = value;
+        }
+
+        /// <summary>
+        /// XR setting to signal to Unity that it should not try to present frames to the main screen. This setting was previously disabled to work around
+        /// an issue that caused Unity versions prior to 6000.0.11f1 to leak GPU resources. In Unity 6000.0.11f1 and above, enabling this setting will fix
+        /// a known issue with frame pacing on visionOS. Do not modify this setting from its default value unless you have a specific reason. It should
+        /// be enabled on Unity 6000.0.11f1 and above, and disabled otherwise.
+        /// </summary>
+        public bool skipPresentToMainScreen
+        {
+            get => m_SkipPresentToMainScreen;
+            set => m_SkipPresentToMainScreen = value;
         }
 
         /// <summary>

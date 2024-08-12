@@ -14,11 +14,13 @@ namespace UnityEngine.XR.VisionOS.InputDevices
     using InputSystem = UnityEngine.InputSystem.InputSystem;
 
     [InputControlLayout(stateType = typeof(VisionOSSpatialPointerDeviceState))]
-    public class VisionOSSpatialPointerDevice : InputDevice, IInputStateCallbackReceiver
+    public class VisionOSSpatialPointerDevice : InputDevice, IInputStateCallbackReceiver, IInputUpdateCallbackReceiver
     {
         public VisionOSSpatialPointerControl primaryInput { get; protected set; }
 
         public ReadOnlyArray<VisionOSSpatialPointerControl> inputs { get; protected set; }
+
+        internal VisionOSSpatialPointerEventListener eventListener;
 
         readonly Dictionary<int, VisionOSSpatialPointerState> m_BeganEvents = new();
         readonly Dictionary<int, VisionOSSpatialPointerState> m_EndedEvents = new();
@@ -41,6 +43,16 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             }
 
             inputs = new ReadOnlyArray<VisionOSSpatialPointerControl>(pointerArray);
+        }
+
+        /// <summary>
+        /// Part of the IInputUpdateCallbackReceiver interface. 
+        /// Any instance of this InputDevice will have it's OnUpdate() method called whenever the input system updates
+        /// </summary>
+        void IInputUpdateCallbackReceiver.OnUpdate()
+        {
+            // Ensures we only dequeue one event per hand per input system update
+            eventListener.ProcessEventQueue();
         }
 
         public void OnNextUpdate()

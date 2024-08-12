@@ -52,6 +52,7 @@ var unityVisionOSCompositorSpace: some Scene {
 
             let settingsBridge = NSClassFromString("UnityVisionOSSettingsBridge") as? NSObject.Type
             settingsBridge?.perform(Selector(("setFoveatedRenderingEnabled:")), with: VisionOSEnableFoveation)
+            settingsBridge?.perform(Selector(("setSkipPresentToMainScreen:")), with: VisionOSSkipPresent)
 
             setIsImmersiveSpaceReady(true)
             setLayerRenderer(layerRenderer)

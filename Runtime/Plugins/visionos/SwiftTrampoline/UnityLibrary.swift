@@ -1,5 +1,6 @@
 import Foundation
 import UnityFramework
+import MachO
 
 class UnityLibrary: UIResponder, UIApplicationDelegate, UnityFrameworkListener {
 
@@ -33,9 +34,16 @@ class UnityLibrary: UIResponder, UIApplicationDelegate, UnityFrameworkListener {
 
         let unityFramework = bundle?.principalClass?.getInstance()
         if unityFramework?.appController() == nil {
-            let machineHeader = UnsafeMutablePointer<MachHeader>.allocate(capacity: 1)
-            machineHeader.pointee = _mh_execute_header
-            unityFramework!.setExecuteHeader(machineHeader)
+            // Mach0 Machine header is used by crash reporting API to get app metadata. It is important that the pointer sent to
+            // UnityFramework has the same address as _mh_execute_header. Refer to the following header for more information:
+            // https://opensource.apple.com/source/xnu/xnu-2050.18.24/EXTERNAL_HEADERS/mach-o/loader.h
+            let machineHeader = dlsym(dlopen(nil, RTLD_LAZY), MH_EXECUTE_SYM)
+            if machineHeader != nil {
+                let typedPointer = machineHeader!.assumingMemoryBound(to: MachHeader.self)
+                unityFramework!.setExecuteHeader(typedPointer)
+            } else {
+                print("Error: Could not find a valid pointer for Mach0 Machine Header. Crash reporting may not work.")
+            }
         }
 
         return unityFramework

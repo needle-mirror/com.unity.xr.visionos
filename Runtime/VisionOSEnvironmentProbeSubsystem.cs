@@ -9,6 +9,8 @@ using UnityEngine.XR.ARSubsystems;
 
 namespace UnityEngine.XR.VisionOS
 {
+    using SessionProvider = VisionOSSessionSubsystem.VisionOSSessionProvider;
+
     /// <summary>
     /// This subsystem provides implementing functionality for the <c>XREnvironmentProbeSubsystem</c> class.
     /// Its lifecycle is managed by the XR SDK system and VisionOSLoader. When environment probes are requested, a VisionOSEnvironmentProbeProvider is created
@@ -62,6 +64,7 @@ namespace UnityEngine.XR.VisionOS
             public bool IsSupported => NativeApi.HandTracking.ar_hand_tracking_provider_is_supported();
             public bool ShouldBeActive => running;
             public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
+            IntPtr m_ARSession = IntPtr.Zero;
 
             /// <summary>
             /// Enable or disable automatic placement of environment probes by the provider.
@@ -111,29 +114,49 @@ namespace UnityEngine.XR.VisionOS
                 s_Instance = this;
             }
 
-            public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
+            public bool TryStartNativeSession(Feature features)
             {
                 if (!IsSupported)
                 {
-                    Debug.LogWarning("Light estimation provider is not supported");
-                    provider = IntPtr.Zero;
+                    Debug.LogWarning("Environment probe provider is not supported");
                     return false;
                 }
 
+                // Early-out if provider is already running
+                if (m_ARSession != IntPtr.Zero)
+                    return true;
+
                 m_EnvironmentLightEstimationConfiguration = NativeApi.EnvironmentLightEstimation.ar_environment_light_estimation_configuration_create();
 
-                provider = NativeApi.EnvironmentLightEstimation.ar_environment_light_estimation_provider_create(m_EnvironmentLightEstimationConfiguration);
-                CurrentProvider = provider;
-                if (provider == IntPtr.Zero)
+                CurrentProvider = NativeApi.EnvironmentLightEstimation.ar_environment_light_estimation_provider_create(m_EnvironmentLightEstimationConfiguration);
+                if (CurrentProvider == IntPtr.Zero)
                 {
-                    Debug.LogWarning("Failed to create light estimation provider.");
+                    Debug.LogWarning("Failed to create environment probe provider.");
                     return false;
                 }
 
                 // TODO: Send instance handle along with context ptr
-                NativeApi.EnvironmentLightEstimation.ar_environment_light_estimation_provider_set_update_handler_f(provider, IntPtr.Zero, IntPtr.Zero,
+                NativeApi.EnvironmentLightEstimation.ar_environment_light_estimation_provider_set_update_handler_f(CurrentProvider, IntPtr.Zero, IntPtr.Zero,
                     k_EnvironmentLightEstimationUpdateHandlerFunction);
 
+                Debug.Log("Starting environment probe provider.");
+                m_ARSession = SessionProvider.StartProviderSession(CurrentProvider);
+                return true;
+            }
+
+            public bool TryStopNativeSession()
+            {
+                // Early-out if provider has not been started
+                if (m_ARSession == IntPtr.Zero)
+                    return false;
+
+                Debug.Log("Stopping environment probe provider.");
+                NativeApi.Session.ar_session_stop(m_ARSession);
+
+                // Clear any data in temp collections so it can't be consumed by Unity; it is invalid now
+                ClearTempCollections();
+                m_ARSession = IntPtr.Zero;
+                CurrentProvider = IntPtr.Zero;
                 return true;
             }
 
@@ -141,38 +164,55 @@ namespace UnityEngine.XR.VisionOS
             [MonoPInvokeCallback(typeof(NativeApi.EnvironmentLightEstimation.AR_Environment_Light_Estimation_Update_Handler_Function))]
             static void EnvironmentLightEstimationUpdateHandler(IntPtr context, IntPtr added_anchors, IntPtr updated_anchors, IntPtr removed_anchors)
             {
-                var count = NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_get_count(added_anchors);
-                if (count > 0)
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
                 {
-                    s_EnumeratorCount = 0;
-                    s_EnumeratorCountMax = count;
-                    s_EnumeratorCallbackType = EnumeratorCallbackType.Added;
-                    NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_enumerate_anchors_f(added_anchors, IntPtr.Zero, k_EnvironmentLightEstimationEnumeratorFunction);
-                }
+                    var count = NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_get_count(added_anchors);
+                    if (count > 0)
+                    {
+                        s_EnumeratorCount = 0;
+                        s_EnumeratorCountMax = count;
+                        s_EnumeratorCallbackType = EnumeratorCallbackType.Added;
+                        NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_enumerate_anchors_f(added_anchors, IntPtr.Zero, k_EnvironmentLightEstimationEnumeratorFunction);
+                    }
 
-                count = NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_get_count(updated_anchors);
-                if (count > 0)
-                {
-                    s_EnumeratorCount = 0;
-                    s_EnumeratorCountMax = count;
-                    s_EnumeratorCallbackType = EnumeratorCallbackType.Updated;
-                    NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_enumerate_anchors_f(updated_anchors, IntPtr.Zero, k_EnvironmentLightEstimationEnumeratorFunction);
-                }
+                    count = NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_get_count(updated_anchors);
+                    if (count > 0)
+                    {
+                        s_EnumeratorCount = 0;
+                        s_EnumeratorCountMax = count;
+                        s_EnumeratorCallbackType = EnumeratorCallbackType.Updated;
+                        NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_enumerate_anchors_f(updated_anchors, IntPtr.Zero, k_EnvironmentLightEstimationEnumeratorFunction);
+                    }
 
-                count = NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_get_count(removed_anchors);
-                if (count > 0)
+                    count = NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_get_count(removed_anchors);
+                    if (count > 0)
+                    {
+                        s_EnumeratorCount = 0;
+                        s_EnumeratorCountMax = count;
+                        s_EnumeratorCallbackType = EnumeratorCallbackType.Removed;
+                        NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_enumerate_anchors_f(removed_anchors, IntPtr.Zero, k_EnvironmentLightEstimationEnumeratorFunction);
+                    }
+                }
+                catch (Exception exception)
                 {
-                    s_EnumeratorCount = 0;
-                    s_EnumeratorCountMax = count;
-                    s_EnumeratorCallbackType = EnumeratorCallbackType.Removed;
-                    NativeApi.EnvironmentLightEstimation.ar_environment_probe_anchors_enumerate_anchors_f(removed_anchors, IntPtr.Zero, k_EnvironmentLightEstimationEnumeratorFunction);
+                    Debug.LogException(exception);
                 }
             }
 
             [MonoPInvokeCallback(typeof(NativeApi.EnvironmentLightEstimation.AR_Environment_Probe_Anchors_Enumerator_Function))]
             static bool EnvironmentLightEstimationEnumeratorFunction(IntPtr context, IntPtr environmentProbeAnchor)
             {
-                s_Instance.ProcessProbeUpdates(environmentProbeAnchor, s_EnumeratorCallbackType);
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
+                {
+                    s_Instance.ProcessProbeUpdates(environmentProbeAnchor, s_EnumeratorCallbackType);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
+
                 return ++s_EnumeratorCount < s_EnumeratorCountMax;
             }
 
@@ -235,13 +275,28 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Stop()
             {
+                // Do not call TryStopNativeSession in Subsystem Stop callback. This will be handled by SessionSubsystem
                 VisionOSProviderRegistration.UnregisterProvider(k_EnvironmentProbesFeature, this);
-                m_TempAddedProbes.Clear();
-                m_TempUpdatedProbes.Clear();
-                m_TempRemovedProbes.Clear();
+                ClearTempCollections();
             }
 
             public override void Destroy()
+            {
+                // Try to stop the native session in case TryStop hasn't been called yet.
+                if (!TryStopNativeSession())
+                {
+                    // Clear things out in case TryStopNativeSession didn't do its job previously
+                    m_ARSession = IntPtr.Zero;
+                    CurrentProvider = IntPtr.Zero;
+                    ClearTempCollections();
+                }
+
+                m_AddedProbes.Dispose();
+                m_UpdatedProbes.Dispose();
+                m_RemovedProbes.Dispose();
+            }
+
+            void ClearTempCollections()
             {
                 m_TempAddedProbes.Clear();
                 m_TempUpdatedProbes.Clear();
@@ -266,9 +321,7 @@ namespace UnityEngine.XR.VisionOS
                 }
                 finally
                 {
-                    m_TempAddedProbes.Clear();
-                    m_TempUpdatedProbes.Clear();
-                    m_TempRemovedProbes.Clear();
+                    ClearTempCollections();
                 }
             }
         }
