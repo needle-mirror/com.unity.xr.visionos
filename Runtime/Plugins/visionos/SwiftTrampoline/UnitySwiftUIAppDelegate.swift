@@ -4,6 +4,9 @@ public class UnitySwiftUIAppDelegate: NSObject, UIApplicationDelegate {
     var unity: UnityLibrary
 
     override init() {
+        let settingsBridge = NSClassFromString("UnityVisionOSSettingsBridge") as? NSObject.Type
+        settingsBridge?.perform(Selector(("setSkipPresentToMainScreen:")), with: VisionOSSkipPresent)
+
         unity = UnityLibrary.getInstance()!
         super.init()
     }

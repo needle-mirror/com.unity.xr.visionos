@@ -153,6 +153,9 @@ namespace UnityEngine.XR.VisionOS
             return true;
         }
 
+        /// <summary>
+        /// Creates the XRHandSubsystem and its associated subsystem updater.
+        /// </summary>
         public void CreateHandSubsystem()
         {
 #if INCLUDE_UNITY_XR_HANDS
@@ -163,6 +166,9 @@ namespace UnityEngine.XR.VisionOS
 #endif
         }
 
+        /// <summary>
+        /// Starts the XRHandSubsystem and its associated subsystem updater.
+        /// </summary>
         public void StartHandSubsystem()
         {
 #if INCLUDE_UNITY_XR_HANDS
@@ -176,6 +182,9 @@ namespace UnityEngine.XR.VisionOS
 #endif
         }
 
+        /// <summary>
+        /// Stops the XRHandSubsystem and its associated subsystem updater.
+        /// </summary>
         public void StopHandSubsystem()
         {
 #if INCLUDE_UNITY_XR_HANDS
@@ -189,6 +198,9 @@ namespace UnityEngine.XR.VisionOS
 #endif
         }
 
+        /// <summary>
+        /// Stops the subsystem updater and destroys the XRHandSubsystem.
+        /// </summary>
         public void DestroyHandSubsystem()
         {
 #if INCLUDE_UNITY_XR_HANDS

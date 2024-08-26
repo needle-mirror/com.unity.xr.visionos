@@ -10,6 +10,8 @@ using UnityEngine.XR.Hands.ProviderImplementation;
 
 namespace UnityEngine.XR.VisionOS
 {
+    using SessionProvider = VisionOSSessionSubsystem.VisionOSSessionProvider;
+
     class VisionOSHandProvider : XRHandSubsystemProvider, IVisionOSProvider
     {
         // TODO: Add HandTracking feature to future versions of AR Foundation
@@ -31,48 +33,69 @@ namespace UnityEngine.XR.VisionOS
 
         readonly Dictionary<Handedness, bool> m_HandTrackingStates = new();
 
-        public VisionOSHandProvider()
+        IntPtr m_ARSession = IntPtr.Zero;
+
+        public override void Start()
         {
             VisionOSProviderRegistration.RegisterProvider(k_HandFeatureProxy, this);
         }
 
-        public override void Start() { }
-
-        public override void Stop() { }
+        public override void Stop()
+        {
+            // Do not call TryStopNativeSession in Subsystem Stop callback. This will be handled by SessionSubsystem
+            VisionOSProviderRegistration.UnregisterProvider(k_HandFeatureProxy, this);
+        }
 
         public override void Destroy()
         {
-            VisionOSProviderRegistration.UnregisterProvider(k_HandFeatureProxy, this);
+            // Try to stop the native session in case TryStop hasn't been called yet.
+            if (!TryStopNativeSession())
+                ResetNativePointers(); // Clear things out in case TryStopNativeSession didn't do its job previously
+        }
+
+        void ResetNativePointers()
+        {
+            m_ARSession = IntPtr.Zero;
             CurrentProvider = IntPtr.Zero;
             m_LeftHandAnchor = IntPtr.Zero;
             m_RightHandAnchor = IntPtr.Zero;
         }
 
-        public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
+        public bool TryStartNativeSession(Feature features)
         {
             if (!IsSupported)
             {
                 Debug.LogWarning("Hand tracking provider is not supported");
-                provider = IntPtr.Zero;
                 return false;
             }
 
-            if (CurrentProvider != IntPtr.Zero)
-            {
-                CurrentProvider = IntPtr.Zero;
-                m_LeftHandAnchor = IntPtr.Zero;
-                m_RightHandAnchor = IntPtr.Zero;
-            }
+            // Early-out if provider is already running
+            if (m_ARSession != IntPtr.Zero)
+                return true;
 
             var handTrackingConfiguration = NativeApi.HandTracking.ar_hand_tracking_configuration_create();
-            provider = NativeApi.HandTracking.ar_hand_tracking_provider_create(handTrackingConfiguration);
-            CurrentProvider = provider;
-            if (provider == IntPtr.Zero)
+            CurrentProvider = NativeApi.HandTracking.ar_hand_tracking_provider_create(handTrackingConfiguration);
+            if (CurrentProvider == IntPtr.Zero)
             {
                 Debug.LogWarning("Failed to create hand tracking provider.");
                 return false;
             }
 
+            Debug.Log("Starting hand tracking provider.");
+            m_ARSession = SessionProvider.StartProviderSession(CurrentProvider);
+            return true;
+        }
+
+        public bool TryStopNativeSession()
+        {
+            // Early-out if provider has not been started
+            if (m_ARSession == IntPtr.Zero)
+                return false;
+
+            Debug.Log("Stopping hand tracking provider.");
+            NativeApi.Session.ar_session_stop(m_ARSession);
+
+            ResetNativePointers();
             return true;
         }
 

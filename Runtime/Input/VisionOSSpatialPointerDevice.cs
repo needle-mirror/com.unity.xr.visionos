@@ -13,16 +13,30 @@ namespace UnityEngine.XR.VisionOS.InputDevices
     using InputDevice = UnityEngine.InputSystem.InputDevice;
     using InputSystem = UnityEngine.InputSystem.InputSystem;
 
+    /// <summary>
+    /// Spatial pointer device for VisionOS that manages inputs and events.
+    /// </summary>
     [InputControlLayout(stateType = typeof(VisionOSSpatialPointerDeviceState))]
-    public class VisionOSSpatialPointerDevice : InputDevice, IInputStateCallbackReceiver
+    public class VisionOSSpatialPointerDevice : InputDevice, IInputStateCallbackReceiver, IInputUpdateCallbackReceiver
     {
+        /// <summary>
+        /// The primary visionOS spatial pointer control's input state managed by this input device.
+        /// </summary>
         public VisionOSSpatialPointerControl primaryInput { get; protected set; }
 
+        /// <summary>
+        /// A list of spatial pointer control input states managed by this device.
+        /// </summary>
         public ReadOnlyArray<VisionOSSpatialPointerControl> inputs { get; protected set; }
+
+        internal VisionOSSpatialPointerEventListener eventListener;
 
         readonly Dictionary<int, VisionOSSpatialPointerState> m_BeganEvents = new();
         readonly Dictionary<int, VisionOSSpatialPointerState> m_EndedEvents = new();
 
+        /// <summary>
+        /// Initializes the input controls managed by the spatial pointer device.
+        /// </summary>
         protected override void FinishSetup()
         {
             base.FinishSetup();
@@ -43,6 +57,19 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             inputs = new ReadOnlyArray<VisionOSSpatialPointerControl>(pointerArray);
         }
 
+        /// <summary>
+        /// Part of the IInputUpdateCallbackReceiver interface.
+        /// Any instance of this InputDevice will have it's OnUpdate() method called whenever the input system updates
+        /// </summary>
+        void IInputUpdateCallbackReceiver.OnUpdate()
+        {
+            // Ensures we only dequeue one event per hand per input system update
+            eventListener.ProcessEventQueue();
+        }
+
+        /// <summary>
+        /// Called by the system as part of IInputStateCallbackReceiver
+        /// </summary>
         public void OnNextUpdate()
         {
             // Immediately send a Moved event after every Began event because the system will not send one until the user actually moves their hand
@@ -105,6 +132,13 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             }
         }
 
+        /// <summary>
+        /// Not implemented
+        /// </summary>
+        /// <param name="control"></param>
+        /// <param name="eventPtr"></param>
+        /// <param name="offset"></param>
+        /// <returns></returns>
         public bool GetStateOffsetForEvent(InputControl control, InputEventPtr eventPtr, ref uint offset)
         {
             return false;

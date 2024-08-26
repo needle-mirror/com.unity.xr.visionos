@@ -9,6 +9,8 @@ using UnityEngine.XR.ARSubsystems;
 
 namespace UnityEngine.XR.VisionOS
 {
+    using SessionProvider = VisionOSSessionSubsystem.VisionOSSessionProvider;
+
     /// <summary>
     /// VisionOS implementation of the <c>XRImageTrackingSubsystem</c>.
     /// </summary>
@@ -43,39 +45,62 @@ namespace UnityEngine.XR.VisionOS
             public bool ShouldBeActive => running;
             public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
 
+            IntPtr m_ARSession = IntPtr.Zero;
+
             public VisionOSImageTrackingProvider()
             {
                 s_Instance = this;
+            }
+
+            public override void Start()
+            {
                 VisionOSProviderRegistration.RegisterProvider(k_ImageTrackingFeature, this);
             }
 
-            public override void Start() { }
-
-            public override void Stop() { }
+            public override void Stop()
+            {
+                // Do not call TryStopNativeSession in Subsystem Stop callback. This will be handled by SessionSubsystem
+                VisionOSProviderRegistration.UnregisterProvider(k_ImageTrackingFeature, this);
+                ClearTempCollections();
+            }
 
             public override void Destroy()
             {
-                VisionOSProviderRegistration.UnregisterProvider(k_ImageTrackingFeature, this);
+                // Try to stop the native session in case TryStop hasn't been called yet.
+                if (!TryStopNativeSession())
+                {
+                    // Clear things out in case TryStopNativeSession didn't do its job previously
+                    m_ARSession = IntPtr.Zero;
+                    CurrentProvider = IntPtr.Zero;
+                    ClearTempCollections();
+                }
+
                 m_AddedImages.Dispose();
                 m_UpdatedImages.Dispose();
                 m_RemovedImages.Dispose();
+            }
+
+            void ClearTempCollections()
+            {
                 m_TempAddedImages.Clear();
                 m_TempUpdatedImages.Clear();
                 m_TempRemovedImages.Clear();
             }
 
-            public bool TryCreateNativeProvider(Feature features, out IntPtr provider)
+            public bool TryStartNativeSession(Feature features)
             {
                 if (!IsSupported)
                 {
                     Debug.LogWarning("Image tracking provider is not supported");
-                    provider = IntPtr.Zero;
                     return false;
                 }
 
+                // Early-out if provider is already running
+                if (m_ARSession != IntPtr.Zero)
+                    return true;
+
                 if (m_ImageDatabase == null || NativeApi.ImageTracking.ar_reference_images_get_count(m_ImageDatabase.self) < 1)
                 {
-                    provider = IntPtr.Zero;
                     return false;
                 }
 
@@ -87,17 +112,33 @@ namespace UnityEngine.XR.VisionOS
 
                 NativeApi.ImageTracking.ar_image_tracking_configuration_add_reference_images(m_ImageTrackingConfiguration, m_ImageDatabase.self);
 
-                provider = NativeApi.ImageTracking.ar_image_tracking_provider_create(m_ImageTrackingConfiguration);
-
-                CurrentProvider = provider;
-                if (provider == IntPtr.Zero)
+                CurrentProvider = NativeApi.ImageTracking.ar_image_tracking_provider_create(m_ImageTrackingConfiguration);
+                if (CurrentProvider == IntPtr.Zero)
                 {
                     Debug.LogWarning("Failed to create image tracking provider.");
                     return false;
                 }
 
-                NativeApi.ImageTracking.UnityVisionOS_impl_ar_image_tracking_provider_set_update_handler(provider, k_ImageTrackingUpdateHandler);
+                NativeApi.ImageTracking.UnityVisionOS_impl_ar_image_tracking_provider_set_update_handler(CurrentProvider, k_ImageTrackingUpdateHandler);
 
+                Debug.Log("Starting image tracking provider.");
+                m_ARSession = SessionProvider.StartProviderSession(CurrentProvider);
+                return true;
+            }
+
+            public bool TryStopNativeSession()
+            {
+                // Early-out if provider has not been started
+                if (m_ARSession == IntPtr.Zero)
+                    return false;
+
+                Debug.Log("Stopping image tracking provider.");
+                NativeApi.Session.ar_session_stop(m_ARSession);
+
+                // Clear any data in temp collections so it can't be consumed by Unity; it is invalid now
+                ClearTempCollections();
+                m_ARSession = IntPtr.Zero;
+                CurrentProvider = IntPtr.Zero;
                 return true;
             }
 
@@ -107,7 +148,15 @@ namespace UnityEngine.XR.VisionOS
             static unsafe void ImageTrackingUpdateHandler(void* added_anchors, int added_anchor_count,
                 void* updated_anchors, int updated_anchor_count, void* removed_anchors, int removed_anchor_count)
             {
-                s_Instance.ProcessImageUpdates(added_anchors, added_anchor_count, updated_anchors, updated_anchor_count, removed_anchors, removed_anchor_count);
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
+                {
+                    s_Instance.ProcessImageUpdates(added_anchors, added_anchor_count, updated_anchors, updated_anchor_count, removed_anchors, removed_anchor_count);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
             }
 
             bool GetTrackedImage(IntPtr imageAnchor, out XRTrackedImage trackedImage)
@@ -246,9 +295,7 @@ namespace UnityEngine.XR.VisionOS
                 }
                 finally
                 {
-                    m_TempAddedImages.Clear();
-                    m_TempUpdatedImages.Clear();
-                    m_TempRemovedImages.Clear();
+                    ClearTempCollections();
                 }
             }
 

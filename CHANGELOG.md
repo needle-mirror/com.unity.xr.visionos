@@ -7,6 +7,18 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.3.9] - 2024-08-26
+
+### Added
+- Exposed `SkipPresentToMainScreen` setting in `VisionOSSettings`. This will be enabled by default, along with a Project Validation rule to encourage its use, on Unity 2022.3.42f1, which includes fixes for this mode. This version of Unity fixes a GPU resource leak related to this setting.
+- Added `VisionOS.SetMinimumFrameRepeatCount` API to enable content that can't hit 90hz to ask for more time to render each frame.
+- Added Initial Target Frame Rate runtime setting which sets `Application.targetFrameRate` and `VisionOS.SetMinimumFrameRepeatCount` at start-up based on the selected option.
+- Fixed an issue where the app can crash if the AR Session is restarted when rendering with Metal. This may also fix other Metal rendering crashes accompanied by error logs that start with `BUG IN CLIENT:`.
+- Added support for HDR rendering for Metal and Hybrid app modes. This includes a variety of fixes, project validation rules, and updates to the package samples. HDR rendering requires a minimum Unity version of 2022.3.45f1.
+
+### Fixed
+- Fixed Windows long path error when processing ARReferenceImage's build postprocessor.
+
 ## [1.3.1] - 2024-07-09
 
 ## [1.3.0] - 2024-06-26
@@ -24,6 +36,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Fixed a crash that can happen when unloading a scene after tracking an image with ARKit image tracking.
 - Fixed issues in the InputSystem UI sample scene.
 - Fixed random compilation issue when targeting visionOS, removed LaunchScreen-iPhone.storyboard from xcode project output.
+- Wrap all MonoPInvokeCallback methods in try/catch to avoid potential crashes in player builds.
+- Fixed potential exceptions in OnAuthorizationChanged that can happen if the original call was made off the main thread.
+- Fixed an issue where visionOS player builds can crash when trying to collect crash logs.
 
 ## [1.2.3] - 2024-04-23
 

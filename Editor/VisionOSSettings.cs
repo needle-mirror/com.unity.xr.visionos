@@ -32,6 +32,7 @@ namespace UnityEditor.XR.VisionOS
         // TODO: Update this tooltip when we support volumes and immersive spaces simultaneously. In this case, tis setting will affect volume content
         // as long as the immersive space is open. In other words, when limb visibility is disabled, and the immersive space is open, the user's hands
         // will be occluded by content in a volume even though they can see pass-through.
+        // TODO: Expose UpperLimbVisibility for VR and MR separately (should probably be in volume camera config, along with immersion style)
         const string k_UpperLimbVisibilityTooltip = "Controls how your app displays passthrough video of the user's hands and forearms. In the " +
             "Virtual Reality App Mode, hands are only shown when you enable this setting and always render on top of virtual content. In the " +
             "Mixed Reality App Mode, this setting controls how the user's hands and arms are blended with virtual objects. When enabled, hands " +
@@ -41,8 +42,16 @@ namespace UnityEditor.XR.VisionOS
         const string k_FoveatedRenderingTooltip = "Controls if foveated rendering is enabled or disabled. This setting only applies to Virtual Reality apps. " +
             "Foveated rendering requires the Universal Render Pipeline.";
 
+        const string k_VRImmersionStyleTooltip = "The ImmersionStyle to be used for the VR ImmersiveSpace.";
+        const string k_MRImmersionStyleTooltip = "The ImmersionStyle to be used for the MR ImmersiveSpace.";
+
         const string k_IL2CPPLargeExeWorkaroundTooltip = "Patches the `Unity-VisionOS` project to work around linker errors that can occur in some " +
             "large projects. Check this box if you encounter the \"ARM64 branch out of range\" error when building the project in Xcode.";
+
+        const string k_SkipPresentToMainScreenTooltip = "Enables the SkipPresentToMainScreen XR setting. This setting was previously disabled to work around" +
+            "an issue that caused Unity versions prior to 2022.3.42f1 to leak GPU resources. In Unity 2022.3.42f1 and above, enabling this setting will fix" +
+            "a known issue with frame pacing on visionOS. Do not modify this setting from its default value unless you have a specific reason. It should " +
+            "be enabled on Unity 2022.3.42f1 and above, and disabled otherwise.";
 
         const string k_RuntimeSettingsFileName = "VisionOS Runtime Settings.asset";
 
@@ -68,6 +77,33 @@ namespace UnityEditor.XR.VisionOS
             /// </summary>
             [InspectorName("Windowed - 2D Window")]
             Windowed
+        }
+
+        /// <summary>
+        /// The ImmersionStyle for a given ImmersiveSpace. These enums correspond to their equivalently named Apple APIs.
+        /// Refer to Apple Developer documentation for more information.
+        /// </summary>
+        public enum ImmersionStyle
+        {
+            /// <summary>
+            /// The default immersion style. It currently defaults to Mixed.
+            /// </summary>
+            Automatic,
+
+            /// <summary>
+            /// Displays unbounded content that completely replaces passthrough.
+            /// </summary>
+            Full,
+
+            /// <summary>
+            /// Displays unbounded content mixed with passthrough.
+            /// </summary>
+            Mixed,
+
+            /// <summary>
+            /// Displays unbounded content that partially replaces passthrough.
+            /// </summary>
+            Progressive
         }
 
         [SerializeField, Tooltip("Initial mode of the app.")]
@@ -119,8 +155,21 @@ namespace UnityEditor.XR.VisionOS
         [SerializeField, Tooltip(k_FoveatedRenderingTooltip)]
         bool m_FoveatedRendering = true;
 
+        [SerializeField, Tooltip(k_VRImmersionStyleTooltip)]
+        ImmersionStyle m_VRImmersionStyle;
+
+        [SerializeField, Tooltip(k_MRImmersionStyleTooltip)]
+        ImmersionStyle m_MRImmersionStyle;
+
         [SerializeField, Tooltip(k_IL2CPPLargeExeWorkaroundTooltip)]
         bool m_IL2CPPLargeExeWorkaround;
+
+        [SerializeField, Tooltip(k_SkipPresentToMainScreenTooltip)]
+#if UNITY_2022_3_42_OR_NEWER
+        bool m_SkipPresentToMainScreen = true;
+#else
+        bool m_SkipPresentToMainScreen;
+#endif
 
         /// <summary>
         /// App mode.
@@ -169,12 +218,42 @@ namespace UnityEditor.XR.VisionOS
         }
 
         /// <summary>
+        /// The ImmersionStyle to be used for the VR ImmersiveSpace.
+        /// </summary>
+        public ImmersionStyle vrImmersionStyle
+        {
+            get => m_VRImmersionStyle;
+            set => m_VRImmersionStyle = value;
+        }
+
+        /// <summary>
+        /// The ImmersionStyle to be used for the MR ImmersiveSpace.
+        /// </summary>
+        public ImmersionStyle mrImmersionStyle
+        {
+            get => m_MRImmersionStyle;
+            set => m_MRImmersionStyle = value;
+        }
+
+        /// <summary>
         /// Setting that determines if the IL2CPP_LARGE_EXECUTABLE_ARM_WORKAROUND flag is used when building an Xcode project.
         /// </summary>
         public bool il2CPPLargeExeWorkaround
         {
             get => m_IL2CPPLargeExeWorkaround;
             set => m_IL2CPPLargeExeWorkaround = value;
+        }
+
+        /// <summary>
+        /// XR setting to signal to Unity that it should not try to present frames to the main screen. This setting was previously disabled to work around
+        /// an issue that caused Unity versions prior to 2022.3.42f1 to leak GPU resources. In Unity 2022.3.42f1 and above, enabling this setting will fix
+        /// a known issue with frame pacing on visionOS. Do not modify this setting from its default value unless you have a specific reason. It should
+        /// be enabled on Unity 2022.3.42f1 and above, and disabled otherwise.
+        /// </summary>
+        public bool skipPresentToMainScreen
+        {
+            get => m_SkipPresentToMainScreen;
+            set => m_SkipPresentToMainScreen = value;
         }
 
         /// <summary>
@@ -250,6 +329,39 @@ namespace UnityEditor.XR.VisionOS
             }
 
             return parentFolder;
+        }
+
+        /// <summary>
+        /// Convert the upperLimbVisibility setting to a string that can be written into Swift code generated during the build process.
+        /// </summary>
+        /// <param name="upperLimbVisibility">The state of the upper limb visibility setting.</param>
+        /// <returns>Swift code that can be used for build postprocessors.</returns>
+        public static string UpperLimbVisibilityToString(bool upperLimbVisibility)
+        {
+            return upperLimbVisibility ? ".visible" : ".hidden";
+        }
+
+        /// <summary>
+        /// Convert the immersionStyle setting to a string that can be written into Swift code generated during the build process.
+        /// </summary>
+        /// <param name="immersionStyle">The state of the immersion style setting.</param>
+        /// <returns>Swift code that can be used for build postprocessors.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if the value of immersionStyle isn't one of the known values (Automatic, Full, Mixed, or Progressive)</exception>
+        public static string ImmersionStyleToString(ImmersionStyle immersionStyle)
+        {
+            switch (immersionStyle)
+            {
+                case ImmersionStyle.Automatic:
+                    return ".automatic";
+                case ImmersionStyle.Full:
+                    return ".full";
+                case ImmersionStyle.Mixed:
+                    return ".mixed";
+                case ImmersionStyle.Progressive:
+                    return ".progressive";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(immersionStyle), immersionStyle, null);
+            }
         }
     }
 }

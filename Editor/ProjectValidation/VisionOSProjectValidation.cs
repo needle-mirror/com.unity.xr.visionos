@@ -1,12 +1,16 @@
+using System;
+using System.Linq;
+using System.Reflection;
 using Unity.XR.CoreUtils.Editor;
+using UnityEditor.Rendering;
 using UnityEditor.XR.Management;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.VisionOS;
 using UnityObject = UnityEngine.Object;
 
 #if UNITY_HAS_URP
-using System;
 using UnityEngine.Rendering.Universal;
 #endif
 
@@ -22,6 +26,10 @@ namespace UnityEditor.XR.VisionOS
         const string k_CopyDepthModePropertyName = "m_CopyDepthMode";
 
         const BuildTargetGroup k_VisionOSBuildTarget = BuildTargetGroup.VisionOS;
+
+        // TODO: Expose this API
+        static readonly MethodInfo k_GetColorGamuts = typeof(PlayerSettings).GetMethod("GetColorGamuts", BindingFlags.Static | BindingFlags.NonPublic);
+        static readonly MethodInfo k_SetColorGamuts = typeof(PlayerSettings).GetMethod("SetColorGamuts", BindingFlags.Static | BindingFlags.NonPublic);
 
         static readonly BuildValidationRule[] k_Rules;
 
@@ -85,16 +93,6 @@ namespace UnityEditor.XR.VisionOS
 
                         return settings.appMode == VisionOSSettings.AppMode.VR && !VisionOSEditorUtils.IsLoaderEnabled();
                     }
-                },
-
-                new ()
-                {
-                    Message = "An ARInputManager component is required to be active in the scene.",
-                    Category = string.Format(k_CategoryFormat, "ARInputManager"),
-                    Error = true,
-                    CheckPredicate = () => UnityObject.FindAnyObjectByType<ARInputManager>(FindObjectsInactive.Include) != null,
-                    FixIt = CreateARInputManager,
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
                 },
 #if UNITY_HAS_URP
                 new ()
@@ -172,9 +170,94 @@ namespace UnityEditor.XR.VisionOS
                     CheckPredicate = () => !PlayerSettings.SplashScreen.show,
                     FixIt = () => PlayerSettings.SplashScreen.show = false
                 },
+
+#if UNITY_2022_3_42_OR_NEWER
+                new ()
+                {
+                    Message = "The Skip Present to Main Screen setting recommended on Unity 2022.3.42f1 or newer. This version contains a fix for an issue " +
+                        "where skipping present would leak GPU resources. With this setting enabled, your app will save some CPU time at the end of each frame.",
+                    FixItMessage = "Enable Skip Present to Main Screen",
+                    Category = string.Format(k_CategoryFormat, "Skip Present to Main Screen"),
+                    Error = true,
+                    CheckPredicate = () => VisionOSSettings.currentSettings.skipPresentToMainScreen,
+                    FixIt = () => VisionOSSettings.currentSettings.skipPresentToMainScreen = true,
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
+                },
+#else
+                new ()
+                {
+                    Message = "The Skip Present to Main Screen setting is only intended to be used on Unity 2022.3.42f1 or newer. Your app will leak GPU " +
+                    "resources and run out of memory if this setting is enabled on earlier versions of Unity.",
+                    FixItMessage = "Disable Skip Present to Main Screen",
+                    Category = string.Format(k_CategoryFormat, "Skip Present to Main Screen"),
+                    Error = true,
+                    CheckPredicate = () => !VisionOSSettings.currentSettings.skipPresentToMainScreen,
+                    FixIt = () => VisionOSSettings.currentSettings.skipPresentToMainScreen = false,
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
+                },
+#endif
+
+#if UNITY_VISIONOS_SUPPORTS_HDR
+                new ()
+                {
+                    Message = "DisplayP3 color gamut is required for HDR rendering.",
+                    FixItMessage = "Enable DisplayP3 color gamut",
+                    Category = string.Format(k_CategoryFormat, "DisplayP3 Color Gamut"),
+                    Error = true,
+                    CheckPredicate = () =>
+                    {
+                        if (k_GetColorGamuts == null)
+                            return true;
+
+                        var gamuts = k_GetColorGamuts.Invoke(null, null) as ColorGamut[];
+                        if (gamuts == null)
+                            return true;
+
+                        return gamuts.Contains(ColorGamut.DisplayP3);
+                    },
+                    FixIt = () =>
+                    {
+                        if (k_SetColorGamuts == null)
+                            return;
+
+                        try
+                        {
+                            k_SetColorGamuts.Invoke(null, new object[] { new[] { ColorGamut.DisplayP3, ColorGamut.sRGB } });
+                        }
+                        catch (Exception)
+                        {
+                            // Ignore potential null reference exception that can occur if the user clicks "Fix" before having ever loaded player settings
+                        }
+                    },
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && IsHDREnabled() && CheckAppMode(VisionOSSettings.AppMode.VR)
+                },
+#else
+                new ()
+                {
+                    Message = "HDR rendering on visionOS is not supported in versions of Unity prior to 2022.3.45f1.",
+                    FixItMessage = "Disable HDR rendering.",
+                    Category = string.Format(k_CategoryFormat, "HDR Not Supported"),
+                    Error = true,
+                    CheckPredicate = ()=> !IsHDREnabled(),
+                    FixIt = () => SetHDREnabled(false),
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && CheckAppMode(VisionOSSettings.AppMode.VR),
+                },
+#endif
             };
 
             BuildValidator.AddRules(k_VisionOSBuildTarget, k_Rules);
+        }
+
+        static TierSettings GetTierSettings()
+        {
+            // Vision Pro is tier 2
+            return EditorGraphicsSettings.GetTierSettings(BuildTargetGroup.VisionOS, GraphicsTier.Tier2);
+        }
+
+        static void SetTierSettings(TierSettings settings)
+        {
+            // Vision Pro is tier 2
+            EditorGraphicsSettings.SetTierSettings(BuildTargetGroup.VisionOS, GraphicsTier.Tier2, settings);
         }
 
         static bool CheckAppMode(VisionOSSettings.AppMode mode)
@@ -206,12 +289,6 @@ namespace UnityEditor.XR.VisionOS
             newARSession.AddComponent<ARSession>();
             Undo.RegisterCreatedObjectUndo(newARSession, "Create AR Session");
             return newARSession;
-        }
-
-        static void CreateARInputManager()
-        {
-            var arSession = CreateARSession();
-            Undo.AddComponent(arSession, typeof(ARInputManager));
         }
 
 #if UNITY_HAS_URP
@@ -314,6 +391,44 @@ namespace UnityEditor.XR.VisionOS
             return !foundInvalidRenderer;
         }
 #endif
+
+        // ReSharper disable once InconsistentNaming
+        static bool HasURPAsset()
+        {
+#if UNITY_HAS_URP
+            return UniversalRenderPipeline.asset != null;
+#else
+            return false;
+#endif
+        }
+
+        static bool IsHDREnabled()
+        {
+#if UNITY_HAS_URP
+            var asset = UniversalRenderPipeline.asset;
+            if (asset != null)
+                return asset.supportsHDR;
+#endif
+
+            return GetTierSettings().hdr;
+        }
+
+        static void SetHDREnabled(bool enabled)
+        {
+#if UNITY_HAS_URP
+            var asset = UniversalRenderPipeline.asset;
+            if (asset != null)
+            {
+                Undo.RecordObject(asset, "Disable URP HDR");
+                asset.supportsHDR = enabled;
+                return;
+            }
+#endif
+
+            var tierSettings = GetTierSettings();
+            tierSettings.hdr = enabled;
+            SetTierSettings(tierSettings);
+        }
 
         static void EnableVisionOSLoader()
         {

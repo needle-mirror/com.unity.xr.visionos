@@ -27,15 +27,17 @@ var unityVisionOSCompositorSpace: some Scene {
     ImmersiveSpace(id: "CompositorSpace") {
         // swiftlint:disable:next redundant_discardable_let
         let _ = UnityLibrary.getInstance()
+        let settingsBridge = NSClassFromString("UnityVisionOSSettingsBridge") as? NSObject.Type
+        let useHDR = settingsBridge?.perform(Selector(("getUseHDR")))?.takeUnretainedValue() as? NSNumber
+
         let configuration = UnityCompositorServicesConfiguration(
             singlePass: singlePass,
-            enableFoveation: VisionOSEnableFoveation)
+            enableFoveation: VisionOSEnableFoveation,
+            useHDR: useHDR?.intValue ?? 0)
 
         CompositorLayer(configuration: configuration) { layerRenderer in
             let compositorBridge = NSClassFromString("UnityVisionOSCompositorBridge") as? NSObject.Type
             compositorBridge?.perform(Selector(("setLayerRenderer:")), with: layerRenderer)
-
-            let settingsBridge = NSClassFromString("UnityVisionOSSettingsBridge") as? NSObject.Type
             settingsBridge?.perform(Selector(("setFoveatedRenderingEnabled:")), with: VisionOSEnableFoveation)
 
             setIsImmersiveSpaceReady(true)
@@ -102,6 +104,6 @@ var unityVisionOSCompositorSpace: some Scene {
                 }
             }
         }
-    }.immersionStyle(selection: .constant(.full), in: .full)
-        .upperLimbVisibility(VisionOSUpperLimbVisibility ? .visible : .hidden)
+    }.immersionStyle(selection: .constant(VisionOSImmersionStyle), in: VisionOSImmersionStyle)
+        .upperLimbVisibility(VisionOSUpperLimbVisibility)
 }

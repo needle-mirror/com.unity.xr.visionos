@@ -70,6 +70,11 @@ namespace UnityEditor.XR.VisionOS
                 }
             }
 
+            public void AppendChild(Element child)
+            {
+                m_Node.AppendChild(child.m_Node);
+            }
+
             public Element[] AsArray() => m_Node.Name == "array"
                 ? EnumerateNodes(m_Node.ChildNodes).Select(node => new Element(node)).ToArray()
                 : null;

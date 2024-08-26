@@ -31,17 +31,6 @@ namespace UnityEditor.XR.VisionOS
         const string k_ARMWorkaroundOriginalAlt = "--compile-cpp";
         const string k_ARMWorkaroundReplacementAlt = "--compile-cpp --additional-defines=IL2CPP_LARGE_EXECUTABLE_ARM_WORKAROUND=1";
 
-        const string k_SceneManifestKey = "UIApplicationSceneManifest";
-        const string k_SupportsMultipleScenesKey = "UIApplicationSupportsMultipleScenes";
-        const string k_SessionRoleKey = "UIApplicationPreferredDefaultSceneSessionRole";
-        const string k_SessionRoleValue = "CPSceneSessionRoleImmersiveSpaceApplication";
-        const string k_HandsTrackingUsageDescriptionKey = "NSHandsTrackingUsageDescription";
-        const string k_WorldSensingUsageDescriptionKey = "NSWorldSensingUsageDescription";
-
-        const string k_PluginPath = "Libraries/com.unity.xr.visionos/Runtime/Plugins/visionos";
-        const string k_MainFile = "MainApp/main.mm";
-        const string k_LaunchScreenStoryboard = "LaunchScreen-iPhone.storyboard";
-
         class PostProcessor : IPostprocessBuildWithReport
         {
             // Run last
@@ -50,6 +39,22 @@ namespace UnityEditor.XR.VisionOS
 #if INCLUDE_UNITY_XR_HANDS
             const string k_HandTrackingUsageError = "Hand tracking usage description is required when Initialize Hand Tracking On Startup is enabled. Refer to Project Settings > XR Plug-in Management > Apple visionOS or Project Validation for more information.";
 #endif
+
+            const string k_HandsTrackingUsageDescriptionKey = "NSHandsTrackingUsageDescription";
+            const string k_WorldSensingUsageDescriptionKey = "NSWorldSensingUsageDescription";
+
+            const string k_SceneManifestKey = "UIApplicationSceneManifest";
+            const string k_PreferredDefaultSessionRoleKey = "UIApplicationPreferredDefaultSceneSessionRole";
+            const string k_PreferredDefaultSessionRoleValue = "CPSceneSessionRoleImmersiveSpaceApplication";
+            const string k_SupportsMultipleScenesKey = "UIApplicationSupportsMultipleScenes";
+            const string k_SceneConfigurationsKey = "UISceneConfigurations";
+            const string k_SceneConfigurationSessionRoleKey = "CPSceneSessionRoleImmersiveSpaceApplication";
+            const string k_InitialImmersionStyleKey = "UISceneInitialImmersionStyle";
+            const string k_InitialImmersionStyleValue = "UIImmersionStyleMixed";
+
+            const string k_PluginPath = "Libraries/com.unity.xr.visionos/Runtime/Plugins/visionos";
+            const string k_MainFile = "MainApp/main.mm";
+            const string k_LaunchScreenStoryboard = "LaunchScreen-iPhone.storyboard";
 
             public void OnPostprocessBuild(BuildReport report)
             {
@@ -72,7 +77,7 @@ namespace UnityEditor.XR.VisionOS
                     ApplyArmWorkaround(outputPath);
 
                 if (PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device)
-                    RemoveSimulatorDylib(report.summary.outputPath);
+                    RemoveSimulatorDylib(outputPath);
 
                 // Do not do any build post-processing for windowed apps
                 if (appMode == VisionOSSettings.AppMode.Windowed)
@@ -200,10 +205,21 @@ namespace UnityEditor.XR.VisionOS
                 if (settings.appMode == VisionOSSettings.AppMode.VR)
                 {
                     var sceneManifestDictionary = plist.CreateElement("dict");
+
                     var supportsMultipleScenesValue = plist.CreateElement("true");
                     sceneManifestDictionary[k_SupportsMultipleScenesKey] = supportsMultipleScenesValue;
-                    var sessionRoleValue = plist.CreateElement("string", k_SessionRoleValue);
-                    sceneManifestDictionary[k_SessionRoleKey] = sessionRoleValue;
+
+                    var sessionRoleValue = plist.CreateElement("string", k_PreferredDefaultSessionRoleValue);
+                    sceneManifestDictionary[k_PreferredDefaultSessionRoleKey] = sessionRoleValue;
+
+                    var sceneConfigurationsDictionary = plist.CreateElement("dict");
+                    var immersiveSpaceApplicationArray = plist.CreateElement("array");
+                    var immersionStyleDictionary = plist.CreateElement("dict");
+                    immersionStyleDictionary[k_InitialImmersionStyleKey] = plist.CreateElement("string", k_InitialImmersionStyleValue);
+                    immersiveSpaceApplicationArray.AppendChild(immersionStyleDictionary);
+                    sceneConfigurationsDictionary[k_SceneConfigurationSessionRoleKey] = immersiveSpaceApplicationArray;
+                    sceneManifestDictionary[k_SceneConfigurationsKey] = sceneConfigurationsDictionary;
+
                     plist.root[k_SceneManifestKey] = sceneManifestDictionary;
                 }
 
@@ -241,20 +257,27 @@ namespace UnityEditor.XR.VisionOS
 
             static string GetSettingsString()
             {
-                const string format = "var VisionOSEnableFoveation = {0};\nvar VisionOSUpperLimbVisibility = {1}";
-
+                var settings = VisionOSSettings.currentSettings;
                 var enableFoveation = "false";
 #if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
                 var hasUrpAsset = UniversalRenderPipeline.asset != null;
-                if (VisionOSSettings.currentSettings.foveatedRendering && PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device && hasUrpAsset)
+                if (settings.foveatedRendering && PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device && hasUrpAsset)
                     enableFoveation = "true";
 #endif
 
-                var upperLimbVisibility = "false";
-                if (VisionOSSettings.currentSettings.upperLimbVisibility)
-                    upperLimbVisibility = "true";
+                // According to this presentation, maximum EDR on Vision Pro is 2.0. https://developer.apple.com/videos/play/wwdc2023/10089/?time=603
+                const float edrHeadroom = 2.0f;
+                var upperLimbVisibility = VisionOSSettings.UpperLimbVisibilityToString(settings.upperLimbVisibility);
+                var immersionStyle = VisionOSSettings.ImmersionStyleToString(settings.vrImmersionStyle);
+                var skipPresent = settings.skipPresentToMainScreen ? "true" : "false";
+                return $@"import SwiftUI
 
-                return string.Format(format, enableFoveation, upperLimbVisibility);
+var VisionOSEnableFoveation = {enableFoveation}
+var VisionOSUpperLimbVisibility: Visibility = {upperLimbVisibility}
+var VisionOSImmersionStyle: ImmersionStyle = {immersionStyle}
+var VisionOSSkipPresent = {skipPresent}
+var VisionOSEDRHeadroom = {edrHeadroom}
+";
             }
         }
     }

@@ -10,6 +10,9 @@ using UnityEngine.XR.Interaction.Toolkit.UI;
 
 namespace UnityEngine.XR.VisionOS.InputDevices
 {
+    /// <summary>
+    /// Handles visionOS Play Mode Input by translating mouse input into VisionOSSpatialPointerEvents.
+    /// </summary>
     public class VisionOSPlayModeInput : MonoBehaviour
     {
         [SerializeField]

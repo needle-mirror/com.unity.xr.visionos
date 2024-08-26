@@ -1,37 +1,42 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.XR.ARFoundation;
 
-#if INCLUDE_UNITY_XR_HANDS && (UNITY_VISIONOS || UNITY_EDITOR)
-using UnityEngine.XR.Hands;
-using UnityEngine.XR.Management;
+#if UNITY_HAS_URP
+using UnityEngine.Rendering.Universal;
 #endif
 
 namespace UnityEngine.XR.VisionOS.Samples.URP
 {
     public class SampleUIController : MonoBehaviour
     {
-#if INCLUDE_UNITY_XR_HANDS && (UNITY_VISIONOS || UNITY_EDITOR)
-        const string k_CreateHandSubsystemText = "Create Hand Subsystem";
-        const string k_DestroyHandSubsystemText = "Destroy Hand Subsystem";
-#endif
-
+        const string k_DisableSkyboxText = "Disable Skybox";
+        const string k_EnableSkyboxText = "Enable Skybox";
         const string k_HandTrackingAuthorizationFormat = "Hand Tracking Authorization: {0}";
         const string k_WorldSensingAuthorizationFormat = "World Sensing Authorization: {0}";
+
+#if UNITY_HAS_URP
+        const string k_EnableHDRText = "Enable HDR";
+        const string k_DisableHDRText = "Disable HDR";
+
+        const string k_EnablePostProcessingText = "Enable Post Processing";
+        const string k_DisablePostProcessingText = "Disable Post Processing";
+#endif
 
         [SerializeField]
         ParticleSystem m_ParticleSystem;
 
         [SerializeField]
-        ARAnchorManager m_AnchorManager;
+        Camera m_Camera;
 
         [SerializeField]
-        GameObject m_HandSubsystemToggleButton;
+        Text m_SkyboxToggleText;
 
         [SerializeField]
-        Text m_HandSubsystemToggleText;
+        Text m_HDRToggleText;
+
+        [SerializeField]
+        Text m_PostProcessingToggleText;
 
         [SerializeField]
         Text m_HandTrackingAuthorizationText;
@@ -39,39 +44,17 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         [SerializeField]
         Text m_WorldSensingAuthorizationText;
 
-#if INCLUDE_UNITY_XR_HANDS && (UNITY_VISIONOS || UNITY_EDITOR)
-        VisionOSLoader m_Loader;
-        XRHandSubsystem m_HandSubsystem;
-#endif
-
-        static readonly List<ARAnchor> k_AnchorsToDestroy = new();
-
         void Awake()
         {
-#if UNITY_VISIONOS || UNITY_EDITOR
-            UpdateAuthorizationText();
+            UpdateSkyboxToggleText();
+
+#if UNITY_HAS_URP
+            UpdateHDRText();
+            UpdatePostProcessingText();
 #endif
 
-#if INCLUDE_UNITY_XR_HANDS && (UNITY_VISIONOS || UNITY_EDITOR)
-            if (XRGeneralSettings.Instance != null && XRGeneralSettings.Instance.Manager != null)
-                m_Loader = XRGeneralSettings.Instance.Manager.ActiveLoaderAs<VisionOSLoader>();
-
-            // If the button doesn't exist, there's no point in setting up the rest of the hand tracking fields
-            if (m_HandSubsystemToggleButton == null)
-                return;
-
-            // If building in Windowed or Mixed Reality mode, VisionOSLoader may not be active
-            if (m_Loader == null)
-            {
-                m_HandSubsystemToggleButton.SetActive(false);
-                return;
-            }
-
-            m_HandSubsystem = m_Loader.handSubsystem;
-            UpdateHandSubsystemToggleText();
-#else
-            if (m_HandSubsystemToggleButton != null)
-                m_HandSubsystemToggleButton.SetActive(false);
+#if UNITY_VISIONOS || UNITY_EDITOR
+            UpdateAuthorizationText();
 #endif
         }
 
@@ -118,69 +101,56 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
             mainModule.simulationSpeed = speed;
         }
 
-        public void ClearWorldAnchors()
+        public void ToggleSkybox()
         {
-            if (m_AnchorManager == null)
+            if (m_Camera.clearFlags == CameraClearFlags.Skybox)
             {
-                Debug.LogError("Cannot clear world anchors; Anchor Manager is null");
-                return;
-            }
-
-            var anchorSubsystem = m_AnchorManager.subsystem;
-            if (anchorSubsystem == null || !anchorSubsystem.running)
-            {
-                Debug.LogWarning("Cannot clear anchors if subsystem is not running");
-                return;
-            }
-
-            // Copy anchors to a reusable list to avoid InvalidOperationException caused by Destroy modifying the list of anchors
-            k_AnchorsToDestroy.Clear();
-            foreach (var anchor in m_AnchorManager.trackables)
-            {
-                if (anchor == null)
-                    continue;
-
-                k_AnchorsToDestroy.Add(anchor);
-            }
-
-            foreach (var anchor in k_AnchorsToDestroy)
-            {
-                Debug.Log($"Destroying anchor with trackable id: {anchor.trackableId.ToString()}");
-                Destroy(anchor.gameObject);
-            }
-
-            k_AnchorsToDestroy.Clear();
-        }
-
-        public void ToggleHandSubsystem()
-        {
-#if INCLUDE_UNITY_XR_HANDS && (UNITY_VISIONOS || UNITY_EDITOR)
-            if (m_Loader == null)
-                return;
-
-            if (m_HandSubsystem == null)
-            {
-                m_Loader.CreateHandSubsystem();
-                m_Loader.StartHandSubsystem();
-                m_HandSubsystem = m_Loader.handSubsystem;
+                m_Camera.clearFlags = CameraClearFlags.Color;
+                m_Camera.backgroundColor = Color.black;
             }
             else
             {
-                m_Loader.DestroyHandSubsystem();
-                m_HandSubsystem = null;
+                m_Camera.clearFlags = CameraClearFlags.Skybox;
             }
 
-            UpdateHandSubsystemToggleText();
+            UpdateSkyboxToggleText();
+        }
+
+        void UpdateSkyboxToggleText()
+        {
+            m_SkyboxToggleText.text = m_Camera.clearFlags == CameraClearFlags.Skybox ? k_DisableSkyboxText : k_EnableSkyboxText;
+        }
+
+        public void ToggleHDR()
+        {
+#if UNITY_HAS_URP
+            UniversalRenderPipeline.asset.supportsHDR = !UniversalRenderPipeline.asset.supportsHDR;
+            var additionalCameraData = m_Camera.GetUniversalAdditionalCameraData();
+            m_Camera.allowHDR = UniversalRenderPipeline.asset.supportsHDR;
+            additionalCameraData.allowHDROutput = UniversalRenderPipeline.asset.supportsHDR;
+            UpdateHDRText();
 #endif
         }
 
-#if INCLUDE_UNITY_XR_HANDS && (UNITY_VISIONOS || UNITY_EDITOR)
-        void UpdateHandSubsystemToggleText()
+        // TODO: LXR-4050 toggling post-processing results in head-locked rendering
+        public void TogglePostProcessing()
         {
-            if (m_HandSubsystemToggleText == null)
-                return;
+#if UNITY_HAS_URP
+            var additionalCameraData = m_Camera.GetUniversalAdditionalCameraData();
+            additionalCameraData.renderPostProcessing = !additionalCameraData.renderPostProcessing;
+            UpdatePostProcessingText();
+#endif
+        }
 
-            m_HandSubsystemToggleText.text = m_HandSubsystem == null ? k_CreateHandSubsystemText : k_DestroyHandSubsystemText;
+#if UNITY_HAS_URP
+        void UpdateHDRText()
+        {
+            m_HDRToggleText.text = UniversalRenderPipeline.asset.supportsHDR ? k_DisableHDRText : k_EnableHDRText;
+        }
+
+        void UpdatePostProcessingText()
+        {
+            m_PostProcessingToggleText.text = m_Camera.GetUniversalAdditionalCameraData().renderPostProcessing ? k_DisablePostProcessingText : k_EnablePostProcessingText;
         }
 #endif
     }

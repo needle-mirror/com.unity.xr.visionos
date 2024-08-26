@@ -29,11 +29,16 @@ namespace UnityEngine.XR.VisionOS
         IntPtr CurrentProvider { get; }
 
         /// <summary>
-        /// Create a native data provider with the given <see cref="Feature"/> configuration.
+        /// Start a native data provider, along with its own AR Session, with the given <see cref="Feature"/> configuration.
         /// </summary>
         /// <param name="features"><see cref="Feature"/> flags requested by the app.</param>
-        /// <param name="provider">An <see cref="IntPtr"/> provided by the ARKit API for this data provider, if one was created. <see cref="IntPtr.Zero"/> otherwise.</param>
-        /// <returns><see langword="true"/> if the native provider was created successfully. Otherwise, <see langword="false"/>.</returns>
-        bool TryCreateNativeProvider(Feature features, out IntPtr provider);
+        /// <returns><see langword="true"/> if the native provider was started successfully. Otherwise, <see langword="false"/>.</returns>
+        bool TryStartNativeSession(Feature features);
+
+        /// <summary>
+        /// Try to stop the provider, and its native session, if they are running.
+        /// </summary>
+        /// <returns>Whether the session was stopped.</returns>
+        bool TryStopNativeSession();
     }
 }

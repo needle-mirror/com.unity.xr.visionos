@@ -3,6 +3,7 @@
 #define UNITY_SUPPORT_FOVEATION
 #endif
 
+using System;
 using UnityEngine.XR.VisionOS;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
@@ -27,6 +28,14 @@ namespace UnityEditor.XR.VisionOS
             "used. If this field is blank, the app will not be allowed to request world sensing authorization, and will crash when trying to start an AR " +
             "Session using these data providers. If your app does not use world sensing, you can safely leave this field blank.";
 
+        const string k_TargetFrameRateTooltip = "Choose the initial target frame rate. Most apps should start with a value of 90hz and expect to render within " +
+            "the 11ms available per frame. If you see dropped frames or profiling data that indicates that you cannot reliably render at 90hz, try dropping " +
+            "this down to 45hz and see if your frame timings are more consistent. This value is used to set Application.targetFrameRate and " +
+            "VisionOS.SetMinimumFrameRepeatCount during application startup.";
+
+        const string k_TargetFrameRateLabelText = "Initial Target Frame Rate";
+        const string k_TargetFrameRateFormat = "{0}hz";
+
 #if INCLUDE_UNITY_XR_HANDS
         const string k_HandTrackingUsageWarning = "Hand tracking usage description is required if hand tracking features will be used. If this field is blank, " +
             "the app will not be allowed to request hand tracking authorization, and will crash when trying to start an AR Session using this data provider. " +
@@ -42,6 +51,9 @@ namespace UnityEditor.XR.VisionOS
 #else
         const bool k_HasHandsPackage = false;
 #endif
+
+        const int k_TargetFrameRateOptionCount = 3;
+        static readonly string[] k_TargetFrameRateOptions;
 
 #if !UNITY_HAS_POLYSPATIAL_VISIONOS
         static readonly string[] k_PolySpatialPackages = { "com.unity.polyspatial.visionos", "com.unity.polyspatial.xr" };
@@ -61,12 +73,28 @@ namespace UnityEditor.XR.VisionOS
         AddAndRemoveRequest m_InstallRequest;
 
         SerializedProperty m_AppModeProperty;
+        SerializedProperty m_SetTargetFrameRateOnStartupProperty;
+        SerializedProperty m_InitialMinimumFrameRepeatCountProperty;
         SerializedProperty m_HandsTrackingUsageDescriptionProperty;
         SerializedProperty m_WorldSensingUsageDescriptionProperty;
         SerializedProperty m_InitializeHandTrackingOnStartupProperty;
         SerializedProperty m_UpperLimbVisibilityProperty;
         SerializedProperty m_FoveatedRenderingProperty;
+        SerializedProperty m_VRImmersionStyleProperty;
+        SerializedProperty m_MRImmersionStyleProperty;
         SerializedProperty m_IL2CPPLargeExeWorkaroundProperty;
+        SerializedProperty m_SkipPresentToMainScreenProperty;
+
+        Lazy<GUIContent> m_TargetFrameRateLabel = new(() => new GUIContent(k_TargetFrameRateLabelText, k_TargetFrameRateTooltip));
+
+        static VisionOSSettingsEditor()
+        {
+            k_TargetFrameRateOptions = new string[k_TargetFrameRateOptionCount];
+            for (var i = 0; i < k_TargetFrameRateOptionCount; i++)
+            {
+                k_TargetFrameRateOptions[i] = string.Format(k_TargetFrameRateFormat, VisionOSRuntimeSettings.GetTargetFrameRateForRepeatCount(i));
+            }
+        }
 
         void OnEnable()
         {
@@ -75,7 +103,10 @@ namespace UnityEditor.XR.VisionOS
             m_WorldSensingUsageDescriptionProperty = serializedObject.FindProperty("m_WorldSensingUsageDescription");
             m_UpperLimbVisibilityProperty = serializedObject.FindProperty("m_UpperLimbVisibility");
             m_FoveatedRenderingProperty = serializedObject.FindProperty("m_FoveatedRendering");
+            m_VRImmersionStyleProperty = serializedObject.FindProperty("m_VRImmersionStyle");
+            m_MRImmersionStyleProperty = serializedObject.FindProperty("m_MRImmersionStyle");
             m_IL2CPPLargeExeWorkaroundProperty = serializedObject.FindProperty("m_IL2CPPLargeExeWorkaround");
+            m_SkipPresentToMainScreenProperty = serializedObject.FindProperty("m_SkipPresentToMainScreen");
 
             // Initialize RuntimeSettings on a delay to prevent asset creation errors that can happen on first import
             EditorApplication.delayCall += InitializeRuntimeSettings;
@@ -96,6 +127,8 @@ namespace UnityEditor.XR.VisionOS
         {
             var runtimeSettings = new SerializedObject(VisionOSRuntimeSettings.GetOrCreate());
             m_InitializeHandTrackingOnStartupProperty = runtimeSettings.FindProperty("m_InitializeHandTrackingOnStartup");
+            m_SetTargetFrameRateOnStartupProperty = runtimeSettings.FindProperty("m_SetTargetFrameRateOnStartup");
+            m_InitialMinimumFrameRepeatCountProperty = runtimeSettings.FindProperty("m_InitialMinimumFrameRepeatCount");
         }
 
         public override void OnInspectorGUI()
@@ -113,6 +146,7 @@ namespace UnityEditor.XR.VisionOS
 
             EditorGUILayout.PropertyField(m_AppModeProperty);
             var appMode = (VisionOSSettings.AppMode)m_AppModeProperty.intValue;
+            var hasVRSupport = appMode is VisionOSSettings.AppMode.VR;
 
 #if !UNITY_HAS_POLYSPATIAL_VISIONOS
             // ChangeCheckScope can fire when first viewing the inspector, so just compare previous to current state
@@ -156,7 +190,7 @@ namespace UnityEditor.XR.VisionOS
 
 #if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
             var hasUrpAsset = UniversalRenderPipeline.asset != null;
-            var foveationSupported = appMode == VisionOSSettings.AppMode.VR && hasUrpAsset;
+            var foveationSupported = hasVRSupport && hasUrpAsset;
 #else
             const bool foveationSupported = false;
 #endif
@@ -164,6 +198,50 @@ namespace UnityEditor.XR.VisionOS
             // Usage descriptions are only needed when loader is enabled (it will be disabled under Windowed mode regardless)
             using (new EditorGUI.DisabledScope(!isLoaderEnabled || appMode == VisionOSSettings.AppMode.Windowed))
             {
+                var setTargetFrameRateOnStartup = false;
+                if (m_SetTargetFrameRateOnStartupProperty == null)
+                {
+                    // Fall back to a label in case we see the UI between OnEnable and initializing this property
+                    GUILayout.Label("Initializing Runtime Settings...");
+                }
+                else
+                {
+                    using (var changed = new EditorGUI.ChangeCheckScope())
+                    {
+                        m_SetTargetFrameRateOnStartupProperty.serializedObject.Update();
+                        EditorGUILayout.PropertyField(m_SetTargetFrameRateOnStartupProperty);
+                        if (changed.changed)
+                        {
+                            m_SetTargetFrameRateOnStartupProperty.serializedObject.ApplyModifiedProperties();
+                        }
+
+                        setTargetFrameRateOnStartup = m_SetTargetFrameRateOnStartupProperty.boolValue;
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(!setTargetFrameRateOnStartup))
+                {
+                    if (m_InitialMinimumFrameRepeatCountProperty == null)
+                    {
+                        // Fall back to a label in case we see the UI between OnEnable and initializing this property
+                        GUILayout.Label("Initializing Runtime Settings...");
+                    }
+                    else
+                    {
+                        using (var changed = new EditorGUI.ChangeCheckScope())
+                        {
+                            m_InitialMinimumFrameRepeatCountProperty.serializedObject.Update();
+                            var repeatCount = m_InitialMinimumFrameRepeatCountProperty.intValue;
+                            repeatCount = EditorGUILayout.Popup(m_TargetFrameRateLabel.Value, repeatCount, k_TargetFrameRateOptions);
+                            m_InitialMinimumFrameRepeatCountProperty.intValue = repeatCount;
+                            if (changed.changed)
+                            {
+                                m_InitialMinimumFrameRepeatCountProperty.serializedObject.ApplyModifiedProperties();
+                            }
+                        }
+                    }
+                }
+
                 using (new EditorGUI.DisabledScope(!k_HasHandsPackage))
                 {
                     if (m_InitializeHandTrackingOnStartupProperty == null)
@@ -202,10 +280,17 @@ namespace UnityEditor.XR.VisionOS
                 if (isLoaderEnabled && string.IsNullOrEmpty(m_WorldSensingUsageDescriptionProperty.stringValue))
                     EditorGUILayout.HelpBox(k_WorldSensingUsageWarning, MessageType.Warning);
 
+                EditorGUILayout.PropertyField(m_VRImmersionStyleProperty);
+                EditorGUILayout.PropertyField(m_MRImmersionStyleProperty);
                 EditorGUILayout.PropertyField(m_UpperLimbVisibilityProperty);
                 using (new EditorGUI.DisabledScope(!foveationSupported))
                 {
                     EditorGUILayout.PropertyField(m_FoveatedRenderingProperty);
+                }
+
+                using (new EditorGUI.DisabledScope(!hasVRSupport))
+                {
+                    EditorGUILayout.PropertyField(m_SkipPresentToMainScreenProperty);
                 }
             }
 

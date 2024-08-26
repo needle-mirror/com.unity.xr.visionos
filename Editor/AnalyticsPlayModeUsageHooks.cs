@@ -75,7 +75,11 @@ namespace UnityEditor.XR.VisionOS.Analytics
             }
 
             if (VisionOSSettings.currentSettings != null)
+            {
                 payload.AppMode = VisionOSSettings.currentSettings.appMode.ToString();
+                payload.VRImmersionStyle = VisionOSSettings.currentSettings.vrImmersionStyle.ToString();
+                payload.MRImmersionStyle = VisionOSSettings.currentSettings.mrImmersionStyle.ToString();
+            }
 
             return payload;
         }
