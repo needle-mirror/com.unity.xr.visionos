@@ -1,10 +1,4 @@
 #if UNITY_VISIONOS
-
-// The only version supported by the package which does not support foveation is 2022.3.15f1
-#if !(UNITY_2022_3_15)
-#define UNITY_SUPPORT_FOVEATION
-#endif
-
 using System;
 using System.IO;
 using System.Linq;
@@ -71,9 +65,11 @@ namespace UnityEditor.XR.VisionOS
 
                 var outputPath = report.summary.outputPath;
                 var settings = VisionOSSettings.currentSettings;
-                var appMode = settings.appMode;
+                var appMode = VisionOSSettings.AppMode.Metal;
+                if (settings != null)
+                    appMode = settings.appMode;
 
-                if (settings.il2CPPLargeExeWorkaround)
+                if (settings != null && settings.il2CPPLargeExeWorkaround)
                     ApplyArmWorkaround(outputPath);
 
                 if (PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device)
@@ -124,11 +120,16 @@ namespace UnityEditor.XR.VisionOS
                 // Remove this once this is removed from the template!
                 foreach (var configName in pbxProject.BuildConfigNames())
                 {
-                    var configGuid = pbxProject.BuildConfigByName(unityFrameworkTargetGuid, configName);
-                    if (configGuid == null)
+                    var frameworkConfigGuid = pbxProject.BuildConfigByName(unityFrameworkTargetGuid, configName);
+                    if (frameworkConfigGuid == null)
                         continue;
 
-                    var existing = pbxProject.GetBuildPropertyForConfig(configGuid, "OTHER_LDFLAGS");
+                    pbxProject.SetBuildPropertyForConfig(frameworkConfigGuid, "XROS_DEPLOYMENT_TARGET", "2.0");
+                    var mainConfigGuid = pbxProject.BuildConfigByName(unityMainTargetGuid, configName);
+                    if (mainConfigGuid != null)
+                        pbxProject.SetBuildPropertyForConfig(mainConfigGuid, "XROS_DEPLOYMENT_TARGET", "2.0");
+
+                    var existing = pbxProject.GetBuildPropertyForConfig(frameworkConfigGuid, "OTHER_LDFLAGS");
                     if (existing != null)
                     {
                         const string exportedSymbolArgument = "-exported_symbol";
@@ -140,7 +141,7 @@ namespace UnityEditor.XR.VisionOS
                         // so this should be fine in 99.99999999% of cases
                         var items = existing.Split(" ");
                         items = items.Where(s => !s.Contains(exportedSymbolArgument)).ToArray();
-                        pbxProject.SetBuildPropertyForConfig(configGuid, "OTHER_LDFLAGS", string.Join(" ", items));
+                        pbxProject.SetBuildPropertyForConfig(frameworkConfigGuid, "OTHER_LDFLAGS", string.Join(" ", items));
                     }
                 }
 
@@ -202,7 +203,18 @@ namespace UnityEditor.XR.VisionOS
                 var text = File.ReadAllText(plistPath);
                 var plist = Plist.ReadFromString(text);
 
-                if (settings.appMode == VisionOSSettings.AppMode.Metal)
+                var appMode = VisionOSSettings.AppMode.Metal;
+                string handsUsage = null;
+                string worldSensingUsage = null;
+
+                if (settings != null)
+                {
+                    appMode = settings.appMode;
+                    handsUsage = settings.handsTrackingUsageDescription;
+                    worldSensingUsage = settings.worldSensingUsageDescription;
+                }
+
+                if (appMode == VisionOSSettings.AppMode.Metal)
                 {
                     var sceneManifestDictionary = plist.CreateElement("dict");
 
@@ -224,7 +236,6 @@ namespace UnityEditor.XR.VisionOS
                 }
 
                 // TODO: Project analysis to detect any scripts/scenes that will request hand tracking
-                var handsUsage = settings.handsTrackingUsageDescription;
 #if INCLUDE_UNITY_XR_HANDS
                 if (string.IsNullOrEmpty(handsUsage) && VisionOSEditorUtils.IsLoaderEnabled())
                 {
@@ -238,7 +249,6 @@ namespace UnityEditor.XR.VisionOS
                 }
 
                 // TODO: Scene analysis to detect any managers that will request world sensing
-                var worldSensingUsage = settings.worldSensingUsageDescription;
                 if (!string.IsNullOrEmpty(worldSensingUsage))
                     plist.root[k_WorldSensingUsageDescriptionKey] = plist.CreateElement("string", worldSensingUsage);
 
@@ -257,23 +267,44 @@ namespace UnityEditor.XR.VisionOS
 
             static string GetSettingsString()
             {
+                var metalImmersionStyle = VisionOSSettings.ImmersionStyle.Automatic;
+                var upperLimbVisibility = VisionOSSettings.Visibility.Automatic;
+                var persistentOverlays = VisionOSSettings.Visibility.Automatic;
+
                 var settings = VisionOSSettings.currentSettings;
-                var enableFoveation = "false";
-#if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
+                if (settings != null)
+                {
+                    metalImmersionStyle = settings.metalImmersionStyle;
+                    upperLimbVisibility = settings.upperLimbVisibility;
+                    persistentOverlays = settings.metalImmersiveOverlays;
+                }
+
+#if UNITY_HAS_URP
+                var foveatedRenderingEnabled = true;
+                if (settings != null)
+                    foveatedRenderingEnabled = settings.foveatedRendering;
+
                 var hasUrpAsset = UniversalRenderPipeline.asset != null;
-                if (settings.foveatedRendering && PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device && hasUrpAsset)
-                    enableFoveation = "true";
+                var isDeviceBuild = PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device;
+                var enableFoveationString = hasUrpAsset && foveatedRenderingEnabled && isDeviceBuild ? "true" : "false";
+#else
+                const string enableFoveationString = "false";
 #endif
 
-                var upperLimbVisibility = VisionOSSettings.UpperLimbVisibilityToString(settings.upperLimbVisibility);
-                var immersionStyle = VisionOSSettings.ImmersionStyleToString(settings.metalImmersionStyle);
-                var skipPresent = settings.skipPresentToMainScreen ? "true" : "false";
+                // According to this presentation, maximum EDR on Vision Pro is 2.0. https://developer.apple.com/videos/play/wwdc2023/10089/?time=603
+                // However, Apple has advised us to use a value of 1.2 when pass through is enabled (Mixed and Automatic immersion style)
+                var edrHeadroom = metalImmersionStyle == VisionOSSettings.ImmersionStyle.Full ? 2.0f : 1.2f;
+                var upperLimbVisibilityString = VisionOSSettings.VisibilityToString(upperLimbVisibility);
+                var persistentSystemOverlaysString = VisionOSSettings.VisibilityToString(persistentOverlays);
+                var immersionStyleString = VisionOSSettings.ImmersionStyleToString(metalImmersionStyle);
                 return $@"import SwiftUI
 
-var VisionOSEnableFoveation = {enableFoveation}
-var VisionOSUpperLimbVisibility: Visibility = {upperLimbVisibility}
-var VisionOSImmersionStyle: ImmersionStyle = {immersionStyle}
-var VisionOSSkipPresent = {skipPresent}
+var VisionOSEnableFoveation = {enableFoveationString}
+var VisionOSUpperLimbVisibility: Visibility = {upperLimbVisibilityString}
+var VisionOSPersistentSystemOverlays: Visibility = {persistentSystemOverlaysString}
+var VisionOSImmersionStyle: ImmersionStyle = {immersionStyleString}
+var VisionOSSkipPresent = true
+var VisionOSEDRHeadroom = {edrHeadroom}
 ";
             }
         }

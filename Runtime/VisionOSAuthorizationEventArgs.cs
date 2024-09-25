@@ -1,4 +1,4 @@
-﻿namespace UnityEngine.XR.VisionOS
+namespace UnityEngine.XR.VisionOS
 {
     /// <summary>
     /// Arguments provided by the AuthorizationChanged event

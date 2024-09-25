@@ -28,7 +28,10 @@ namespace UnityEditor.XR.VisionOS
                     return;
 
                 var settings = VisionOSSettings.currentSettings;
-                var appMode = settings.appMode;
+                var appMode = VisionOSSettings.AppMode.Metal;
+                if (settings != null)
+                    appMode = settings.appMode;
+
                 if (appMode == VisionOSSettings.AppMode.Windowed)
                 {
                     Debug.LogWarning("The Apple visionOS XR loader is not supported when building a visionOS Windowed application. It will be disabled for this " +
@@ -97,11 +100,15 @@ namespace UnityEditor.XR.VisionOS
             {
                 // PoySpatial will replace UnityMetalMainApp.swift
                 var settings = VisionOSSettings.currentSettings;
-                var mixedRealitySupported = settings != null && settings.appMode is VisionOSSettings.AppMode.RealityKit or VisionOSSettings.AppMode.Hybrid;
+                var appMode = VisionOSSettings.AppMode.Metal;
+                if (settings != null)
+                    appMode = settings.appMode;
+
+                var mixedRealitySupported = appMode is VisionOSSettings.AppMode.RealityKit or VisionOSSettings.AppMode.Hybrid;
                 if (mixedRealitySupported && path.Contains(k_MetalMainSwiftFile))
                     return false;
 
-                return settings.appMode != VisionOSSettings.AppMode.Windowed;
+                return appMode != VisionOSSettings.AppMode.Windowed;
             }
 
             static bool ShouldIncludePreCompiledLibraryInBuild(string path)

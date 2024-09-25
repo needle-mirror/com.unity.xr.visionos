@@ -7,13 +7,35 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.0.4] - 2024-09-25
+
+### Added
+- Added `metalImmersiveOverlays` and `realityKitImmersiveOverlays` settings to `VisionOSSettings`, which allow hiding the visionOS hand gesture menus in immersive spaces.
+
+### Changed
+- Update minimum Editor version to 6000.0.22f1.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Fixed Windows long path error when processing ARReferenceImage's build postprocessor.
+- Called EditorUtility.ClearProgressBar(); when finished processing visionOS reference image library assets to clear progress bar.
+- Fixed hand tracking lag by returning CACurrentMediaTime instead of 0 from `NativeApi.HandTracking.GetLatestHandTrackingTiming` when no LayerRenderer is active (for example when using PolySpatial).
+- Fixed potential NullReferenceExceptions in build processors.
+- Fixed a missing script on the AR Controls prefab in the built-in sample.
+
+### Security
+
 ## [2.0.0-pre.11] - 2024-08-12
 
 ### Added
 - Exposed `SkipPresentToMainScreen` setting in `VisionOSSettings`. This will be enabled by default, along with a Project Validation rule to encourage its use, on Unity 6000.0.11f1, which includes fixes for this mode. This version of Unity fixes frame pacing issues for visionOS apps using Metal rendering, along with a GPU resource leak related to this setting.
 - Added `VisionOS.SetMinimumFrameRepeatCount` API to enable content that can't hit 90hz to ask for more time to render each frame.
 - Added Initial Target Frame Rate runtime setting which sets `Application.targetFrameRate` and `VisionOS.SetMinimumFrameRepeatCount` at start-up based on the selected option.
-- Added more details to Metal App Mode documentation page, including how to set up pass-through in Metal-based apps. 
+- Added more details to Metal App Mode documentation page, including how to set up pass-through in Metal-based apps.
+- Added support for HDR rendering for Metal and Hybrid app modes. This includes a variety of fixes, project validation rules, and updates to the package samples. HDR rendering requires a minimum Unity version of 6000.0.18f1.
 
 ### Changed
 - Use new `cp_frame_binocular_frustum_matrix` API to query a proper culling matrix from the system. 2.0.0-pre.9 used a hard-coded 150-degree FOV to ensure nothing was culled prematurely, but may have regressed performance due to more objects being considered "in-view" than was necessary.
@@ -254,7 +276,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Fixed compile errors when the project has `com.unity.render-pipelines.core` but not `com.unity.render-pipelines.universal`.
 - Fixed issue with over releasing material references for canvas items.
- 
+
 ### Security
 
 ## [0.5.0] - 2023-10-26
@@ -276,7 +298,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.4.2] - 2023-10-12
 
-## Fixed
+### Fixed
 - Fixed an issue where VR builds would only render to the left eye in device builds when using the built-in pipeline.
 
 ## [0.4.1] - 2023-10-06

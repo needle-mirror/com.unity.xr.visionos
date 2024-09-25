@@ -43,7 +43,7 @@
         },
         {
             "name": "com.unity.polyspatial",
-            "expression": "2.0.0-pre.100",
+            "expression": "2.0.0-pre.9",
             "define": "INCLUDE_UNITY_POLYSPATIAL"
         }
     ],

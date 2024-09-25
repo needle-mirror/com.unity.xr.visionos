@@ -46,4 +46,4 @@ const char * __nonnull DisplayProviderParametersObjCType() {
     return @encode(DisplayProviderParameters);
 }
 
-#endif 
+#endif

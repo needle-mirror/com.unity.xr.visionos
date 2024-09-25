@@ -8,7 +8,8 @@
         "Unity.XR.Hands",
         "Unity.InputSystem",
         "Unity.XR.Interaction.Toolkit",
-        "Unity.XR.Management"
+        "Unity.XR.Management",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -27,6 +28,11 @@
             "name": "com.unity.xr.interaction.toolkit",
             "expression": "1.0.0",
             "define": "INCLUDE_UNITY_XRI"
+        },
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "17.0.0",
+            "define": "UNITY_HAS_URP"
         }
     ],
     "noEngineReferences": false

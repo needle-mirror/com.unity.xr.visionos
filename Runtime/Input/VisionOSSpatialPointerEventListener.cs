@@ -174,7 +174,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             // So we have to manage our own additional queue to send them one at a time.
             state.LastQueuedPhase = inputEvent.phase;
             state.EventQueue.Enqueue(new QueuedEvent {Pointer = inputEvent});
-        }        
+        }
 
         internal void ProcessEventQueue()
         {

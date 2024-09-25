@@ -1,8 +1,3 @@
-// The only version supported by the package which does not support foveation is 2022.3.15f1
-#if !(UNITY_2022_3_15)
-#define UNITY_SUPPORT_FOVEATION
-#endif
-
 using System;
 using UnityEngine.XR.VisionOS;
 using UnityEditor.PackageManager;
@@ -15,7 +10,7 @@ using UnityEditor.PolySpatial.Utilities;
 using Unity.XR.CoreUtils.Capabilities.Editor;
 #endif
 
-#if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
+#if UNITY_HAS_URP
 using UnityEngine.Rendering.Universal;
 #endif
 
@@ -82,8 +77,9 @@ namespace UnityEditor.XR.VisionOS
         SerializedProperty m_FoveatedRenderingProperty;
         SerializedProperty m_MetalImmersionStyleProperty;
         SerializedProperty m_RealityKitImmersionStyleProperty;
+        SerializedProperty m_MetalImmersiveOverlaysProperty;
+        SerializedProperty m_RealityKitImmersiveOverlaysProperty;
         SerializedProperty m_IL2CPPLargeExeWorkaroundProperty;
-        SerializedProperty m_SkipPresentToMainScreenProperty;
 
         Lazy<GUIContent> m_TargetFrameRateLabel = new(() => new GUIContent(k_TargetFrameRateLabelText, k_TargetFrameRateTooltip));
 
@@ -105,8 +101,9 @@ namespace UnityEditor.XR.VisionOS
             m_FoveatedRenderingProperty = serializedObject.FindProperty("m_FoveatedRendering");
             m_MetalImmersionStyleProperty = serializedObject.FindProperty("m_MetalImmersionStyle");
             m_RealityKitImmersionStyleProperty = serializedObject.FindProperty("m_RealityKitImmersionStyle");
+            m_MetalImmersiveOverlaysProperty = serializedObject.FindProperty("m_MetalImmersiveOverlays");
+            m_RealityKitImmersiveOverlaysProperty = serializedObject.FindProperty("m_RealityKitImmersiveOverlays");
             m_IL2CPPLargeExeWorkaroundProperty = serializedObject.FindProperty("m_IL2CPPLargeExeWorkaround");
-            m_SkipPresentToMainScreenProperty = serializedObject.FindProperty("m_SkipPresentToMainScreen");
 
             // Initialize RuntimeSettings on a delay to prevent asset creation errors that can happen on first import
             EditorApplication.delayCall += InitializeRuntimeSettings;
@@ -189,7 +186,7 @@ namespace UnityEditor.XR.VisionOS
                 VisionOSEditorUtils.UpdateSelectedCapabilityProfiles(appMode);
 #endif
 
-#if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
+#if UNITY_HAS_URP
             var hasUrpAsset = UniversalRenderPipeline.asset != null;
             var foveationSupported = hasMetalSupport && hasUrpAsset;
 #else
@@ -283,15 +280,12 @@ namespace UnityEditor.XR.VisionOS
 
                 EditorGUILayout.PropertyField(m_MetalImmersionStyleProperty);
                 EditorGUILayout.PropertyField(m_RealityKitImmersionStyleProperty);
+                EditorGUILayout.PropertyField(m_MetalImmersiveOverlaysProperty);
+                EditorGUILayout.PropertyField(m_RealityKitImmersiveOverlaysProperty);
                 EditorGUILayout.PropertyField(m_UpperLimbVisibilityProperty);
                 using (new EditorGUI.DisabledScope(!foveationSupported))
                 {
                     EditorGUILayout.PropertyField(m_FoveatedRenderingProperty);
-                }
-
-                using (new EditorGUI.DisabledScope(!hasMetalSupport))
-                {
-                    EditorGUILayout.PropertyField(m_SkipPresentToMainScreenProperty);
                 }
             }
 
@@ -307,7 +301,7 @@ namespace UnityEditor.XR.VisionOS
                     case VisionOSSdkVersion.Simulator:
                         EditorGUILayout.HelpBox("When building for visionOS Simulator SDK, Multi-Pass rendering will be used.", MessageType.Info);
 
-#if UNITY_HAS_URP && UNITY_SUPPORT_FOVEATION
+#if UNITY_HAS_URP
                         if (m_FoveatedRenderingProperty.boolValue && hasUrpAsset)
                             EditorGUILayout.HelpBox("Foveated rendering will be disabled for this build because it is not supported in the visionOS simulator.", MessageType.Info);
 #endif

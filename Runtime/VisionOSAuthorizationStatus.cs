@@ -1,4 +1,4 @@
-﻿namespace UnityEngine.XR.VisionOS
+namespace UnityEngine.XR.VisionOS
 {
     /// <summary>
     /// Enumerates the different possible statuses of authorization requests.

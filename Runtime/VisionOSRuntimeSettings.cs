@@ -20,8 +20,8 @@ namespace UnityEngine.XR.VisionOS
         // TODO: LXR-3993 Find a way to query the hardware frame rate, instead of assuming 90hz
         const int k_MaximumFrameRate = 90;
 
-        const string k_InitializeHandTrackingOnStartupTooltip = "Controls if hand tracking should be initialized when the application begins. The XR Hands " +
-            "package (com.unity.xr.hands) is required for hand tracking.";
+        const string k_InitializeHandTrackingOnStartupTooltip = "Controls if hand tracking should be initialized when the application begins. An XR Hands " +
+            "provider or package (ex: com.unity.xr.hands) is required for hand tracking.";
 
         const string k_SetTargetFrameRateAtStartTooltip = "Set the target frame rate and frame repeat count when the application begins.";
 
@@ -44,8 +44,8 @@ namespace UnityEngine.XR.VisionOS
         int m_InitialMinimumFrameRepeatCount;
 
         /// <summary>
-        /// Controls if hand tracking should be initialized when the application begins. The XR Hands
-        /// package (com.unity.xr.hands) is required for hand tracking.
+        /// Controls if hand tracking should be initialized when the application begins. An XR Hands provider or package (ex: com.unity.xr.hands)
+        /// is required for hand tracking.
         /// </summary>
         public bool initializeHandTrackingOnStartup
         {

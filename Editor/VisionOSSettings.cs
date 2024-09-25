@@ -4,12 +4,6 @@ using UnityEngine;
 using UnityEngine.XR.Management;
 using UnityEngine.XR.VisionOS;
 
-#if UNITY_HAS_POLYSPATIAL
-using Unity.PolySpatial;
-using UnityEditor.PolySpatial;
-using UnityEditor.PolySpatial.Internals;
-#endif
-
 namespace UnityEditor.XR.VisionOS
 {
     /// <summary>
@@ -45,13 +39,13 @@ namespace UnityEditor.XR.VisionOS
         const string k_MetalImmersionStyleTooltip = "The ImmersionStyle to be used for the Metal ImmersiveSpace.";
         const string k_RealityKitImmersionStyleTooltip = "The ImmersionStyle to be used for the RealityKit ImmersiveSpace.";
 
+        const string k_MetalImmersiveOverlaysTooltip = "The visibility of persistent system overlays (such as the visionOS hand gesture menus) " +
+            "in Metal immersive spaces.";
+        const string k_RealityKitImmersiveOverlaysTooltip = "The visibility of persistent system overlays (such as the visionOS hand gesture menus) " +
+            "in RealityKit immersive spaces.";
+
         const string k_IL2CPPLargeExeWorkaroundTooltip = "Patches the `Unity-VisionOS` project to work around linker errors that can occur in some " +
             "large projects. Check this box if you encounter the \"ARM64 branch out of range\" error when building the project in Xcode.";
-
-        const string k_SkipPresentToMainScreenTooltip = "Enables the SkipPresentToMainScreen XR setting. This setting was previously disabled to work around" +
-            "an issue that caused Unity versions prior to 6000.0.11f1 to leak GPU resources. In Unity 6000.0.11f1 and above, enabling this setting will fix" +
-            "a known issue with frame pacing on visionOS. Do not modify this setting from its default value unless you have a specific reason. It should " +
-            "be enabled on Unity 6000.0.11f1 and above, and disabled otherwise.";
 
         const string k_RuntimeSettingsFileName = "VisionOS Runtime Settings.asset";
 
@@ -113,24 +107,23 @@ namespace UnityEditor.XR.VisionOS
         }
 
         /// <summary>
-        /// The UpperLimbVisibility for a given ImmersiveSpace. Theis enum corresponds to the Visibilty type used in SwiftUI, and can be used to control whether
-        /// the user's upper limbs (hands and forearms) are visible.
-        /// Refer to Apple Developer documentation for more information.
+        /// Visibility values for elements such as upper limbs and persistent system overlays.  Corresponds to the equivalent enum
+        /// in <a href="https://developer.apple.com/documentation/swiftui/visibility">SwiftUI</a>.
         /// </summary>
-        public enum UpperLimbVisibility
+        public enum Visibility
         {
             /// <summary>
-            /// Hands and arms may be visible or hidden depending on the situation.
+            /// The element may be visible or hidden depending on the policies of the component accepting the visibility configuration.
             /// </summary>
             Automatic,
 
             /// <summary>
-            /// Hands and arms are always visible.
+            /// The element may be visible.
             /// </summary>
             Visible,
 
             /// <summary>
-            /// Hands and arms are never visible in fully immersive spaces, or when overlapping with virtual content.
+            /// The element may be hidden.
             /// </summary>
             Hidden
         }
@@ -147,6 +140,10 @@ namespace UnityEditor.XR.VisionOS
         [SerializeField, HideInInspector]
         VisionOSRuntimeSettings m_RuntimeSettings;
 
+        /// <summary>
+        /// Retrieves an existing VisionOSRuntimeSettings asset or creates a new one.
+        /// </summary>
+        /// <returns>A VisionOSRuntimeSettings.</returns>
         public VisionOSRuntimeSettings GetOrCreateRuntimeSettings()
         {
             if (m_RuntimeSettings != null)
@@ -179,7 +176,7 @@ namespace UnityEditor.XR.VisionOS
         }
 
         [SerializeField, Tooltip(k_UpperLimbVisibilityTooltip)]
-        UpperLimbVisibility m_UpperLimbVisibility;
+        Visibility m_UpperLimbVisibility;
 
         [SerializeField, Tooltip(k_FoveatedRenderingTooltip)]
         bool m_FoveatedRendering = true;
@@ -190,15 +187,14 @@ namespace UnityEditor.XR.VisionOS
         [SerializeField, Tooltip(k_RealityKitImmersionStyleTooltip)]
         ImmersionStyle m_RealityKitImmersionStyle;
 
+        [SerializeField, Tooltip(k_MetalImmersiveOverlaysTooltip)]
+        Visibility m_MetalImmersiveOverlays;
+
+        [SerializeField, Tooltip(k_RealityKitImmersiveOverlaysTooltip)]
+        Visibility m_RealityKitImmersiveOverlays;
+
         [SerializeField, Tooltip(k_IL2CPPLargeExeWorkaroundTooltip)]
         bool m_IL2CPPLargeExeWorkaround;
-
-        [SerializeField, Tooltip(k_SkipPresentToMainScreenTooltip)]
-#if UNITY_6000_0_11_OR_NEWER
-        bool m_SkipPresentToMainScreen = true;
-#else
-        bool m_SkipPresentToMainScreen;
-#endif
 
         /// <summary>
         /// App mode.
@@ -230,7 +226,7 @@ namespace UnityEditor.XR.VisionOS
         /// <summary>
         /// Upper limb visibility setting (currently only set at the beginning of an app)
         /// </summary>
-        public UpperLimbVisibility upperLimbVisibility
+        public Visibility upperLimbVisibility
         {
             get => m_UpperLimbVisibility;
             set => m_UpperLimbVisibility = value;
@@ -265,24 +261,30 @@ namespace UnityEditor.XR.VisionOS
         }
 
         /// <summary>
+        /// The visibility of persistent system overlays (such as the visionOS hand gesture menus) in Metal immersive spaces.
+        /// </summary>
+        public Visibility metalImmersiveOverlays
+        {
+            get => m_MetalImmersiveOverlays;
+            set => m_MetalImmersiveOverlays = value;
+        }
+
+        /// <summary>
+        /// The visibility of persistent system overlays (such as the visionOS hand gesture menus) in RealityKit immersive spaces.
+        /// </summary>
+        public Visibility realityKitImmersiveOverlays
+        {
+            get => m_RealityKitImmersiveOverlays;
+            set => m_RealityKitImmersiveOverlays = value;
+        }
+
+        /// <summary>
         /// Setting that determines if the IL2CPP_LARGE_EXECUTABLE_ARM_WORKAROUND flag is used when building an Xcode project.
         /// </summary>
         public bool il2CPPLargeExeWorkaround
         {
             get => m_IL2CPPLargeExeWorkaround;
             set => m_IL2CPPLargeExeWorkaround = value;
-        }
-
-        /// <summary>
-        /// XR setting to signal to Unity that it should not try to present frames to the main screen. This setting was previously disabled to work around
-        /// an issue that caused Unity versions prior to 6000.0.11f1 to leak GPU resources. In Unity 6000.0.11f1 and above, enabling this setting will fix
-        /// a known issue with frame pacing on visionOS. Do not modify this setting from its default value unless you have a specific reason. It should
-        /// be enabled on Unity 6000.0.11f1 and above, and disabled otherwise.
-        /// </summary>
-        public bool skipPresentToMainScreen
-        {
-            get => m_SkipPresentToMainScreen;
-            set => m_SkipPresentToMainScreen = value;
         }
 
         /// <summary>
@@ -360,21 +362,33 @@ namespace UnityEditor.XR.VisionOS
             return parentFolder;
         }
 
-        public static string UpperLimbVisibilityToString(UpperLimbVisibility upperLimbVisibility)
+        /// <summary>
+        /// Returns the Swift string representation of the provided visibility value.
+        /// </summary>
+        /// <param name="visibility">The visibility value to convert.</param>
+        /// <returns>The Swift string representation of the visibility.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">If an unknown value is provided.</exception>
+        public static string VisibilityToString(Visibility visibility)
         {
-            switch (upperLimbVisibility)
+            switch (visibility)
             {
-                case UpperLimbVisibility.Automatic:
+                case Visibility.Automatic:
                     return ".automatic";
-                case UpperLimbVisibility.Visible:
+                case Visibility.Visible:
                     return ".visible";
-                case UpperLimbVisibility.Hidden:
+                case Visibility.Hidden:
                     return ".hidden";
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(upperLimbVisibility), upperLimbVisibility, null);
+                    throw new ArgumentOutOfRangeException(nameof(visibility), visibility, null);
             }
         }
 
+        /// <summary>
+        /// Returns the Swift string representation of the provided immersion style value.
+        /// </summary>
+        /// <param name="immersionStyle">The immersion style value to convert.</param>
+        /// <returns>The Swift string representation of the immersion style.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">If an unknown value is provided.</exception>
         public static string ImmersionStyleToString(ImmersionStyle immersionStyle)
         {
             switch (immersionStyle)

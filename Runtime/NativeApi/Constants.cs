@@ -1,4 +1,4 @@
-﻿namespace UnityEngine.XR.VisionOS
+namespace UnityEngine.XR.VisionOS
 {
     /// <summary>
     /// Centralized location for tracking constant values for native API.

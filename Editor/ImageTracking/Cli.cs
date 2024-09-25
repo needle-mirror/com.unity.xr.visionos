@@ -1,4 +1,4 @@
-﻿#if UNITY_VISIONOS
+#if UNITY_VISIONOS
 using System;
 using System.Diagnostics;
 

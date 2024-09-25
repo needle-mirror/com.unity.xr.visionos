@@ -104,7 +104,16 @@ namespace UnityEditor.XR.VisionOS
                 }
             };
 
-            File.WriteAllText(Path.Combine(pathToReferenceImage, "Contents.json"), JsonUtility.ToJson(contents));
+            var contentsJsonPath = Path.Combine(pathToReferenceImage, "Contents.json");
+#if UNITY_EDITOR_WIN
+            if (contentsJsonPath.Length >= 260)
+            {
+                // Apply Windows Unicode path notation for long paths: \\?\
+                contentsJsonPath = @"\\?\" + contentsJsonPath;
+            }
+#endif
+
+            File.WriteAllText(contentsJsonPath, JsonUtility.ToJson(contents));
         }
 
         public ARReferenceImage(XRReferenceImage referenceImage)

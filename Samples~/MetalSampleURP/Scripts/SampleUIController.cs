@@ -2,14 +2,27 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
+#if UNITY_HAS_URP
+using UnityEngine.Rendering.Universal;
+#endif
+
 namespace UnityEngine.XR.VisionOS.Samples.URP
 {
     public class SampleUIController : MonoBehaviour
     {
         const string k_ShowPassthroughText = "Show Passthrough";
         const string k_ShowSkyboxText = "Show Skybox";
+
         const string k_HandTrackingAuthorizationFormat = "Hand Tracking Authorization: {0}";
         const string k_WorldSensingAuthorizationFormat = "World Sensing Authorization: {0}";
+
+#if UNITY_HAS_URP
+        const string k_EnableHDRText = "Enable HDR";
+        const string k_DisableHDRText = "Disable HDR";
+
+        const string k_EnablePostProcessingText = "Enable Post Processing";
+        const string k_DisablePostProcessingText = "Disable Post Processing";
+#endif
 
         [SerializeField]
         ParticleSystem m_ParticleSystem;
@@ -24,6 +37,12 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         Text m_SkyboxToggleText;
 
         [SerializeField]
+        Text m_HDRToggleText;
+
+        [SerializeField]
+        Text m_PostProcessingToggleText;
+
+        [SerializeField]
         Text m_HandTrackingAuthorizationText;
 
         [SerializeField]
@@ -32,6 +51,11 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         void Awake()
         {
             UpdateSkyboxToggleText();
+
+#if UNITY_HAS_URP
+            UpdateHDRText();
+            UpdatePostProcessingText();
+#endif
 
 #if UNITY_VISIONOS || UNITY_EDITOR
             UpdateAuthorizationText();
@@ -110,5 +134,37 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         {
             m_SkyboxToggleText.text = m_Camera.clearFlags == CameraClearFlags.Skybox ? k_ShowPassthroughText : k_ShowSkyboxText;
         }
+
+        public void ToggleHDR()
+        {
+#if UNITY_HAS_URP
+            UniversalRenderPipeline.asset.supportsHDR = !UniversalRenderPipeline.asset.supportsHDR;
+            var additionalCameraData = m_Camera.GetUniversalAdditionalCameraData();
+            m_Camera.allowHDR = UniversalRenderPipeline.asset.supportsHDR;
+            additionalCameraData.allowHDROutput = UniversalRenderPipeline.asset.supportsHDR;
+            UpdateHDRText();
+#endif
+        }
+
+        public void TogglePostProcessing()
+        {
+#if UNITY_HAS_URP
+            var additionalCameraData = m_Camera.GetUniversalAdditionalCameraData();
+            additionalCameraData.renderPostProcessing = !additionalCameraData.renderPostProcessing;
+            UpdatePostProcessingText();
+#endif
+        }
+
+#if UNITY_HAS_URP
+        void UpdateHDRText()
+        {
+            m_HDRToggleText.text = UniversalRenderPipeline.asset.supportsHDR ? k_DisableHDRText : k_EnableHDRText;
+        }
+
+        void UpdatePostProcessingText()
+        {
+            m_PostProcessingToggleText.text = m_Camera.GetUniversalAdditionalCameraData().renderPostProcessing ? k_DisablePostProcessingText : k_EnablePostProcessingText;
+        }
+#endif
     }
 }

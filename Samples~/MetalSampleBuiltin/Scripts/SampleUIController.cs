@@ -8,6 +8,13 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
     {
         const string k_ShowPassthroughText = "Show Passthrough";
         const string k_ShowSkyboxText = "Show Skybox";
+
+        const string k_EnableHDRText = "Enable HDR";
+        const string k_DisableHDRText = "Disable HDR";
+
+        const string k_EnableMSAAText = "Enable MSAA";
+        const string k_DisableMSAAText = "Disable MSAA";
+
         const string k_HandTrackingAuthorizationFormat = "Hand Tracking Authorization: {0}";
         const string k_WorldSensingAuthorizationFormat = "World Sensing Authorization: {0}";
 
@@ -24,6 +31,12 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
         Text m_SkyboxToggleText;
 
         [SerializeField]
+        Text m_HDRToggleText;
+
+        [SerializeField]
+        Text m_MSAAToggleText;
+
+        [SerializeField]
         Text m_HandTrackingAuthorizationText;
 
         [SerializeField]
@@ -32,6 +45,7 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
         void Awake()
         {
             UpdateSkyboxToggleText();
+            UpdateHDRText();
 
 #if UNITY_VISIONOS || UNITY_EDITOR
             UpdateAuthorizationText();
@@ -109,6 +123,29 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
         void UpdateSkyboxToggleText()
         {
             m_SkyboxToggleText.text = m_Camera.clearFlags == CameraClearFlags.Skybox ? k_ShowPassthroughText : k_ShowSkyboxText;
+        }
+
+        // TODO: LXR-4049 toggling HDR at runtime results in depth/transparency artifacts. Disabled for now...
+        public void ToggleHDR()
+        {
+            m_Camera.allowHDR = !m_Camera.allowHDR;
+            UpdateHDRText();
+        }
+
+        void UpdateHDRText()
+        {
+            m_HDRToggleText.text = m_Camera.allowHDR ? k_DisableHDRText : k_EnableHDRText;
+        }
+
+        public void ToggleMSAA()
+        {
+            m_Camera.allowMSAA = !m_Camera.allowMSAA;
+            UpdateMSAAText();
+        }
+
+        void UpdateMSAAText()
+        {
+            m_MSAAToggleText.text = m_Camera.allowMSAA ? k_DisableMSAAText : k_EnableMSAAText;
         }
     }
 }

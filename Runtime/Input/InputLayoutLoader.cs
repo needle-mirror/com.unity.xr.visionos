@@ -15,7 +15,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
 #if UNITY_EDITOR
     [InitializeOnLoad]
 #endif
-    public class InputLayoutLoader
+    class InputLayoutLoader
     {
 #if UNITY_EDITOR
         static InputLayoutLoader()

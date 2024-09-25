@@ -1,195 +1,52 @@
+using System;
 using Unity.XR.CoreUtils.Editor;
+using UnityEditor.Rendering;
 using UnityEditor.XR.Management;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.VisionOS;
 using UnityObject = UnityEngine.Object;
 
 #if UNITY_HAS_URP
-using System;
 using UnityEngine.Rendering.Universal;
 #endif
 
 namespace UnityEditor.XR.VisionOS
 {
+    /// <summary>
+    /// Utility class for defining project validation rules and supporting test methods
+    /// </summary>
     [InitializeOnLoad]
-    static class VisionOSProjectValidation
+    static partial class VisionOSProjectValidation
     {
-        const string k_CategoryFormat = "VisionOS - {0}";
-        const string k_ARSessionMessageMetal = "An ARSession component is required to be active in the scene.";
-        const string k_ARSessionMessageRealityKit = "An ARSession component is required to be active in the scene to provide access to ARKit features.";
-        const string k_RendererDataListPropertyName = "m_RendererDataList";
-        const string k_CopyDepthModePropertyName = "m_CopyDepthMode";
-
-        const BuildTargetGroup k_VisionOSBuildTarget = BuildTargetGroup.VisionOS;
-
-        static readonly BuildValidationRule[] k_Rules;
+        /// <summary>
+        /// Store a reference to the ARSession we create in CreateARSession so tests can clean it up.
+        /// </summary>
+        static ARSession s_ARSession;
 
         static VisionOSProjectValidation()
         {
-            k_Rules = new BuildValidationRule[]
+            var length = k_ValidationRules.Length;
+            k_Rules = new BuildValidationRule[length];
+            for (var i = 0; i < length; ++i)
             {
-                new ()
-                {
-                    Message = "The Color Space inside Player Settings must be set to Linear.",
-                    Category = string.Format(k_CategoryFormat, "Color Space"),
-                    Error = true,
-                    CheckPredicate = () => PlayerSettings.colorSpace == ColorSpace.Linear,
-                    FixIt = () => PlayerSettings.colorSpace = ColorSpace.Linear
-                },
-
-                new ()
-                {
-                    Message = k_ARSessionMessageMetal,
-                    Category = string.Format(k_CategoryFormat, "ARSession"),
-                    Error = true,
-                    CheckPredicate = () =>
-                    {
-                        var thisRule = k_Rules?[1];
-                        if (thisRule != null)
-                        {
-                            var isMetal = CheckAppMode(VisionOSSettings.AppMode.Metal);
-                            thisRule.Error = isMetal;
-                            thisRule.Message = isMetal ? k_ARSessionMessageMetal : k_ARSessionMessageRealityKit;
-                        }
-
-                        return UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include) != null;
-                    },
-                    FixIt = () => CreateARSession(),
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && !CheckAppMode(VisionOSSettings.AppMode.Windowed)
-                },
-
-                new ()
-                {
-                    Message = "The ARSession component requires the Apple visionOS plug-in to be enabled in the XR Plug-in Management.",
-                    FixItMessage = "Enable the Apple visionOS plug-in",
-                    Category = string.Format(k_CategoryFormat, "ARSession and XR Plug-in"),
-                    CheckPredicate = VisionOSEditorUtils.IsLoaderEnabled,
-                    FixIt = EnableVisionOSLoader,
-                    IsRuleEnabled = () => UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include) != null
-                },
-
-                new ()
-                {
-                    Message = "Virtual Reality apps require the Apple visionOS plug-in to be enabled in the XR Plug-in Management.",
-                    FixItMessage = "Virtual Reality the Apple visionOS plug-in",
-                    Category = string.Format(k_CategoryFormat, "ARSession and XR Plug-in"),
-                    Error = true,
-                    CheckPredicate = VisionOSEditorUtils.IsLoaderEnabled,
-                    FixIt = EnableVisionOSLoader,
-                    IsRuleEnabled = () =>
-                    {
-                        var settings = VisionOSSettings.currentSettings;
-                        if (settings == null)
-                            return false;
-
-                        return settings.appMode == VisionOSSettings.AppMode.Metal && !VisionOSEditorUtils.IsLoaderEnabled();
-                    }
-                },
-#if UNITY_HAS_URP
-                new ()
-                {
-                    Message = "Each camera must generate a depth texture.",
-                    Category = string.Format(k_CategoryFormat, "Camera depth texture"),
-                    Error = true,
-                    CheckPredicate = IsCamerasDepthTextureDisabled,
-                    FixIt = SetCamerasDepthTextureToEnabled,
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal()
-                },
-                new ()
-                {
-                    Message = "After Opaques is the only supported Depth Texture Mode for visionOS Metal applications.",
-                    Category = string.Format(k_CategoryFormat, "DepthTextureMode"),
-                    Error = true,
-                    CheckPredicate = IsDepthTextureModeNotAfterOpaques,
-                    FixIt = SetDepthTextureModeToAfterOpaques,
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal()
-                },
-#endif
-
-#if INCLUDE_UNITY_XR_HANDS
-                new ()
-                {
-                    Message = "Hand Tracking Usage Description (in Apple visionOS settings) is required to automatically initialize hand tracking. You must " +
-                        "set a usage description to prevent your app from crashing when trying to start an AR Session.",
-                    FixItMessage = "Update the Hand Tracking Usage Description or disable Initialize Hand Tracking On Startup",
-                    Category = string.Format(k_CategoryFormat, "Hand Tracking Usage Description"),
-                    Error = true,
-                    CheckPredicate = () => !GetEditorSettings(out var editorSettings) || !string.IsNullOrEmpty(editorSettings.handsTrackingUsageDescription),
-                    FixItAutomatic = false,
-                    FixIt = () => SettingsService.OpenProjectSettings("Project/XR Plug-in Management/Apple visionOS"),
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && !CheckAppMode(VisionOSSettings.AppMode.Windowed)
-                        // Show an error if initializeHandTrackingOnStartup is true
-                        && GetRuntimeSettings(out var runtimeSettings) && runtimeSettings.initializeHandTrackingOnStartup
-                },
-
-                new ()
-                {
-                    Message = "Hand Tracking Usage Description (in Apple visionOS settings) is required for hand tracking features. If your app uses hand " +
-                        "tracking, your app will crash when trying to start an AR Session. If your app does not use hand tracking features, you can safely " +
-                        "ignore this warning.",
-                    FixItMessage = "Update the Hand Tracking Usage Description",
-                    Category = string.Format(k_CategoryFormat, "Hand Tracking Usage Description"),
-                    CheckPredicate = () => !GetEditorSettings(out var editorSettings) || !string.IsNullOrEmpty(editorSettings.handsTrackingUsageDescription),
-                    FixItAutomatic = false,
-                    FixIt = () => SettingsService.OpenProjectSettings("Project/XR Plug-in Management/Apple visionOS"),
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && !CheckAppMode(VisionOSSettings.AppMode.Windowed)
-                        // Show a warning if initializeHandTrackingOnStartup is false
-                        && GetRuntimeSettings(out var runtimeSettings) && !runtimeSettings.initializeHandTrackingOnStartup
-                },
-#endif
-
-                new ()
-                {
-                    Message = "World Sensing Usage Description (in Apple visionOS settings) is required for world sensing features (images, planes or meshes). " +
-                        "If your app uses world sensing, you need to add a World Sensing Usage Description in the Apple visionOS settings. If your app does not " +
-                        "use world sensing features, you can safely ignore this warning.",
-                    FixItMessage = "Update the World Sensing Usage Description",
-                    Category = string.Format(k_CategoryFormat, "World Sensing Usage Description"),
-                    Error = false,
-                    CheckPredicate = () => !GetEditorSettings(out var editorSettings) || !string.IsNullOrEmpty(editorSettings.worldSensingUsageDescription),
-                    FixItAutomatic = false,
-                    FixIt = () => SettingsService.OpenProjectSettings("Project/XR Plug-in Management/Apple visionOS"),
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && !CheckAppMode(VisionOSSettings.AppMode.Windowed)
-                },
-                new ()
-                {
-                    Message = "Splash screen is not yet supported for visionOS. If the splash screen is enabled, you may have errors when building or when " +
-                              "running your application in the simulator or in the device.",
-                    FixItMessage = "Disable the splash screen",
-                    Category = string.Format(k_CategoryFormat, "Splash Screen"),
-                    Error = true,
-                    CheckPredicate = () => !PlayerSettings.SplashScreen.show,
-                    FixIt = () => PlayerSettings.SplashScreen.show = false
-                },
-#if UNITY_6000_0_11_OR_NEWER
-                new ()
-                {
-                    Message = "The Skip Present to Main Screen setting strongly recommended on Unity 6000.0.11f1 or newer. Apps configured for Metal rendering " +
-                        "will have frame pacing issues if it is not enabled.",
-                    FixItMessage = "Enable Skip Present to Main Screen",
-                    Category = string.Format(k_CategoryFormat, "Skip Present to Main Screen"),
-                    Error = true,
-                    CheckPredicate = () => VisionOSSettings.currentSettings.skipPresentToMainScreen,
-                    FixIt = () => VisionOSSettings.currentSettings.skipPresentToMainScreen = true,
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal()
-                },
-#else
-                new ()
-                {
-                    Message = "The Skip Present to Main Screen setting is only intended to be used on Unity 6000.0.11f1 or newer. Using it results in leaked " +
-                        "GPU resources in earlier Unity versions.",
-                    FixItMessage = "Disable Skip Present to Main Screen",
-                    Category = string.Format(k_CategoryFormat, "Skip Present to Main Screen"),
-                    Error = true,
-                    CheckPredicate = () => !VisionOSSettings.currentSettings.skipPresentToMainScreen,
-                    FixIt = () => VisionOSSettings.currentSettings.skipPresentToMainScreen = false,
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal()
-                },
-#endif
-            };
+                k_Rules[i] = k_ValidationRules[i].Rule;
+            }
 
             BuildValidator.AddRules(k_VisionOSBuildTarget, k_Rules);
+        }
+
+        static TierSettings GetTierSettings()
+        {
+            // Vision Pro is tier 2
+            return EditorGraphicsSettings.GetTierSettings(BuildTargetGroup.VisionOS, GraphicsTier.Tier2);
+        }
+
+        static void SetTierSettings(TierSettings settings)
+        {
+            // Vision Pro is tier 2
+            EditorGraphicsSettings.SetTierSettings(BuildTargetGroup.VisionOS, GraphicsTier.Tier2, settings);
         }
 
         static bool CheckAppMode(VisionOSSettings.AppMode mode)
@@ -222,16 +79,15 @@ namespace UnityEditor.XR.VisionOS
         }
 #endif
 
-        static GameObject CreateARSession()
+        static void CreateARSession()
         {
             var arSession = UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include);
             if (arSession != null)
-                return arSession.gameObject;
+                return;
 
             var newARSession = new GameObject("AR Session");
-            newARSession.AddComponent<ARSession>();
+            s_ARSession = newARSession.AddComponent<ARSession>();
             Undo.RegisterCreatedObjectUndo(newARSession, "Create AR Session");
-            return newARSession;
         }
 
 #if UNITY_HAS_URP
@@ -295,7 +151,7 @@ namespace UnityEditor.XR.VisionOS
             return serializedObject.FindProperty(k_CopyDepthModePropertyName);
         }
 
-        static void SetDepthTextureModeToAfterOpaques()
+        static void SetCopyDepthMode(CopyDepthMode mode)
         {
             var asset = UniversalRenderPipeline.asset;
             if (asset == null)
@@ -307,11 +163,10 @@ namespace UnityEditor.XR.VisionOS
                 if (copyDepthModeProperty == null)
                     return;
 
-                copyDepthModeProperty.intValue = (int)CopyDepthMode.AfterOpaques;
+                copyDepthModeProperty.intValue = (int)mode;
                 copyDepthModeProperty.serializedObject.ApplyModifiedProperties();
             });
         }
-
 
         static bool IsDepthTextureModeNotAfterOpaques()
         {
@@ -335,31 +190,190 @@ namespace UnityEditor.XR.VisionOS
         }
 #endif
 
-        static void EnableVisionOSLoader()
+        static bool AppSupportsMixedImmersion()
+        {
+            var settings = VisionOSSettings.currentSettings;
+            if (settings == null)
+                return false;
+
+            var metalImmersionStyle = settings.metalImmersionStyle;
+            return metalImmersionStyle == VisionOSSettings.ImmersionStyle.Automatic || metalImmersionStyle == VisionOSSettings.ImmersionStyle.Mixed;
+        }
+
+        static bool HasUrpAsset()
+        {
+#if UNITY_HAS_URP
+            return UniversalRenderPipeline.asset != null;
+#else
+            return false;
+#endif
+        }
+
+        static bool IsToneMappingEnabled()
+        {
+#if UNITY_HAS_URP
+            var globalProfile = VolumeManager.instance?.globalDefaultProfile;
+            //If there is no volume manager or global profile, we can't perform this check. Consider it passed so that we do not show a false positive.
+            if (globalProfile == null)
+                return true;
+
+            var components = globalProfile.components;
+            if (components == null)
+                return true;
+
+            foreach (var component in components)
+            {
+                if (component is not Tonemapping tonemapping)
+                    continue;
+
+                return tonemapping.mode.value != TonemappingMode.None;
+            }
+
+            // If no tone mapping component can be found, must be a custom URP or something went wrong, thus we cannot perform this check. Consider
+            // it passed so that we do not show a false positive.
+#endif
+
+            // If URP is not installed, we should have skipped this check. Consider it passed just in case so that we do not show a false positive.
+            return true;
+        }
+
+        // enabled is only used when URP package is present
+        // ReSharper disable once UnusedParameter.Local
+        static void SetToneMappingEnabled(bool enabled)
+        {
+#if UNITY_HAS_URP
+            var globalProfile = VolumeManager.instance?.globalDefaultProfile;
+            if (globalProfile == null)
+                return;
+
+            var components = globalProfile.components;
+            if (components == null)
+                return;
+
+            foreach (var component in components)
+            {
+                if (component is not Tonemapping tonemapping)
+                    continue;
+
+                tonemapping.mode.value = enabled ? TonemappingMode.Neutral : TonemappingMode.None;
+                return;
+            }
+#endif
+        }
+
+        static bool IsUrpPostProcessingEnabled()
+        {
+#if UNITY_HAS_URP
+            var asset = UniversalRenderPipeline.asset;
+            if (asset == null)
+                return false;
+
+            var rendererData = asset.rendererDataList;
+            if (rendererData == null)
+                return false;
+
+            foreach (var rendererDatum in rendererData)
+            {
+                if (rendererDatum is not UniversalRendererData universalRendererDatum)
+                    continue;
+
+                return universalRendererDatum.postProcessData != null;
+            }
+#endif
+
+            // If URP is not installed, we should have already failed the URP asset check, but return false anyway
+            return false;
+        }
+
+        static bool IsAlphaOutputEnabled()
+        {
+#if UNITY_HAS_URP
+            var asset = UniversalRenderPipeline.asset;
+            if (asset != null && !asset.allowPostProcessAlphaOutput)
+                return false;
+#endif
+
+            // Both allowPostProcessAlphaOutput and preserveFramebufferAlpha are required for alpha output when URP postprocessing is enabled
+            return PlayerSettings.preserveFramebufferAlpha;
+        }
+
+        // urpPostProcessEnabled is only used when URP package is present
+        // ReSharper disable once UnusedParameter.Local
+        static void SetAlphaOutputEnabled(bool enabled, bool urpPostProcessEnabled)
+        {
+            PlayerSettings.preserveFramebufferAlpha = enabled;
+
+#if UNITY_HAS_URP
+            var asset = UniversalRenderPipeline.asset;
+            if (asset == null)
+                return;
+
+            var serializedObject = new SerializedObject(asset);
+            var allowAlphaOutputProperty = serializedObject.FindProperty("m_AllowPostProcessAlphaOutput");
+            if (allowAlphaOutputProperty == null)
+                return;
+
+            allowAlphaOutputProperty.boolValue = urpPostProcessEnabled;
+            serializedObject.ApplyModifiedProperties();
+#endif
+        }
+
+        static bool IsHDREnabled()
+        {
+#if UNITY_HAS_URP
+            var asset = UniversalRenderPipeline.asset;
+            if (asset != null)
+                return asset.supportsHDR;
+#endif
+
+            return GetTierSettings().hdr;
+        }
+
+        static void SetHDREnabled(bool enabled)
+        {
+#if UNITY_HAS_URP
+            var asset = UniversalRenderPipeline.asset;
+            if (asset != null)
+            {
+                Undo.RecordObject(asset, "Disable URP HDR");
+                asset.supportsHDR = enabled;
+                return;
+            }
+#endif
+
+            var tierSettings = GetTierSettings();
+            tierSettings.hdr = enabled;
+            SetTierSettings(tierSettings);
+        }
+
+        static bool SetVisionOSLoaderEnabled(bool enabled)
         {
             var visionOSLoaderGUIDs = AssetDatabase.FindAssets($"t:{nameof(VisionOSLoader)}");
             if (visionOSLoaderGUIDs.Length == 0)
-                return;
+                return false;
 
             var visionOSLoader = AssetDatabase.LoadAssetAtPath<VisionOSLoader>(AssetDatabase.GUIDToAssetPath(visionOSLoaderGUIDs[0]));
             if (visionOSLoader == null)
-                return;
+                return false;
 
             var visionOSXRSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(
                 BuildPipeline.GetBuildTargetGroup(BuildTarget.VisionOS));
 
             if (visionOSXRSettings == null)
-                return;
+                return false;
 
             var manager = visionOSXRSettings.Manager;
             if (manager == null)
-                return;
+                return false;
 
-            if (manager.TryAddLoader(visionOSLoader))
+            var result = enabled ? manager.TryAddLoader(visionOSLoader) : manager.TryRemoveLoader(visionOSLoader);
+            if (result)
             {
                 EditorUtility.SetDirty(manager);
                 AssetDatabase.SaveAssetIfDirty(manager);
             }
+
+            return true;
         }
     }
 }

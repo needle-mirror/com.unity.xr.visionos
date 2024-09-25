@@ -60,8 +60,8 @@ namespace UnityEngine.XR.VisionOS
 
             IntPtr m_EnvironmentLightEstimationConfiguration;
 
-            public AR_Authorization_Type RequiredAuthorizationType => NativeApi.HandTracking.ar_hand_tracking_provider_get_required_authorization_type();
-            public bool IsSupported => NativeApi.HandTracking.ar_hand_tracking_provider_is_supported();
+            public AR_Authorization_Type RequiredAuthorizationType => NativeApi.EnvironmentLightEstimation.ar_environment_light_estimation_provider_get_required_authorization_type();
+            public bool IsSupported => NativeApi.EnvironmentLightEstimation.ar_environment_light_estimation_provider_is_supported();
             public bool ShouldBeActive => running;
             public IntPtr CurrentProvider { get; private set; } = IntPtr.Zero;
             IntPtr m_ARSession = IntPtr.Zero;
