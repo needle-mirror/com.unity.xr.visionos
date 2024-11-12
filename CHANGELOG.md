@@ -7,6 +7,21 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.1.7] - 2024-11-12
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Fixed a bug where VR (Metal rendering) apps using foveated rendering would appear warped and distorted on visionOS 2.2. This bug affects all VR apps built with `com.unity.xr.visionos` versions `1.1.4` and `1.1.6`. It was fixed in version `1.2.3`, and relates to the `setFoveatedRenderingEnabled` API in the XR plugin, which did not exist prior to version `1.1.4`. No `2.x` package versions are affected. Fixing this bug requires you to update this package and re-build your project out of Unity. You will need to submit a new build to the App Store if your app is affected. No Unity Editor update is needed. The bug and its fix are specific to this package (`com.unity.xr.visionos`).
+
+### Security
+
 ## [1.1.6] - 2024-03-12
 
 ### Added
