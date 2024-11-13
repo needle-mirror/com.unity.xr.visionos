@@ -9,7 +9,7 @@ Shader "VisionOSSample/Unlit/Transparent Color"
         Tags { "QUEUE"="Transparent" "IGNOREPROJECTOR"="true" "RenderType"="Transparent" }
         LOD 100
         ZWrite Off
-        Blend SrcAlpha OneMinusSrcAlpha
+        Blend SrcAlpha OneMinusSrcAlpha, SrcAlpha DstAlpha
 
         Pass
         {

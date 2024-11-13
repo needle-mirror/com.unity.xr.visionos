@@ -39,6 +39,9 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
         [SerializeField]
         Text m_WorldSensingAuthorizationText;
 
+        [SerializeField]
+        Button m_QuitButton;
+
         void Awake()
         {
             UpdateSkyboxToggleText();
@@ -46,6 +49,11 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
 
 #if UNITY_VISIONOS || UNITY_EDITOR
             UpdateAuthorizationText();
+#endif
+
+#if UNITY_EDITOR
+            // Disable quit button in Editor (play mode) because `Application.Quit` doesn't do anything in play mode
+            m_QuitButton.interactable = false;
 #endif
         }
 
@@ -133,6 +141,11 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
         void UpdateMSAAText()
         {
             m_MSAAToggleText.text = m_Camera.allowMSAA ? k_DisableMSAAText : k_EnableMSAAText;
+        }
+
+        public void OnQuit()
+        {
+            Application.Quit();
         }
     }
 }

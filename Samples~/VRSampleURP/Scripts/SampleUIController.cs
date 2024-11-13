@@ -44,6 +44,9 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         [SerializeField]
         Text m_WorldSensingAuthorizationText;
 
+        [SerializeField]
+        Button m_QuitButton;
+
         void Awake()
         {
             UpdateSkyboxToggleText();
@@ -55,6 +58,11 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
 
 #if UNITY_VISIONOS || UNITY_EDITOR
             UpdateAuthorizationText();
+#endif
+
+#if UNITY_EDITOR
+            // Disable quit button in Editor (play mode) because `Application.Quit` doesn't do anything in play mode
+            m_QuitButton.interactable = false;
 #endif
         }
 
@@ -153,5 +161,10 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
             m_PostProcessingToggleText.text = m_Camera.GetUniversalAdditionalCameraData().renderPostProcessing ? k_DisablePostProcessingText : k_EnablePostProcessingText;
         }
 #endif
+
+        public void DoQuit()
+        {
+            Application.Quit();
+        }
     }
 }

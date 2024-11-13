@@ -1,7 +1,23 @@
 import UIKit
+import UnityFramework
 
 public class UnitySwiftUIAppDelegate: NSObject, UIApplicationDelegate {
     var unity: UnityLibrary
+
+    // Pass through quit handler so that it can be set by tests
+    @objc var quitHandler: (() -> Void)? {
+        get {
+            if let appController = UnityFramework.getInstance().appController() {
+                return appController.quitHandler
+            }
+            return nil
+        }
+        set {
+            if let appController = UnityFramework.getInstance().appController() {
+                appController.quitHandler = newValue
+            }
+        }
+    }
 
     override init() {
         let settingsBridge = NSClassFromString("UnityVisionOSSettingsBridge") as? NSObject.Type

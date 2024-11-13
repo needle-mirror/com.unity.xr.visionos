@@ -7,6 +7,25 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.3.11] - 2024-11-13
+
+### Added
+
+### Changed
+- Quit button in sample scene is marked non-interactable in play mode to make it clear that it doesn't have any effect (`Application.Quit` doesn't do anything in play mode).
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Fixed Windows long path error when processing ARReferenceImage's build postprocessor.
+- Fixed potential NullReferenceExceptions in build preprocessor.
+- Fixed a missing script on the AR Controls prefab in the built-in sample.
+- Fixed an issue in `MetalSampleURP/Shaders/UnlitTransparentColor.shader` where it was writing alpha values to the framebuffer, causing pass-through to bleed through AR planes in the URP sample scene.
+
+### Security
+
 ## [1.3.9] - 2024-08-26
 
 ### Added

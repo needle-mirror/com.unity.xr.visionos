@@ -28,7 +28,10 @@ namespace UnityEditor.XR.VisionOS
                     return;
 
                 var settings = VisionOSSettings.currentSettings;
-                var appMode = settings.appMode;
+                var appMode = VisionOSSettings.AppMode.VR;
+                if (settings != null)
+                    appMode = settings.appMode;
+
                 if (appMode == VisionOSSettings.AppMode.Windowed)
                 {
                     Debug.LogWarning("The Apple visionOS XR loader is not supported when building a visionOS Windowed application. It will be disabled for this " +
@@ -39,7 +42,7 @@ namespace UnityEditor.XR.VisionOS
                     return;
                 }
 
-                if (settings.appMode == VisionOSSettings.AppMode.MR)
+                if (appMode == VisionOSSettings.AppMode.MR)
                 {
 #if !UNITY_HAS_POLYSPATIAL_VISIONOS
                     throw new BuildFailedException("Mixed Reality app mode requires the PolySpatial visionOS support package");
@@ -97,10 +100,15 @@ namespace UnityEditor.XR.VisionOS
             {
                 // PoySpatial will replace UnityMain.swift
                 var settings = VisionOSSettings.currentSettings;
-                if (settings != null && settings.appMode == VisionOSSettings.AppMode.MR && path.Contains(k_VRMainSwiftFile))
+                var appMode = VisionOSSettings.AppMode.VR;
+                if (settings != null)
+                    appMode = settings.appMode;
+
+                var mixedRealitySupported = appMode is VisionOSSettings.AppMode.MR;
+                if (mixedRealitySupported && path.Contains(k_VRMainSwiftFile))
                     return false;
 
-                return settings.appMode != VisionOSSettings.AppMode.Windowed;
+                return appMode != VisionOSSettings.AppMode.Windowed;
             }
 
             static bool ShouldIncludePreCompiledLibraryInBuild(string path)
