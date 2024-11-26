@@ -8,14 +8,20 @@ namespace UnityEditor.XR.VisionOS
         [Serializable]
         public struct AuthorInfo
         {
-            public int version;
             public string author;
+            public int version;
         }
 
         [Serializable]
         public struct Filename
         {
             public string filename;
+        }
+
+        [Serializable]
+        public struct AssetCatalog
+        {
+            public AuthorInfo info;
         }
 
         [Serializable]

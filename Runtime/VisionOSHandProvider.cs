@@ -247,7 +247,11 @@ namespace UnityEngine.XR.VisionOS
 #endif
         }
 
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+#else
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+#endif
         static void Register()
         {
             var handsSubsystemCinfo = new XRHandSubsystemDescriptor.Cinfo

@@ -28,6 +28,16 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         const string k_ShowMeshesText = "Show Meshes";
         const string k_HideMeshesText = "Hide Meshes";
 
+        const string k_EnableImageTrackingText = "Enable Image Tracking";
+        const string k_DisableImageTrackingText = "Disable Images Tracking";
+        const string k_ShowImagesText = "Show Images";
+        const string k_HideImagesText = "Hide Images";
+
+        const string k_EnableObjectTrackingText = "Enable Object Tracking";
+        const string k_DisableObjectTrackingText = "Disable Object Tracking";
+        const string k_ShowObjectsText = "Show Objects";
+        const string k_HideObjectsText = "Hide Objects";
+
         const string k_EnableEnvironmentProbesText = "Enable Environment Probes";
         const string k_DisableEnvironmentProbesText = "Disable Environment Probes";
         const string k_ShowShinySphereText = "Show Shiny Sphere";
@@ -38,6 +48,12 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
 
         [SerializeField]
         ARMeshManager m_MeshManager;
+
+        [SerializeField]
+        ARTrackedImageManager m_ImageManager;
+
+        [SerializeField]
+        ARTrackedObjectManager m_ObjectManager;
 
         [SerializeField]
         ARAnchorManager m_AnchorManager;
@@ -61,6 +77,18 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         Text m_MeshVisualsToggleText;
 
         [SerializeField]
+        Text m_ImageTrackingToggleText;
+
+        [SerializeField]
+        Text m_ImageVisualsToggleText;
+
+        [SerializeField]
+        Text m_ObjectTrackingToggleText;
+
+        [SerializeField]
+        Text m_ObjectVisualsToggleText;
+
+        [SerializeField]
         Text m_EnvironmentProbesToggleText;
 
         [SerializeField]
@@ -79,6 +107,8 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
 
         bool m_PlaneVisualsEnabled = true;
         bool m_MeshVisualsEnabled = true;
+        bool m_ImageVisualsEnabled = true;
+        bool m_ObjectVisualsEnabled = true;
 
         static readonly List<ARAnchor> k_AnchorsToDestroy = new();
 
@@ -175,6 +205,54 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
             m_MeshTrackingToggleText.text = m_MeshManager.enabled ? k_DisableMeshTrackingText : k_EnableMeshTrackingText;
         }
 
+        public void ToggleImageTracking()
+        {
+            if (m_ImageManager == null)
+            {
+                Debug.LogError("Image Manager is null. Please set it in the inspector.");
+                return;
+            }
+
+            m_ImageManager.enabled = !m_ImageManager.enabled;
+
+            UpdateImageTrackingToggleText();
+        }
+
+        void UpdateImageTrackingToggleText()
+        {
+            if (m_ImageTrackingToggleText == null)
+            {
+                Debug.LogError("Image Tracking Toggle Text is null. Please set it in the inspector.");
+                return;
+            }
+
+            m_ImageTrackingToggleText.text = m_ImageManager.enabled ? k_DisableImageTrackingText : k_EnableImageTrackingText;
+        }
+
+        public void ToggleObjectTracking()
+        {
+            if (m_ObjectManager == null)
+            {
+                Debug.LogError("Object Manager is null. Please set it in the inspector.");
+                return;
+            }
+
+            m_ObjectManager.enabled = !m_ObjectManager.enabled;
+
+            UpdateObjectTrackingToggleText();
+        }
+
+        void UpdateObjectTrackingToggleText()
+        {
+            if (m_ObjectTrackingToggleText == null)
+            {
+                Debug.LogError("Object Tracking Toggle Text is null. Please set it in the inspector.");
+                return;
+            }
+
+            m_ObjectTrackingToggleText.text = m_ObjectManager.enabled ? k_DisableObjectTrackingText : k_EnableObjectTrackingText;
+        }
+
         public void ToggleEnvironmentProbes()
         {
             if (m_EnvironmentProbeManager == null)
@@ -269,6 +347,78 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
             }
 
             m_MeshVisualsToggleText.text = m_MeshVisualsEnabled ? k_HideMeshesText : k_ShowMeshesText;
+        }
+
+        public void ToggleImageVisuals()
+        {
+            if (m_ImageManager == null)
+            {
+                Debug.LogError("Image Manager is null. Please set it in the inspector.");
+                return;
+            }
+
+            m_ImageVisualsEnabled = !m_ImageVisualsEnabled;
+
+            // Disable image tracking so that new images don't appear
+            if (!m_ImageVisualsEnabled && m_ImageManager.enabled)
+            {
+                m_ImageManager.enabled = false;
+                UpdateImageTrackingToggleText();
+            }
+
+            foreach (var image in m_ImageManager.trackables)
+            {
+                image.gameObject.SetActive(m_ImageVisualsEnabled);
+            }
+
+            UpdateImageVisualsToggleText();
+        }
+
+        void UpdateImageVisualsToggleText()
+        {
+            if (m_ImageVisualsToggleText == null)
+            {
+                Debug.LogError("Image Visuals Toggle Text is null. Please set it in the inspector.");
+                return;
+            }
+
+            m_ImageVisualsToggleText.text = m_ImageVisualsEnabled ? k_HideImagesText : k_ShowImagesText;
+        }
+
+        public void ToggleObjectVisuals()
+        {
+            if (m_ObjectManager == null)
+            {
+                Debug.LogError("Object Manager is null. Please set it in the inspector.");
+                return;
+            }
+
+            m_ObjectVisualsEnabled = !m_ObjectVisualsEnabled;
+
+            // Disable image tracking so that new images don't appear
+            if (!m_ObjectVisualsEnabled && m_ObjectManager.enabled)
+            {
+                m_ObjectManager.enabled = false;
+                UpdateObjectTrackingToggleText();
+            }
+
+            foreach (var trackedObject in m_ObjectManager.trackables)
+            {
+                trackedObject.gameObject.SetActive(m_ObjectVisualsEnabled);
+            }
+
+            UpdateObjectVisualsToggleText();
+        }
+
+        void UpdateObjectVisualsToggleText()
+        {
+            if (m_ObjectVisualsToggleText == null)
+            {
+                Debug.LogError("Object Visuals Toggle Text is null. Please set it in the inspector.");
+                return;
+            }
+
+            m_ObjectVisualsToggleText.text = m_ObjectVisualsEnabled ? k_HideObjectsText : k_ShowObjectsText;
         }
 
         public void ToggleShinySphere()

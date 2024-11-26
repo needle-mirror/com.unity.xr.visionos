@@ -101,6 +101,7 @@ namespace UnityEngine.XR.VisionOS
 
                 if (m_ImageDatabase == null || NativeApi.ImageTracking.ar_reference_images_get_count(m_ImageDatabase.self) < 1)
                 {
+                    Debug.LogWarning("Attempting to start visionOS image tracking provider with an empty library.");
                     return false;
                 }
 
@@ -318,7 +319,11 @@ namespace UnityEngine.XR.VisionOS
             public override int currentMaxNumberOfMovingImages => 0;
         }
 
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+#else
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+#endif
         static void RegisterDescriptor()
         {
             XRImageTrackingSubsystemDescriptor.Register(new XRImageTrackingSubsystemDescriptor.Cinfo

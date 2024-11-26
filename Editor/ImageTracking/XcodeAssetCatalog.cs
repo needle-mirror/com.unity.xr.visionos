@@ -67,13 +67,25 @@ namespace UnityEditor.XR.VisionOS
 
             Directory.CreateDirectory(path);
 
+            var contents = new Json.AssetCatalog()
+            {
+                info = new Json.AuthorInfo
+                {
+                    author = "unity",
+                    version = 1
+                }
+            };
+
+            // Finally, write out the json contents
+            File.WriteAllText(Path.Combine(path, "Contents.json"), JsonUtility.ToJson(contents, true));
+
             foreach (var resourceGroup in m_ResourceGroups)
             {
                 resourceGroup.Write(path);
             }
         }
 
-        public byte[] ToCar()
+        public byte[] ToCar(bool useACTool)
         {
             var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
@@ -82,13 +94,16 @@ namespace UnityEditor.XR.VisionOS
 
             try
             {
-                // Write to a file
                 Write(assetCatalogPath);
 
-                // Invoke the actool
-                var carPath = ACTool.Compile(assetCatalogPath, tempDir);
+                if (useACTool)
+                {
+                    var carPath = ACTool.Compile(assetCatalogPath, tempDir);
 
-                return File.ReadAllBytes(carPath);
+                    return File.ReadAllBytes(carPath);
+                }
+
+                return null;
             }
             catch (ACTool.XCRunNotFoundException)
             {

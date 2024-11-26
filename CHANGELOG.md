@@ -7,6 +7,27 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2024-11-26
+
+### Added
+- Consolidated the documentation for the Apple visionOS XR Plug-in settings into a single page located at `visionOS Platform Overview > visionOS Settings`.
+- Added Object Tracking support.
+- Added `Use AC Tool` setting under `Project Settings > XR Plug-in Management > Apple visionOS` to make compiling reference image libraries with actool optional. This step can be done later in the Xcode project, and can fail sometimes, interrupting Build and Run.
+
+### Changed
+- Quit button in sample scene is marked non-interactable in play mode to make it clear that it doesn't have any effect (`Application.Quit` doesn't do anything in play mode).
+- Skip processing image marker libraries that are not included in the build.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Fixed an issue where requesting a volume size that was too large or too small when connected to PlayToDevice could result in a loop of WindowStateChanged event invocations.
+- Fixed an issue in `MetalSampleURP/Shaders/UnlitTransparentColor.shader` where it was writing alpha values to the framebuffer, causing pass-through to bleed through AR planes in the URP sample scene.
+
+### Security
+
 ## [2.0.4] - 2024-09-25
 
 ### Added
@@ -25,6 +46,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Fixed hand tracking lag by returning CACurrentMediaTime instead of 0 from `NativeApi.HandTracking.GetLatestHandTrackingTiming` when no LayerRenderer is active (for example when using PolySpatial).
 - Fixed potential NullReferenceExceptions in build processors.
 - Fixed a missing script on the AR Controls prefab in the built-in sample.
+- Fixed an issue where the initial immersion style in Info.plist did not match the immersion style chosen in settings.
 
 ### Security
 

@@ -1,6 +1,8 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
 
 #if UNITY_HAS_URP
 using UnityEngine.Rendering.Universal;
@@ -48,6 +50,9 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         [SerializeField]
         Text m_WorldSensingAuthorizationText;
 
+        [SerializeField]
+        Button m_QuitButton;
+
         void Awake()
         {
             UpdateSkyboxToggleText();
@@ -59,6 +64,11 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
 
 #if UNITY_VISIONOS || UNITY_EDITOR
             UpdateAuthorizationText();
+#endif
+
+#if UNITY_EDITOR
+            // Disable quit button in Editor (play mode) because `Application.Quit` doesn't do anything in play mode
+            m_QuitButton.interactable = false;
 #endif
         }
 
@@ -166,5 +176,30 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
             m_PostProcessingToggleText.text = m_Camera.GetUniversalAdditionalCameraData().renderPostProcessing ? k_DisablePostProcessingText : k_EnablePostProcessingText;
         }
 #endif
+
+        public void DoQuit()
+        {
+            Application.Quit();
+        }
+
+        public void OnImageTrackablesChanged(ARTrackablesChangedEventArgs<ARTrackedImage> args)
+        {
+            // Deactivate any updated trackables that are no longer fully tracked
+            foreach (var updatedTrackable in args.updated)
+            {
+                var isTracked = updatedTrackable.trackingState == TrackingState.Tracking;
+                updatedTrackable.gameObject.SetActive(isTracked);
+            }
+        }
+
+        public void OnObjectTrackablesChanged(ARTrackablesChangedEventArgs<ARTrackedObject> args)
+        {
+            // Deactivate any updated trackables that are no longer fully tracked
+            foreach (var updatedTrackable in args.updated)
+            {
+                var isTracked = updatedTrackable.trackingState == TrackingState.Tracking;
+                updatedTrackable.gameObject.SetActive(isTracked);
+            }
+        }
     }
 }

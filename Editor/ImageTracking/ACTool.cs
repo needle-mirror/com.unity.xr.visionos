@@ -1,6 +1,7 @@
 #if UNITY_VISIONOS
 using System;
 using System.ComponentModel;
+using System.Linq;
 using UnityEngine;
 
 namespace UnityEditor.XR.VisionOS
@@ -38,12 +39,20 @@ namespace UnityEditor.XR.VisionOS
                 var (stdout, stderr, exitCode) = Cli.Execute($"xcrun", new[]
                 {
                     "actool",
-                    $"\"{assetCatalogPath}\"",
-                    $"--compile \"{outputDirectory}\"",
-                    $"--platform xros",
-                    $"--minimum-deployment-target 1.0",
+                    "--notices",
                     "--warnings",
-                    "--errors"
+                    "--compress-pngs",
+                    "--enable-on-demand-resources YES",
+
+                    // These two arguments are used by xcode, but don't seem to be required
+                    //"--filter-for-thinning-device-configuration RealityDevice14,1",
+                    //"--filter-for-device-os-version 2.1",
+                    "--development-region en",
+                    "--target-device vision",
+                    "--minimum-deployment-target 1.0",
+                    "--platform xros",
+                    $"--compile \"{outputDirectory}\"",
+                    $"\"{assetCatalogPath}\""
                 });
 
                 if (exitCode != 0)

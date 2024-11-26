@@ -9,7 +9,8 @@
         "Unity.InputSystem",
         "Unity.XR.Interaction.Toolkit",
         "Unity.XR.Management",
-        "Unity.RenderPipelines.Universal.Runtime"
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.XR.CoreUtils"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

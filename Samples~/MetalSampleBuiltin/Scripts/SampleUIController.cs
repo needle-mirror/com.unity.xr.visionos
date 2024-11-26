@@ -1,6 +1,8 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
 
 namespace UnityEngine.XR.VisionOS.Samples.Builtin
 {
@@ -42,6 +44,9 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
         [SerializeField]
         Text m_WorldSensingAuthorizationText;
 
+        [SerializeField]
+        Button m_QuitButton;
+
         void Awake()
         {
             UpdateSkyboxToggleText();
@@ -49,6 +54,11 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
 
 #if UNITY_VISIONOS || UNITY_EDITOR
             UpdateAuthorizationText();
+#endif
+
+#if UNITY_EDITOR
+            // Disable quit button in Editor (play mode) because `Application.Quit` doesn't do anything in play mode
+            m_QuitButton.interactable = false;
 #endif
         }
 
@@ -146,6 +156,31 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
         void UpdateMSAAText()
         {
             m_MSAAToggleText.text = m_Camera.allowMSAA ? k_DisableMSAAText : k_EnableMSAAText;
+        }
+
+        public void DoQuit()
+        {
+            Application.Quit();
+        }
+
+        public void OnImageTrackablesChanged(ARTrackablesChangedEventArgs<ARTrackedImage> args)
+        {
+            // Deactivate any updated trackables that are no longer fully tracked
+            foreach (var updatedTrackable in args.updated)
+            {
+                var isTracked = updatedTrackable.trackingState == TrackingState.Tracking;
+                updatedTrackable.gameObject.SetActive(isTracked);
+            }
+        }
+
+        public void OnObjectTrackablesChanged(ARTrackablesChangedEventArgs<ARTrackedObject> args)
+        {
+            // Deactivate any updated trackables that are no longer fully tracked
+            foreach (var updatedTrackable in args.updated)
+            {
+                var isTracked = updatedTrackable.trackingState == TrackingState.Tracking;
+                updatedTrackable.gameObject.SetActive(isTracked);
+            }
         }
     }
 }

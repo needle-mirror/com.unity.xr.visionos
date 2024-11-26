@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.iOS.Xcode;
@@ -19,10 +18,10 @@ namespace UnityEditor.XR.VisionOS
     /// </summary>
     static class VisionOSReferenceImageLibraryBuildProcessor
     {
-        static IEnumerable<ValueTuple<ARResourceGroup, XRReferenceImageLibrary>> ResourceGroups()
+        static IEnumerable<ValueTuple<ARResourceGroup, XRReferenceImageLibrary>> ResourceGroups(List<XRReferenceImageLibrary> libraries)
         {
             // Create a resource group for each reference image library
-            foreach (var library in VisionOSBuildHelper.AssetsOfType<XRReferenceImageLibrary>())
+            foreach (var library in libraries)
             {
                 var resourceGroup = new ARResourceGroup(library.name + "_" + library.guid.ToUUIDString());
 
@@ -80,47 +79,56 @@ namespace UnityEditor.XR.VisionOS
         {
             public int callbackOrder => 0;
 
-            static void BuildAssets()
+            static void BuildAssets(List<XRReferenceImageLibrary> libraries, bool useACtool)
             {
-                var assets = AssetDatabase.FindAssets($"t:{nameof(XRReferenceImageLibrary)}");
-                var index = 0;
-
-                foreach (var (resourceGroup, library) in ResourceGroups())
+                try
                 {
-                    index++;
-                    EditorUtility.DisplayProgressBar(
-                        $"Compiling {nameof(XRReferenceImageLibrary)} ({index} of {assets.Length})",
-                        $"{AssetDatabase.GetAssetPath(library)} ({library.count} image{(library.count == 1 ? "" : "s")})",
-                        (float)index / assets.Length);
+                    var index = 0;
+                    foreach (var (resourceGroup, library) in ResourceGroups(libraries))
+                    {
+                        index++;
+                        EditorUtility.DisplayProgressBar(
+                            $"Compiling {nameof(XRReferenceImageLibrary)} ({index} of {libraries.Count})",
+                            $"{AssetDatabase.GetAssetPath(library)} ({library.count} image{(library.count == 1 ? "" : "s")})",
+                            (float)index / libraries.Count);
 
-                    // Do not change this name. It must match the native call to referenceImagesInGroupNamed.
-                    resourceGroup.name = "ARReferenceImages";
+                        // Do not change this name. It must match the native call to referenceImagesInGroupNamed.
+                        resourceGroup.name = "ARReferenceImages";
 
-                    // Convert the resource group to a 'car' (compiled asset catalog) file
-                    library.SetDataForKey(VisionOSPackageInfo.identifier, resourceGroup.ToCar());
+                        // Convert the resource group to a 'car' (compiled asset catalog) file
+                        library.SetDataForKey(VisionOSPackageInfo.identifier, resourceGroup.ToCar(useACtool));
+                    }
                 }
-
-                EditorUtility.ClearProgressBar();
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
+                finally
+                {
+                    EditorUtility.ClearProgressBar();
+                }
             }
 
             void ARBuildProcessor.IPreprocessBuild.OnPreprocessBuild(PreprocessBuildEventArgs eventArgs)
             {
-                if (eventArgs.activeLoadersForBuildTarget?.OfType<VisionOSLoader>().Any() == false)
-                    return;
-
-                BuildAssets();
+                // Build image libraries using ACTool because this is triggered by user code (likely for asset bundles); no chance to compile them in Xcode later
+                BuildAssets(VisionOSBuildHelper.GetReferenceLibraries<XRReferenceImageLibrary, XRReferenceImage>(printWarnings: true), true);
             }
 
             void IPreprocessBuildWithReport.OnPreprocessBuild(BuildReport report)
             {
-                // TODO: Skip if loader is not checked
-                // if (eventArgs.activeLoadersForBuildTarget?.OfType<VisionOSLoader>().Any() == false)
-                //     return;
+                if (!VisionOSEditorUtils.IsLoaderEnabled())
+                    return;
 
                 if (report.summary.platform != BuildTarget.VisionOS)
                     return;
 
-                BuildAssets();
+                var useACTool = false;
+                var visionOSSettings = VisionOSSettings.currentSettings;
+                if (visionOSSettings != null)
+                    useACTool = visionOSSettings.useACTool;
+
+                BuildAssets(VisionOSBuildHelper.GetReferenceLibraries<XRReferenceImageLibrary, XRReferenceImage>(true, true), useACTool);
             }
         }
 
@@ -130,9 +138,8 @@ namespace UnityEditor.XR.VisionOS
 
             public void OnPostprocessBuild(BuildReport report)
             {
-                // TODO: Skip if loader is not checked
-                // if (eventArgs.activeLoadersForBuildTarget?.OfType<VisionOSLoader>().Any() == false)
-                //     return;
+                if (!VisionOSEditorUtils.IsLoaderEnabled())
+                    return;
 
                 if (report.summary.platform != BuildTarget.VisionOS)
                     return;
@@ -150,7 +157,8 @@ namespace UnityEditor.XR.VisionOS
                 var assetCatalog = new XcodeAssetCatalog("ARReferenceImages");
 
                 // Generate resource groups and add each one to the asset catalog
-                foreach (var (resourceGroup, library) in ResourceGroups())
+                var libraries = VisionOSBuildHelper.GetReferenceLibraries<XRReferenceImageLibrary, XRReferenceImage>(true);
+                foreach (var (resourceGroup, library) in ResourceGroups(libraries))
                 {
                     // Only add libraries where we don't already have the data
                     if (!library.dataStore.ContainsKey(VisionOSPackageInfo.identifier))

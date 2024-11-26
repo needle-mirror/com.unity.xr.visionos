@@ -72,7 +72,7 @@ namespace UnityEditor.XR.VisionOS
 
         const BuildTargetGroup k_VisionOSBuildTarget = BuildTargetGroup.VisionOS;
 
-        // TODO: LXR-4045 Expose color gamuts player setting API
+        // TODO: LXR-4185 Expose color gamuts player setting API
         static readonly MethodInfo k_GetColorGamuts = typeof(PlayerSettings).GetMethod("GetColorGamuts", BindingFlags.Static | BindingFlags.NonPublic);
         static readonly MethodInfo k_SetColorGamuts = typeof(PlayerSettings).GetMethod("SetColorGamuts", BindingFlags.Static | BindingFlags.NonPublic);
 
@@ -601,6 +601,16 @@ namespace UnityEditor.XR.VisionOS
                     if (s_PreviousColorGamuts == null)
                         return "Validation test failed: GetColorGamuts returned null.";
 
+                    // Set color gamuts to ensure DisplayP3 is not included
+                    try
+                    {
+                        k_SetColorGamuts.Invoke(null, new object[] { new[] { ColorGamut.sRGB } });
+                    }
+                    catch (Exception)
+                    {
+                        // Ignore potential null reference exception that can occur if the user clicks "Fix" before having ever loaded player settings
+                    }
+
                     s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
                     message = SetVisionOSLoaderEnabledForTests(true);
                     if (message != null)
@@ -735,8 +745,98 @@ namespace UnityEditor.XR.VisionOS
                     var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
                     return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
                 },
-                SkipTest = () => !HasUrpAsset() ? "Skipping Allow HDR Display Output validation test because there is no URP asset set." : null
+                SkipTest = () => !HasUrpAsset() ? "Skipping HDR Post Processing Tone Mapping validation test because there is no URP asset set." : null
             },
+            new()
+            {
+                Name = "Bloom High Quality Filtering",
+                Rule = new ()
+                {
+                    Message = "Bloom High Quality Filtering must be disabled.",
+                    FixItMessage = "Disable Bloom High Quality Filtering in the Graphics Settings.",
+                    Category = string.Format(k_CategoryFormat, "Bloom High Quality Filtering"),
+                    CheckPredicate = IsBloomHighQualityFilteringDisabled,
+                    FixIt = () => SetBloomHighQualityFilteringEnabled(false),
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal() && IsHDREnabled() && HasUrpAsset()
+                },
+                SetUp = () =>
+                {
+                    var message = GetEditorSettingsIfExists(out var settings);
+                    if (message != null)
+                        return message;
+
+                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
+                    message = SetVisionOSLoaderEnabledForTests(true);
+                    if (message != null)
+                        return message;
+
+                    s_PreviousAppMode = settings.appMode;
+                    s_HdrWasEnabled = IsHDREnabled();
+                    s_BloomHighQualityFilteringWasEnabled = IsBloomHighQualityFilteringDisabled();
+                    settings.appMode = VisionOSSettings.AppMode.Metal;
+                    SetHDREnabled(true);
+                    SetBloomHighQualityFilteringEnabled(true);
+                    return null;
+                },
+                TearDown = () =>
+                {
+                    var settingsMessage = GetEditorSettingsIfExists(out var settings);
+                    if (settings != null)
+                        settings.appMode = s_PreviousAppMode;
+
+                    SetHDREnabled(s_HdrWasEnabled);
+                    SetToneMappingEnabled(s_BloomHighQualityFilteringWasEnabled);
+
+                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
+                    return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
+                },
+                SkipTest = () => !HasUrpAsset() ? "Skipping HDR Post Processing Tone Mapping validation test because there is no URP asset set." : null
+            },
+#if UNITY_HAS_URP
+            new()
+            {
+                Name = "Upscaling Filter",
+                Rule = new ()
+                {
+                    Message = "The application will not render if the Upscaling Filter is not set to Automatic.",
+                    FixItMessage = "Set the Upscaling Filter to Automatic in your active Render Pipeline Asset",
+                    Category = string.Format(k_CategoryFormat, "Upscaling Filter"),
+                    CheckPredicate = IsRenderPipelineUpscalingFilterAutomatic,
+                    FixIt = () => SetRenderPipelineUpscalingFilter(UpscalingFilterSelection.Auto),
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal() && IsHDREnabled() && HasUrpAsset()
+                },
+                SetUp = () =>
+                {
+                    var message = GetEditorSettingsIfExists(out var settings);
+                    if (message != null)
+                        return message;
+
+                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
+                    message = SetVisionOSLoaderEnabledForTests(true);
+                    if (message != null)
+                        return message;
+
+                    s_PreviousAppMode = settings.appMode;
+                    settings.appMode = VisionOSSettings.AppMode.Metal;
+
+                    StoreRenderPipelineUpscalingFilterSettings();
+                    SetRenderPipelineUpscalingFilter(UpscalingFilterSelection.Auto);
+                    return null;
+                },
+                TearDown = () =>
+                {
+                    var settingsMessage = GetEditorSettingsIfExists(out var settings);
+                    if (settings != null)
+                        settings.appMode = s_PreviousAppMode;
+
+                    RestoreRenderPipelineUpscalingFilterSettings();
+
+                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
+                    return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
+                },
+                SkipTest = () => !HasUrpAsset() ? "Skipping Quality Upscaling Filter validation test because there is no URP asset set." : null
+            },
+#endif
             new()
             {
                 Name = "FP16 Format",

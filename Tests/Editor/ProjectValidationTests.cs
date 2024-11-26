@@ -24,6 +24,13 @@ namespace UnityEditor.XR.VisionOSTests
         }
 
         static readonly MethodInfo k_XRGeneralSettingsPerBuildTargetGetOrCreate = typeof(XRGeneralSettingsPerBuildTarget).GetMethod("GetOrCreate", BindingFlags.Static | BindingFlags.NonPublic);
+        static readonly MethodInfo k_XRPackageInitializationBootstrapBeginPackageInitialization =
+            Type.GetType("UnityEditor.XR.Management.XRPackageInitializationBootstrap, Unity.XR.Management.Editor")?
+                .GetMethod("BeginPackageInitialization",
+                    BindingFlags.NonPublic | BindingFlags.Static,
+                    null,
+                    new Type[] { },
+                    null);
 
         readonly string m_RuleName;
         readonly VisionOSProjectValidation.RuleTestContainer m_TestContainer;
@@ -31,10 +38,20 @@ namespace UnityEditor.XR.VisionOSTests
         /// <summary>
         /// Prime the settings assets or else we fail to find it when trying to enable the loader in CI batch mode runs
         /// </summary>
-        static ProjectValidationTests()
+        [OneTimeSetUp]
+        public void OneTimeSetup()
         {
-            // Initialize VisionOSSettings
-            _ = VisionOSSettings.currentSettings;
+            // Initialize VisionOSSettings if it is not available
+            var settings = VisionOSSettings.currentSettings;
+            if (settings == null)
+            {
+                settings = VisionOSSettings.GetOrCreateSettings();
+                AssetDatabase.CreateAsset(settings, "Assets/XR/Settings/VisionOSSettings.asset");
+                AssetDatabase.SaveAssets();
+                VisionOSSettings.currentSettings = settings;
+            }
+
+            Assert.IsNotNull(VisionOSSettings.currentSettings);
 
             // Check if General XR Settings for visionOS has been set up
             var visionOSXRSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(
@@ -43,6 +60,9 @@ namespace UnityEditor.XR.VisionOSTests
             // We can skip the reflection and asset initialization hacks if this settings object already exists
             if (visionOSXRSettings != null)
                 return;
+
+            Assert.IsNotNull(k_XRPackageInitializationBootstrapBeginPackageInitialization);
+            k_XRPackageInitializationBootstrapBeginPackageInitialization.Invoke(null, null);
 
             Assert.IsNotNull(k_XRGeneralSettingsPerBuildTargetGetOrCreate);
             var generalSettings = k_XRGeneralSettingsPerBuildTargetGetOrCreate.Invoke(null, null) as XRGeneralSettingsPerBuildTarget;

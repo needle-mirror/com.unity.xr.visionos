@@ -87,8 +87,8 @@ namespace UnityEditor.XR.VisionOS
             {
                 info = new Json.AuthorInfo
                 {
-                    version = 1,
-                    author = "unity"
+                    author = "unity",
+                    version = 1
                 },
                 images = new[]
                 {
@@ -113,7 +113,7 @@ namespace UnityEditor.XR.VisionOS
             }
 #endif
 
-            File.WriteAllText(contentsJsonPath, JsonUtility.ToJson(contents));
+            File.WriteAllText(contentsJsonPath, JsonUtility.ToJson(contents, true));
         }
 
         public ARReferenceImage(XRReferenceImage referenceImage)

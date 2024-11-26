@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.XR.CoreUtils.Editor;
 using UnityEditor.Rendering;
 using UnityEditor.XR.Management;
@@ -261,23 +262,110 @@ namespace UnityEditor.XR.VisionOS
 #endif
         }
 
+        static bool IsBloomHighQualityFilteringDisabled()
+        {
+#if UNITY_HAS_URP
+            var volumeProfiles = Resources.FindObjectsOfTypeAll<VolumeProfile>();
+            foreach (var volumeProfile in volumeProfiles)
+            {
+                if (volumeProfile == null)
+                    continue;
+
+                var components = volumeProfile.components;
+                if (components == null)
+                    continue;
+
+                foreach (var component in components)
+                {
+                    if (component is not Bloom bloom)
+                        continue;
+
+                    if (bloom.highQualityFiltering.value)
+                        return false;
+                }
+            }
+
+            // If no bloom component can be found, must be a custom URP or something went wrong, thus we cannot perform this check. Consider
+            // it passed so that we do not show a false positive.
+#endif
+
+            // If URP is not installed, we should have skipped this check. Consider it passed just in case so that we do not show a false positive.
+            return true;
+        }
+
+        // enabled is only used when URP package is present
+        // ReSharper disable once UnusedParameter.Local
+        static void SetBloomHighQualityFilteringEnabled(bool enabled)
+        {
+#if UNITY_HAS_URP
+            var volumeProfiles = Resources.FindObjectsOfTypeAll<VolumeProfile>();
+            foreach (var volumeProfile in volumeProfiles)
+            {
+                if (volumeProfile == null)
+                    continue;
+
+                var components = volumeProfile.components;
+                if (components == null)
+                    return;
+
+                foreach (var component in components)
+                {
+                    if (component is not Bloom bloom)
+                        continue;
+
+                    bloom.highQualityFiltering.value = enabled;
+                    return;
+                }
+            }
+#endif
+        }
+
+        static bool IsRenderPipelineUpscalingFilterAutomatic()
+        {
+#if UNITY_HAS_URP
+            QualitySettings.GetRenderPipelineAssetsForPlatform(BuildTargetGroup.VisionOS.ToString(), out HashSet<UniversalRenderPipelineAsset> assets);
+            foreach(var asset in assets)
+            {
+                var upscalingFiler = asset.upscalingFilter;
+                if (upscalingFiler != UpscalingFilterSelection.Auto)
+                    return false;
+            }
+#endif
+
+            // If URP is not installed, we should have skipped this check. Consider it passed just in case so that we do not show a false positive.
+            return true;
+        }
+
+#if UNITY_HAS_URP
+        // enabled is only used when URP package is present
+        // ReSharper disable once UnusedParameter.Local
+        static void SetRenderPipelineUpscalingFilter(UpscalingFilterSelection upscalingFilter)
+        {
+            QualitySettings.GetRenderPipelineAssetsForPlatform(BuildTargetGroup.VisionOS.ToString(), out HashSet<UniversalRenderPipelineAsset> assets);
+            foreach(var asset in assets)
+            {
+                asset.upscalingFilter = upscalingFilter;
+            }
+        }
+#endif
+
         static bool IsUrpPostProcessingEnabled()
         {
 #if UNITY_HAS_URP
-            var asset = UniversalRenderPipeline.asset;
-            if (asset == null)
-                return false;
-
-            var rendererData = asset.rendererDataList;
-            if (rendererData == null)
-                return false;
-
-            foreach (var rendererDatum in rendererData)
+            QualitySettings.GetRenderPipelineAssetsForPlatform(BuildTargetGroup.VisionOS.ToString(), out HashSet<UniversalRenderPipelineAsset> assets);
+            foreach(var asset in assets)
             {
-                if (rendererDatum is not UniversalRendererData universalRendererDatum)
-                    continue;
+                var rendererData = asset.rendererDataList;
+                if (rendererData == null)
+                    return false;
 
-                return universalRendererDatum.postProcessData != null;
+                foreach (var rendererDatum in rendererData)
+                {
+                    if (rendererDatum is not UniversalRendererData universalRendererDatum)
+                        continue;
+
+                    return universalRendererDatum.postProcessData != null;
+                }
             }
 #endif
 
@@ -288,9 +376,12 @@ namespace UnityEditor.XR.VisionOS
         static bool IsAlphaOutputEnabled()
         {
 #if UNITY_HAS_URP
-            var asset = UniversalRenderPipeline.asset;
-            if (asset != null && !asset.allowPostProcessAlphaOutput)
-                return false;
+            QualitySettings.GetRenderPipelineAssetsForPlatform(BuildTargetGroup.VisionOS.ToString(), out HashSet<UniversalRenderPipelineAsset> assets);
+            foreach(var asset in assets)
+            {
+                if (!asset.allowPostProcessAlphaOutput)
+                    return false;
+            }
 #endif
 
             // Both allowPostProcessAlphaOutput and preserveFramebufferAlpha are required for alpha output when URP postprocessing is enabled
@@ -304,17 +395,17 @@ namespace UnityEditor.XR.VisionOS
             PlayerSettings.preserveFramebufferAlpha = enabled;
 
 #if UNITY_HAS_URP
-            var asset = UniversalRenderPipeline.asset;
-            if (asset == null)
-                return;
+            QualitySettings.GetRenderPipelineAssetsForPlatform(BuildTargetGroup.VisionOS.ToString(), out HashSet<UniversalRenderPipelineAsset> assets);
+            foreach(var asset in assets)
+            {
+                var serializedObject = new SerializedObject(asset);
+                var allowAlphaOutputProperty = serializedObject.FindProperty("m_AllowPostProcessAlphaOutput");
+                if (allowAlphaOutputProperty == null)
+                    return;
 
-            var serializedObject = new SerializedObject(asset);
-            var allowAlphaOutputProperty = serializedObject.FindProperty("m_AllowPostProcessAlphaOutput");
-            if (allowAlphaOutputProperty == null)
-                return;
-
-            allowAlphaOutputProperty.boolValue = urpPostProcessEnabled;
-            serializedObject.ApplyModifiedProperties();
+                allowAlphaOutputProperty.boolValue = urpPostProcessEnabled;
+                serializedObject.ApplyModifiedProperties();
+            }
 #endif
         }
 

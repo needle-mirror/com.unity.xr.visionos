@@ -47,6 +47,10 @@ namespace UnityEditor.XR.VisionOS
         const string k_IL2CPPLargeExeWorkaroundTooltip = "Patches the `Unity-VisionOS` project to work around linker errors that can occur in some " +
             "large projects. Check this box if you encounter the \"ARM64 branch out of range\" error when building the project in Xcode.";
 
+        const string k_UseACToolTooltip = "Use the actool utility to compile reference image libraries during the Unity build process. This can save some time " +
+                "in the Xcode build, but this actool can fail sometimes, interrupting Build and Run. This setting does not affect the behavior of " +
+                "ARBuildProcessor.PreprocessBuild, which will always invoke actool.";
+
         const string k_RuntimeSettingsFileName = "VisionOS Runtime Settings.asset";
 
         /// <summary>
@@ -196,6 +200,9 @@ namespace UnityEditor.XR.VisionOS
         [SerializeField, Tooltip(k_IL2CPPLargeExeWorkaroundTooltip)]
         bool m_IL2CPPLargeExeWorkaround;
 
+        [SerializeField, Tooltip(k_UseACToolTooltip)]
+        bool m_UseACTool;
+
         /// <summary>
         /// App mode.
         /// </summary>
@@ -285,6 +292,15 @@ namespace UnityEditor.XR.VisionOS
         {
             get => m_IL2CPPLargeExeWorkaround;
             set => m_IL2CPPLargeExeWorkaround = value;
+        }
+
+        /// <summary>
+        /// Setting this to true will enable the use of the actool utility during player builds to compile reference image libraries.
+        /// </summary>
+        public bool useACTool
+        {
+            get => m_UseACTool;
+            set => m_UseACTool = value;
         }
 
         /// <summary>

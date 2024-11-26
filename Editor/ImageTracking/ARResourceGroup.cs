@@ -15,11 +15,11 @@ namespace UnityEditor.XR.VisionOS
             this.name = name;
         }
 
-        public byte[] ToCar()
+        public byte[] ToCar(bool useACTool)
         {
             var catalog = new XcodeAssetCatalog(null);
             catalog.AddResourceGroup(this);
-            return catalog.ToCar();
+            return catalog.ToCar(useACTool);
         }
 
         public void AddResource(ARResource resource)
@@ -43,8 +43,8 @@ namespace UnityEditor.XR.VisionOS
             {
                 info = new Json.AuthorInfo
                 {
-                    version = 1,
-                    author = "unity"
+                    author = "unity",
+                    version = 1
                 },
                 resources = new Json.Filename[m_Resources.Count]
             };
@@ -57,7 +57,7 @@ namespace UnityEditor.XR.VisionOS
             }
 
             // Finally, write out the json contents
-            File.WriteAllText(Path.Combine(path, "Contents.json"), JsonUtility.ToJson(contents));
+            File.WriteAllText(Path.Combine(path, "Contents.json"), JsonUtility.ToJson(contents, true));
         }
 
         List<ARResource> m_Resources = new List<ARResource>();

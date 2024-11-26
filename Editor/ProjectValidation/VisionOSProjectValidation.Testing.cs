@@ -30,11 +30,13 @@ namespace UnityEditor.XR.VisionOS
 
 #if UNITY_HAS_URP
         static readonly Dictionary<UnityObject, int> k_PreviousCopyDepthModes = new();
+        static readonly Dictionary<UnityObject, UpscalingFilterSelection> k_PreviousQualityFilters = new();
 #endif
 
         static object s_PreviousColorGamuts;
         static bool s_AllowHDRDisplaySupportWasEnabled;
         static bool s_ToneMappingWasEnabled;
+        static bool s_BloomHighQualityFilteringWasEnabled;
         static TierSettings s_PreviousTierSettings;
         static VisionOSSettings.ImmersionStyle s_PreviousImmersionStyle;
         static bool s_AlphaOutputWasEnabled;
@@ -105,6 +107,25 @@ namespace UnityEditor.XR.VisionOS
 
             UnityObject.DestroyImmediate(s_TestCamera.gameObject);
             return null;
+        }
+
+        static void StoreRenderPipelineUpscalingFilterSettings()
+        {
+            QualitySettings.GetRenderPipelineAssetsForPlatform(BuildTargetGroup.VisionOS.ToString(), out HashSet<UniversalRenderPipelineAsset> assets);
+            foreach(var asset in assets)
+            {
+                var upscalingFilter = asset.upscalingFilter;
+                k_PreviousQualityFilters[asset] = upscalingFilter;
+            }
+        }
+
+        static void RestoreRenderPipelineUpscalingFilterSettings()
+        {
+            QualitySettings.GetRenderPipelineAssetsForPlatform(BuildTargetGroup.VisionOS.ToString(), out HashSet<UniversalRenderPipelineAsset> assets);
+            foreach(var asset in assets)
+            {
+                asset.upscalingFilter = k_PreviousQualityFilters[asset];
+            }
         }
 
         static void StoreCopyDepthModeSettings()

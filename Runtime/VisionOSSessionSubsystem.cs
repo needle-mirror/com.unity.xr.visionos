@@ -57,6 +57,7 @@ namespace UnityEngine.XR.VisionOS
 
             // Store last update so we can update m_StartTime in callbacks coming from other threads
             static float s_LastUpdateTime;
+            static bool s_IsQuitting;
 
             public static VisionOSSessionProvider Instance { get; private set; }
 
@@ -88,6 +89,7 @@ namespace UnityEngine.XR.VisionOS
             public VisionOSSessionProvider()
             {
                 Instance = this;
+                Application.quitting += () => s_IsQuitting = true;
             }
 
             public override void Start()
@@ -298,6 +300,10 @@ namespace UnityEngine.XR.VisionOS
                 // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
                 try
                 {
+                    // Early-out to prevent exceptions on quit when quitting during tests
+                    if (s_IsQuitting)
+                        return;
+
                     if (failed_data_provider != IntPtr.Zero || error != IntPtr.Zero)
                     {
                         var failedProviderFeature = Feature.None;
@@ -546,7 +552,11 @@ namespace UnityEngine.XR.VisionOS
             }
         }
 
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+#else
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+#endif
         static void RegisterDescriptor()
         {
             XRSessionSubsystemDescriptor.Register(new XRSessionSubsystemDescriptor.Cinfo

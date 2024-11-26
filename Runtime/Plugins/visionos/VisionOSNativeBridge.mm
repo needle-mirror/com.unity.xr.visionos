@@ -1,6 +1,7 @@
 #import <ARKit/anchor.h>
 #import <ARKit/hand_tracking.h>
 #import <ARKit/image_tracking.h>
+#import <ARKit/object_tracking.h>
 #import <ARKit/plane_detection.h>
 #import <ARKit/scene_reconstruction.h>
 #import <ARKit/session.h>
@@ -533,4 +534,72 @@ EXPORT(void) UnityVisionOS_OnInputEvent(int eventCount, void* eventsPointer)
     }
 
     s_OnInputEvent(eventCount, eventsPointer);
+}
+
+EXPORT(void) UnityVisionOSReferenceObjectInitWithBytes(void* bytes, int length, void* context,
+          ar_reference_object_url_load_completion_handler_function_t completion_handler_function)
+{
+    NSData* data = [[NSData alloc] initWithBytesNoCopy:bytes length:length freeWhenDone:NO];
+
+    NSURL* nsURL = [NSURL fileURLWithPathComponents:[NSArray arrayWithObjects:
+                                                   NSTemporaryDirectory(),
+                                                   [[NSUUID UUID] UUIDString],
+                                                   nil]];
+    [data writeToFile:nsURL.path atomically:NO];
+
+    CFURLRef url = (__bridge CFURLRef)nsURL;
+    ar_reference_object_load_from_url_f(url, context, completion_handler_function);
+
+    NSError* error = nil;
+    [NSFileManager.defaultManager removeItemAtURL:nsURL error:&error];
+    if (error != nil) {
+        NSLog(@"Failed to remove %@: %@", nsURL.path, error.localizedDescription);
+    }
+}
+
+EXPORT(bool) UnityVisionOSCompareReferenceObjectUUIDs(ar_reference_object_t obj1, ar_reference_object_t obj2)
+{
+    uuid_t uuid1;
+    uuid_t uuid2;
+
+    ar_reference_object_get_identifier(obj1, uuid1);
+    ar_reference_object_get_identifier(obj2, uuid2);
+
+    return uuid_compare(uuid1, uuid2) == 0;
+}
+
+EXPORT(void*) UnityVisionOSARReferenceObjectCFURLRef(const char* path)
+{
+    NSString* pathStr = [NSString stringWithUTF8String:path];
+    NSURL* nsURL = [NSURL fileURLWithPath:pathStr];
+    CFURLRef url = (__bridge CFURLRef)nsURL;
+    return (void*)url;
+}
+
+EXPORT(void) UnityVisionOSPrintCFErrorDescription(CFErrorRef error) {
+    if (error == NULL) {
+        NSLog(@"printCFErrorDescription: the error passed in is NULL.");
+        return;
+    }
+
+    CFStringRef domain = CFErrorGetDomain(error);
+    CFIndex code = CFErrorGetCode(error);
+    CFStringRef description = CFErrorCopyDescription(error);
+    CFStringRef failureReason = CFErrorCopyFailureReason(error);
+    CFStringRef recoverySuggestion = CFErrorCopyRecoverySuggestion(error);
+
+    NSLog(@"Error Domain: %@", domain);
+    NSLog(@"Error Code: %ld", code);
+    NSLog(@"Error Description: %@", description);
+    if (failureReason != NULL) {
+        NSLog(@"Failure Reason: %@", failureReason);
+    }
+    if (recoverySuggestion != NULL) {
+        NSLog(@"Recovery Suggestion: %@", recoverySuggestion);
+    }
+
+    // Release the copied CFStringRefs
+    if (description) CFRelease(description);
+    if (failureReason) CFRelease(failureReason);
+    if (recoverySuggestion) CFRelease(recoverySuggestion);
 }

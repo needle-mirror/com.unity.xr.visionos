@@ -1,4 +1,4 @@
-#if ENABLE_CLOUD_SERVICES_ANALYTICS || UNITY_2023_2_OR_NEWER
+#if ENABLE_CLOUD_SERVICES_ANALYTICS
 using System;
 using UnityEngine;
 using UnityEngine.Analytics;
@@ -9,19 +9,14 @@ namespace UnityEditor.XR.VisionOS.Analytics
     /// Editor event used to send editor usage <see cref="VisionOSAnalytics"/> data.
     /// Only accepts <see cref="VisionOSPlayModeUsageEvent.Payload"/> parameters.
     /// </summary>
-#if UNITY_2023_2_OR_NEWER
     [AnalyticInfo(k_EventName, VisionOSAnalytics.VendorKey, k_EventVersion, k_MaxEventPerHour, k_MaxItems)]
-#endif
     class VisionOSPlayModeUsageEvent : VisionOSEditorAnalyticsEvent<VisionOSPlayModeUsageEvent.Payload>
     {
         const string k_EventName = "xrvisionos_playmode_usage";
         const int k_EventVersion = 2;
 
         [Serializable]
-        internal struct Payload
-#if UNITY_2023_2_OR_NEWER
-            : IAnalytic.IData
-#endif
+        internal struct Payload : IAnalytic.IData
         {
             internal const string NotInstalledState = "NotInstalled";
             internal const string ActivatedState = "Activated";
@@ -52,21 +47,16 @@ namespace UnityEditor.XR.VisionOS.Analytics
             [SerializeField]
             internal string MRImmersionStyle;
 
-#if UNITY_2023_2_OR_NEWER
             [SerializeField]
             internal string package;
 
             [SerializeField]
             internal string package_ver;
-#endif
         }
 
         internal VisionOSPlayModeUsageEvent()
-#if !UNITY_2023_2_OR_NEWER
-            : base(k_EventName, k_EventVersion)
-#endif
         {
         }
     }
 }
-#endif //ENABLE_CLOUD_SERVICES_ANALYTICS || UNITY_2023_2_OR_NEWER
+#endif //ENABLE_CLOUD_SERVICES_ANALYTICS

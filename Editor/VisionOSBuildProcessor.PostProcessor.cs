@@ -44,7 +44,6 @@ namespace UnityEditor.XR.VisionOS
             const string k_SceneConfigurationsKey = "UISceneConfigurations";
             const string k_SceneConfigurationSessionRoleKey = "CPSceneSessionRoleImmersiveSpaceApplication";
             const string k_InitialImmersionStyleKey = "UISceneInitialImmersionStyle";
-            const string k_InitialImmersionStyleValue = "UIImmersionStyleMixed";
 
             const string k_PluginPath = "Libraries/com.unity.xr.visionos/Runtime/Plugins/visionos";
             const string k_MainFile = "MainApp/main.mm";
@@ -206,12 +205,14 @@ namespace UnityEditor.XR.VisionOS
                 var appMode = VisionOSSettings.AppMode.Metal;
                 string handsUsage = null;
                 string worldSensingUsage = null;
+                VisionOSSettings.ImmersionStyle immersionStyle = default;
 
                 if (settings != null)
                 {
                     appMode = settings.appMode;
                     handsUsage = settings.handsTrackingUsageDescription;
                     worldSensingUsage = settings.worldSensingUsageDescription;
+                    immersionStyle = settings.metalImmersionStyle;
                 }
 
                 if (appMode == VisionOSSettings.AppMode.Metal)
@@ -227,7 +228,8 @@ namespace UnityEditor.XR.VisionOS
                     var sceneConfigurationsDictionary = plist.CreateElement("dict");
                     var immersiveSpaceApplicationArray = plist.CreateElement("array");
                     var immersionStyleDictionary = plist.CreateElement("dict");
-                    immersionStyleDictionary[k_InitialImmersionStyleKey] = plist.CreateElement("string", k_InitialImmersionStyleValue);
+                    var immersionStyleString = ImmersionStyleToPlistString(immersionStyle);
+                    immersionStyleDictionary[k_InitialImmersionStyleKey] = plist.CreateElement("string", immersionStyleString);
                     immersiveSpaceApplicationArray.AppendChild(immersionStyleDictionary);
                     sceneConfigurationsDictionary[k_SceneConfigurationSessionRoleKey] = immersiveSpaceApplicationArray;
                     sceneManifestDictionary[k_SceneConfigurationsKey] = sceneConfigurationsDictionary;
@@ -263,6 +265,23 @@ namespace UnityEditor.XR.VisionOS
                 File.WriteAllText(fullPath, GetSettingsString());
                 var guid = pbx.AddFile(projectPath, projectPath);
                 pbx.AddFileToBuild(targetGuid, guid);
+            }
+
+            static string ImmersionStyleToPlistString(VisionOSSettings.ImmersionStyle immersionStyle)
+            {
+                switch (immersionStyle)
+                {
+                    // There's no UIImmersionStyleAutomatic, so fall through to Mixed
+                    case VisionOSSettings.ImmersionStyle.Automatic:
+                    case VisionOSSettings.ImmersionStyle.Mixed:
+                        return "UIImmersionStyleMixed";
+                    case VisionOSSettings.ImmersionStyle.Full:
+                        return "UIImmersionStyleFull";
+                    case VisionOSSettings.ImmersionStyle.Progressive:
+                        return "UIImmersionStyleProgressive";
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(immersionStyle), immersionStyle, null);
+                }
             }
 
             static string GetSettingsString()

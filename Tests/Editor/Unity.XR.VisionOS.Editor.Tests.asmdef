@@ -4,11 +4,13 @@
     "references": [
         "Unity.XR.VisionOS.Editor",
         "Unity.XR.VisionOS",
+        "Unity.XR.ARSubsystems",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Unity.XR.CoreUtils.Editor",
         "Unity.XR.Management",
-        "Unity.XR.Management.Editor"
+        "Unity.XR.Management.Editor",
+        "Unity.XR.ARSubsystems.Editor"
     ],
     "includePlatforms": [
         "Editor"

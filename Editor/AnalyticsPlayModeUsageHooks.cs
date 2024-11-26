@@ -1,4 +1,4 @@
-#if ENABLE_CLOUD_SERVICES_ANALYTICS || UNITY_2023_2_OR_NEWER
+#if ENABLE_CLOUD_SERVICES_ANALYTICS
 using System.Linq;
 using UnityEditor.XR.Management;
 
@@ -43,11 +43,8 @@ namespace UnityEditor.XR.VisionOS.Analytics
                 AppMode = VisionOSPlayModeUsageEvent.Payload.UndefinedMode,
                 VRImmersionStyle = VisionOSPlayModeUsageEvent.Payload.UndefinedMode,
                 MRImmersionStyle = VisionOSPlayModeUsageEvent.Payload.UndefinedMode,
-
-#if UNITY_2023_2_OR_NEWER
                 package = VisionOSAnalytics.PackageName,
                 package_ver = VisionOSAnalytics.PackageVersion
-#endif
             };
 
 #if UNITY_HAS_POLYSPATIAL
@@ -85,4 +82,4 @@ namespace UnityEditor.XR.VisionOS.Analytics
         }
     }
 }
-#endif // ENABLE_CLOUD_SERVICES_ANALYTICS || UNITY_2023_2_OR_NEWER
+#endif // ENABLE_CLOUD_SERVICES_ANALYTICS

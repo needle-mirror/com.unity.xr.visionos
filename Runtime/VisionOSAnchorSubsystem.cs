@@ -276,7 +276,11 @@ namespace UnityEngine.XR.VisionOS
             }
         }
 
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+#else
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+#endif
         static void RegisterDescriptor()
         {
             var cinfo = new XRAnchorSubsystemDescriptor.Cinfo

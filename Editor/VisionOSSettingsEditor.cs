@@ -80,6 +80,7 @@ namespace UnityEditor.XR.VisionOS
         SerializedProperty m_MetalImmersiveOverlaysProperty;
         SerializedProperty m_RealityKitImmersiveOverlaysProperty;
         SerializedProperty m_IL2CPPLargeExeWorkaroundProperty;
+        SerializedProperty m_UseACToolProperty;
 
         Lazy<GUIContent> m_TargetFrameRateLabel = new(() => new GUIContent(k_TargetFrameRateLabelText, k_TargetFrameRateTooltip));
 
@@ -104,6 +105,7 @@ namespace UnityEditor.XR.VisionOS
             m_MetalImmersiveOverlaysProperty = serializedObject.FindProperty("m_MetalImmersiveOverlays");
             m_RealityKitImmersiveOverlaysProperty = serializedObject.FindProperty("m_RealityKitImmersiveOverlays");
             m_IL2CPPLargeExeWorkaroundProperty = serializedObject.FindProperty("m_IL2CPPLargeExeWorkaround");
+            m_UseACToolProperty = serializedObject.FindProperty("m_UseACTool");
 
             // Initialize RuntimeSettings on a delay to prevent asset creation errors that can happen on first import
             EditorApplication.delayCall += InitializeRuntimeSettings;
@@ -290,6 +292,7 @@ namespace UnityEditor.XR.VisionOS
             }
 
             EditorGUILayout.PropertyField(m_IL2CPPLargeExeWorkaroundProperty);
+            EditorGUILayout.PropertyField(m_UseACToolProperty);
 
             if (hasMetalSupport)
             {
