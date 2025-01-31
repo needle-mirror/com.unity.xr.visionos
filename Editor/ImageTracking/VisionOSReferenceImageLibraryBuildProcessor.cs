@@ -99,6 +99,8 @@ namespace UnityEditor.XR.VisionOS
                     // Convert the resource group to a 'car' (compiled asset catalog) file
                     library.SetDataForKey(VisionOSPackageInfo.identifier, resourceGroup.ToCar());
                 }
+
+                EditorUtility.ClearProgressBar();
             }
 
             void ARBuildProcessor.IPreprocessBuild.OnPreprocessBuild(PreprocessBuildEventArgs eventArgs)

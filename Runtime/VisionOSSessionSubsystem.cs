@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using AOT;
 using Unity.Collections;
@@ -45,6 +46,7 @@ namespace UnityEngine.XR.VisionOS
             static readonly NativeApi.Session.AR_Authorization_Results_Handler k_RequestAuthorizationResultsHandler = RequestAuthorizationResultsHandler;
             static readonly NativeApi.Authorization.Authorization_Results_Enumeration_Completed_Callback k_RequestAuthorizationResultsHanEnumerationCompletedCallback = RequestAuthorizationResultsEnumerationCompletedCallback;
             static readonly NativeApi.Authorization.Authorization_Results_Enumeration_Step_Callback k_EnumerateAuthorizationStepCallback = EnumerateAuthorizationStepCallback;
+            static readonly NativeApi.DataProvider.AR_Data_Providers_Enumerator_Function k_EnumerateDataProvidersOnStateChange = EnumerateDataProvidersOnStateChange;
 
             const float k_StartupTimeout = 5;
 
@@ -58,6 +60,9 @@ namespace UnityEngine.XR.VisionOS
             // Store last update so we can update m_StartTime in callbacks coming from other threads
             static float s_LastUpdateTime;
             static bool s_IsQuitting;
+
+            // Store the state from DataProviderStateChangeHandler so it can be used later in the provider enumeration callback.
+            static AR_Data_Provider_State s_TempNewProviderStateFromCallback;
 
             public static VisionOSSessionProvider Instance { get; private set; }
 
@@ -81,6 +86,8 @@ namespace UnityEngine.XR.VisionOS
 
             readonly VisionOSMeshProvider m_MeshProvider = new();
             readonly VisionOSWorldTrackingProvider m_WorldTrackingProvider = new();
+
+            readonly Dictionary<IntPtr, IVisionOSProvider> m_Providers = new();
 
             public override Feature requestedFeatures => m_RequestedFeatures;
 
@@ -256,6 +263,10 @@ namespace UnityEngine.XR.VisionOS
                     var feature = kvp.Key;
                     if ((feature & features) == 0)
                     {
+                        var nativeProvider = provider.CurrentProvider;
+                        if (nativeProvider != IntPtr.Zero)
+                            m_Providers.Remove(nativeProvider);
+
                         provider.TryStopNativeSession();
                         continue;
                     }
@@ -266,7 +277,11 @@ namespace UnityEngine.XR.VisionOS
                     if (hasRequiredAuthorization && (m_AllowedAuthorizations & requiredAuthorization) == 0)
                         continue;
 
-                    if (!provider.TryStartNativeSession(features))
+                    if (provider.TryStartNativeSession(features))
+                    {
+                        m_Providers[provider.CurrentProvider] = provider;
+                    }
+                    else
                     {
                         Debug.LogError($"Failed to start provider for {feature}");
                     }
@@ -330,12 +345,48 @@ namespace UnityEngine.XR.VisionOS
 
                     Debug.Log($"AR data provider state changed. New state is {new_state}.");
 
+                    if (Instance == null)
+                    {
+                        Debug.LogError("Error in AR data provider state change handler. VisionOSSessionSubsystem instance is null.");
+                        return;
+                    }
+
                     Instance.m_ProviderStateCallbackReceived = true;
+                    s_TempNewProviderStateFromCallback = new_state;
+                    NativeApi.DataProvider.ar_data_providers_enumerate_data_providers(data_providers, IntPtr.Zero, k_EnumerateDataProvidersOnStateChange);
                 }
                 catch (Exception exception)
                 {
                     Debug.LogException(exception);
                 }
+            }
+
+            [MonoPInvokeCallback(typeof(NativeApi.DataProvider.AR_Data_Providers_Enumerator_Function))]
+            static void EnumerateDataProvidersOnStateChange(IntPtr context, IntPtr data_provider)
+            {
+                // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
+                try
+                {
+                    if (Instance == null)
+                    {
+                        Debug.LogError("Error in AR data provider state change handler provider enumeration. VisionOSSessionSubsystem instance is null.");
+                        return;
+                    }
+
+                    Instance.OnDataProviderStateChanged(data_provider, s_TempNewProviderStateFromCallback);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                }
+            }
+
+            void OnDataProviderStateChanged(IntPtr nativeProvider, AR_Data_Provider_State newState)
+            {
+                if (m_Providers.TryGetValue(nativeProvider, out var provider))
+                    provider.SetNativeProviderState(newState);
+                else
+                    Debug.LogWarning($"Warning in AR data provider state change handler. State changed to {newState} on native provider at pointer {nativeProvider}");
             }
 
             // ReSharper restore InconsistentNaming

@@ -65,6 +65,11 @@ namespace UnityEngine.XR.VisionOS
             return true;
         }
 
+        public void SetNativeProviderState(AR_Data_Provider_State newState)
+        {
+            // Do nothing: Native plugin handles provider state on its own.
+        }
+
         [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "UnityVisionOS_CreateWorldTrackingProvider")]
         static extern IntPtr CreateWorldTrackingProvider();
 

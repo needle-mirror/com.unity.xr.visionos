@@ -58,6 +58,11 @@ namespace UnityEngine.XR.VisionOS
             return true;
         }
 
+        public void SetNativeProviderState(AR_Data_Provider_State newState)
+        {
+            // Do nothing; This provider does not poll for data
+        }
+
         [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "UnityVisionOS_CreateSceneReconstructionProvider")]
         static extern IntPtr CreateSceneReconstructionProvider(AR_Scene_Reconstruction_Mode mode);
 

@@ -7,6 +7,13 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.3.12] - 2025-01-31
+
+### Fixed
+- Called EditorUtility.ClearProgressBar(); when finished processing visionOS reference image library assets to clear progress bar.
+- Fixed log spam in Metal and Hybrid builds about querying hand anchors and presenting drawables. These warnings may show up as a one-off from time to time, but no longer spam continuously the way they did in some situations.
+- Fix compile errors on tvOS.
+
 ## [1.3.11] - 2024-11-13
 
 ### Added
@@ -266,7 +273,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Fixed compile errors when the project has `com.unity.render-pipelines.core` but not `com.unity.render-pipelines.universal`.
 - Fixed issue with over releasing material references for canvas items.
- 
+
 ### Security
 
 ## [0.5.0] - 2023-10-26

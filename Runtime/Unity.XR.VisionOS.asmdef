@@ -38,6 +38,11 @@
             "name": "com.unity.xr.interaction.toolkit",
             "expression": "1.0.0",
             "define": "INCLUDE_UNITY_XRI"
+        },
+        {
+            "name": "com.unity.modules.xr",
+            "expression": "1.0.0",
+            "define": "UNITY_INPUT_SYSTEM_ENABLE_XR"
         }
     ],
     "noEngineReferences": false

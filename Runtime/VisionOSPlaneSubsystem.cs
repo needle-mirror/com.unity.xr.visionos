@@ -106,6 +106,11 @@ namespace UnityEngine.XR.VisionOS
                 return true;
             }
 
+            public void SetNativeProviderState(AR_Data_Provider_State newState)
+            {
+                // Do nothing; This provider does not poll for data
+            }
+
             public override void Destroy()
             {
                 // Try to stop the native session in case TryStop hasn't been called yet.
