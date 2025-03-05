@@ -40,5 +40,11 @@ namespace UnityEngine.XR.VisionOS
         /// </summary>
         /// <returns>Whether the session was stopped.</returns>
         bool TryStopNativeSession();
+
+        /// <summary>
+        /// Set the provider status based on the DataProviderStateChangeHandler callback.
+        /// </summary>
+        /// <param name="newState">The new state of the native provider.</param>
+        void SetNativeProviderState(AR_Data_Provider_State newState);
     }
 }

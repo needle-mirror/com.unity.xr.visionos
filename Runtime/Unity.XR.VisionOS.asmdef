@@ -45,6 +45,11 @@
             "name": "com.unity.polyspatial",
             "expression": "2.0.0-pre.9",
             "define": "INCLUDE_UNITY_POLYSPATIAL"
+        },
+        {
+            "name": "com.unity.modules.xr",
+            "expression": "1.0.0",
+            "define": "UNITY_INPUT_SYSTEM_ENABLE_XR"
         }
     ],
     "noEngineReferences": false

@@ -160,6 +160,11 @@ namespace UnityEngine.XR.VisionOS
                 return true;
             }
 
+            public void SetNativeProviderState(AR_Data_Provider_State newState)
+            {
+                // Do nothing; This provider does not poll for data
+            }
+
             // ReSharper disable InconsistentNaming
             [MonoPInvokeCallback(typeof(NativeApi.EnvironmentLightEstimation.AR_Environment_Light_Estimation_Update_Handler_Function))]
             static void EnvironmentLightEstimationUpdateHandler(IntPtr context, IntPtr added_anchors, IntPtr updated_anchors, IntPtr removed_anchors)

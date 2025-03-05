@@ -7,6 +7,15 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.2.4] - 2025-03-05
+
+## [2.2.2] - 2025-02-21
+
+### Fixed
+- Fixed a null reference exception that can occur in `VisionOSPlayModeInput.Awake` when entering play mode in a project with PolySpatial packages installed, but the AppMode set to Metal.
+- Fixed log spam in Metal and Hybrid builds about querying hand anchors and presenting drawables. These warnings may show up as a one-off from time to time, but no longer spam continuously the way they did in some situations.
+- Fix compile errors on tvOS.
+
 ## [2.1.2] - 2024-11-26
 
 ### Added

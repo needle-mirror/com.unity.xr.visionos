@@ -67,17 +67,27 @@ namespace UnityEngine.XR.VisionOS.InputDevices
 #endif
 
 #if INCLUDE_UNITY_POLYSPATIAL
-        bool m_IsMetalMode;
+        // Unless otherwise determined, assume that we are running in metal mode
+        // when PSL package is installed. Only change that if PSL tells us otherwise.
+        bool m_IsMetalMode = true;
 
         void Awake()
         {
-            PolySpatialCore.UnitySimulation.VolumeCamerasChanged += UpdateMetalMode;
+            var simulation = PolySpatialCore.UnitySimulation;
+            if (simulation == null)
+                return;
+
+            simulation.VolumeCamerasChanged += UpdateMetalMode;
             UpdateMetalMode();
         }
 
         void UpdateMetalMode()
         {
-            m_IsMetalMode = PolySpatialCore.UnitySimulation.IsMetalMode;
+            var simulation = PolySpatialCore.UnitySimulation;
+            if (simulation == null)
+                return;
+
+            m_IsMetalMode = simulation.IsMetalMode;
         }
 #endif
 

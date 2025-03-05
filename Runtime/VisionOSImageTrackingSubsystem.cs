@@ -143,6 +143,11 @@ namespace UnityEngine.XR.VisionOS
                 return true;
             }
 
+            public void SetNativeProviderState(AR_Data_Provider_State newState)
+            {
+                // Do nothing; This provider does not poll for data
+            }
+
             // ReSharper disable InconsistentNaming
             // TODO: Use IntPtr instead of void*?
             [MonoPInvokeCallback(typeof(NativeApi.ImageTracking.AR_Image_Tracking_Update_Handler))]

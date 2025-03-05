@@ -34,6 +34,7 @@ namespace UnityEngine.XR.VisionOS
         readonly Dictionary<Handedness, bool> m_HandTrackingStates = new();
 
         IntPtr m_ARSession = IntPtr.Zero;
+        AR_Data_Provider_State m_NativeProviderState = AR_Data_Provider_State.Stopped;
 
         public override void Start()
         {
@@ -99,6 +100,11 @@ namespace UnityEngine.XR.VisionOS
             return true;
         }
 
+        public void SetNativeProviderState(AR_Data_Provider_State newState)
+        {
+            m_NativeProviderState = newState;
+        }
+
         public override void GetHandLayout(NativeArray<bool> handJointsInLayout)
         {
             // All joints except palm are supported
@@ -117,6 +123,9 @@ namespace UnityEngine.XR.VisionOS
             NativeArray<XRHandJoint> rightHandJoints)
         {
             if (CurrentProvider == IntPtr.Zero)
+                return XRHandSubsystem.UpdateSuccessFlags.None;
+
+            if (m_NativeProviderState != AR_Data_Provider_State.Running)
                 return XRHandSubsystem.UpdateSuccessFlags.None;
 
             if (m_LeftHandAnchor == IntPtr.Zero)
