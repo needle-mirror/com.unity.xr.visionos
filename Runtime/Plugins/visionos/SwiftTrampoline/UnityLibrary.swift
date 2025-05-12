@@ -118,4 +118,21 @@ class UnityLibrary: UIResponder, UIApplicationDelegate, UnityFrameworkListener {
     public func willEnterForeground() {
         unityFramework.appController().applicationWillEnterForeground(UIApplication.shared)
     }
+
+    // Returns the current value of `Application.runInBackground`. Used by UnityPolySpatialAppDelegate to determine whether or not to pause
+    // when the app goes into the background (i.e. the final SwiftUI scene has gone into the background or resigned).
+    public func shouldRunInBackground() -> Bool {
+        let selector = Selector(("shouldRunInBackground"))
+
+        // This API is not available in all supported Unity versions. RunInBackground is ignored in versions prior to its introduction.
+        if unityFramework.responds(to: selector) {
+            let methodIMP: IMP! = unityFramework.method(for: selector)
+            let cMethod = unsafeBitCast(methodIMP, to: (@convention(c)(Any?, Selector) -> Int).self)
+            return cMethod(unityFramework, selector) != 0
+        }
+
+        // Although the default player setting is false, we don't want to force apps on earlier Unity versions to pause.
+        // The default behavior prior to this change was to always run in the background.
+        return true
+    }
 }

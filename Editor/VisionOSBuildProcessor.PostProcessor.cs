@@ -298,10 +298,16 @@ namespace UnityEditor.XR.VisionOS
                     persistentOverlays = settings.metalImmersiveOverlays;
                 }
 
+                var enableHighQualityRecordingModeString = "false";
+                if (settings != null && settings.highQualityRecordingMode)
+                {
+                    enableHighQualityRecordingModeString = "true";
+                }
+
 #if UNITY_HAS_URP
                 var foveatedRenderingEnabled = true;
                 if (settings != null)
-                    foveatedRenderingEnabled = settings.foveatedRendering;
+                    foveatedRenderingEnabled = settings.foveatedRendering && !settings.highQualityRecordingMode;
 
                 var hasUrpAsset = UniversalRenderPipeline.asset != null;
                 var isDeviceBuild = PlayerSettings.VisionOS.sdkVersion == VisionOSSdkVersion.Device;
@@ -318,6 +324,7 @@ namespace UnityEditor.XR.VisionOS
                 var immersionStyleString = VisionOSSettings.ImmersionStyleToString(metalImmersionStyle);
                 return $@"import SwiftUI
 
+var VisionOSEnableHighQualityRecordingMode = {enableHighQualityRecordingModeString}
 var VisionOSEnableFoveation = {enableFoveationString}
 var VisionOSUpperLimbVisibility: Visibility = {upperLimbVisibilityString}
 var VisionOSPersistentSystemOverlays: Visibility = {persistentSystemOverlaysString}

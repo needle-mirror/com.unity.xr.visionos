@@ -816,11 +816,14 @@ namespace UnityEditor.XR.VisionOS
                     if (message != null)
                         return message;
 
+                    s_HdrWasEnabled = IsHDREnabled();
                     s_PreviousAppMode = settings.appMode;
+
+                    SetHDREnabled(true);
                     settings.appMode = VisionOSSettings.AppMode.Metal;
 
                     StoreRenderPipelineUpscalingFilterSettings();
-                    SetRenderPipelineUpscalingFilter(UpscalingFilterSelection.Auto);
+                    SetRenderPipelineUpscalingFilter(UpscalingFilterSelection.FSR);
                     return null;
                 },
                 TearDown = () =>
@@ -828,6 +831,8 @@ namespace UnityEditor.XR.VisionOS
                     var settingsMessage = GetEditorSettingsIfExists(out var settings);
                     if (settings != null)
                         settings.appMode = s_PreviousAppMode;
+
+                    SetHDREnabled(s_HdrWasEnabled);
 
                     RestoreRenderPipelineUpscalingFilterSettings();
 

@@ -74,6 +74,7 @@ namespace UnityEditor.XR.VisionOS
         SerializedProperty m_WorldSensingUsageDescriptionProperty;
         SerializedProperty m_InitializeHandTrackingOnStartupProperty;
         SerializedProperty m_UpperLimbVisibilityProperty;
+        SerializedProperty m_HighQualityRecordingModeProperty;
         SerializedProperty m_FoveatedRenderingProperty;
         SerializedProperty m_MetalImmersionStyleProperty;
         SerializedProperty m_RealityKitImmersionStyleProperty;
@@ -99,6 +100,7 @@ namespace UnityEditor.XR.VisionOS
             m_HandsTrackingUsageDescriptionProperty = serializedObject.FindProperty("m_HandsTrackingUsageDescription");
             m_WorldSensingUsageDescriptionProperty = serializedObject.FindProperty("m_WorldSensingUsageDescription");
             m_UpperLimbVisibilityProperty = serializedObject.FindProperty("m_UpperLimbVisibility");
+            m_HighQualityRecordingModeProperty = serializedObject.FindProperty("m_HighQualityRecordingMode");
             m_FoveatedRenderingProperty = serializedObject.FindProperty("m_FoveatedRendering");
             m_MetalImmersionStyleProperty = serializedObject.FindProperty("m_MetalImmersionStyle");
             m_RealityKitImmersionStyleProperty = serializedObject.FindProperty("m_RealityKitImmersionStyle");
@@ -191,6 +193,8 @@ namespace UnityEditor.XR.VisionOS
 #if UNITY_HAS_URP
             var hasUrpAsset = UniversalRenderPipeline.asset != null;
             var foveationSupported = hasMetalSupport && hasUrpAsset;
+            if(m_HighQualityRecordingModeProperty.boolValue)
+                foveationSupported = false;
 #else
             const bool foveationSupported = false;
 #endif
@@ -285,6 +289,7 @@ namespace UnityEditor.XR.VisionOS
                 EditorGUILayout.PropertyField(m_MetalImmersiveOverlaysProperty);
                 EditorGUILayout.PropertyField(m_RealityKitImmersiveOverlaysProperty);
                 EditorGUILayout.PropertyField(m_UpperLimbVisibilityProperty);
+                EditorGUILayout.PropertyField(m_HighQualityRecordingModeProperty);
                 using (new EditorGUI.DisabledScope(!foveationSupported))
                 {
                     EditorGUILayout.PropertyField(m_FoveatedRenderingProperty);

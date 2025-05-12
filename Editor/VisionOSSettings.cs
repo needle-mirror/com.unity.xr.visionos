@@ -33,6 +33,8 @@ namespace UnityEditor.XR.VisionOS
             "are blended with virtual objects based on depth. When disabled, hands are always displayed behind virtual objects. This setting is " +
             "ignored when the Volume Camera is in Bounded mode, or when the App Mode is set to Windowed.";
 
+        const string k_HighQualityRecordingModeTooltip = "This mode will disable the right eye view and also disable foveated rendering. This is intended to be used when recording applications in 4k (like you can with Realiy Composer Pro)";
+
         const string k_FoveatedRenderingTooltip = "Controls if foveated rendering is enabled or disabled. This setting only applies to Virtual Reality apps. " +
             "Foveated rendering requires the Universal Render Pipeline.";
 
@@ -182,6 +184,9 @@ namespace UnityEditor.XR.VisionOS
         [SerializeField, Tooltip(k_UpperLimbVisibilityTooltip)]
         Visibility m_UpperLimbVisibility;
 
+        [SerializeField, Tooltip(k_HighQualityRecordingModeTooltip)]
+        bool m_HighQualityRecordingMode;
+
         [SerializeField, Tooltip(k_FoveatedRenderingTooltip)]
         bool m_FoveatedRendering = true;
 
@@ -237,6 +242,17 @@ namespace UnityEditor.XR.VisionOS
         {
             get => m_UpperLimbVisibility;
             set => m_UpperLimbVisibility = value;
+        }
+
+        /// <summary>
+        /// This setting is for when you want to create a high quality recording of your app.
+        /// Enabling this setting will disable rendering in the right eye and disable foveated rendering.
+        /// This is expected to be used when creating a high quality recording with Reality Composer Pro.
+        /// </summary>
+        public bool highQualityRecordingMode
+        {
+            get => m_HighQualityRecordingMode;
+            set => m_HighQualityRecordingMode = value;
         }
 
         /// <summary>

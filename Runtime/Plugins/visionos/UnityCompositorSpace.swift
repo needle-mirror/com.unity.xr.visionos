@@ -53,6 +53,7 @@ var unityVisionOSCompositorSpace: some Scene {
 
             let compositorBridge = NSClassFromString("UnityVisionOSCompositorBridge") as? NSObject.Type
             compositorBridge?.perform(Selector(("setLayerRenderer:")), with: layerRenderer)
+            settingsBridge?.perform(Selector(("setHighQualityRecordingModeEnabled:")), with: VisionOSEnableHighQualityRecordingMode)
             settingsBridge?.perform(Selector(("setFoveatedRenderingEnabled:")), with: VisionOSEnableFoveation)
             settingsBridge?.perform(Selector(("setSkipPresentToMainScreen:")), with: VisionOSSkipPresent)
             settingsBridge?.perform(Selector(("setEDRHeadroom:")), with: VisionOSEDRHeadroom)

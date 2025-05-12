@@ -10,6 +10,7 @@
         "Unity.XR.CoreUtils.Editor",
         "Unity.XR.Management",
         "Unity.XR.Management.Editor",
+        "Unity.XR.VisionOS.Tests",
         "Unity.XR.ARSubsystems.Editor"
     ],
     "includePlatforms": [
