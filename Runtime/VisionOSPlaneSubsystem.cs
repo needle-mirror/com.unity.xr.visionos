@@ -46,7 +46,6 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Destroy()
             {
-                Debug.Log("Destroy plane provider");
                 m_AddedPlanes.Dispose();
                 m_UpdatedPlanes.Dispose();
                 m_RemovedPlanes.Dispose();
@@ -57,7 +56,6 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Start()
             {
-                Debug.Log("Start plane provider");
                 m_PlaneDetectionConfiguration = NativeApi_Plane_Detection.ar_plane_detection_configuration_create();
                 NativeApi_Plane_Detection.ar_plane_detection_configuration_set_alignment(m_PlaneDetectionConfiguration, (AR_Plane_Alignment)m_CurrentPlaneDetectionMode);
 
@@ -69,7 +67,6 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Stop()
             {
-                Debug.Log("Stop plane provider");
                 VisionOSSessionSubsystem.VisionOSProvider.Instance.RemoveDataProvider(m_PlaneDetectionProvider);
                 // TODO: Should we clear temp dictionaries here? Will re-starting add the same planes back?
             }

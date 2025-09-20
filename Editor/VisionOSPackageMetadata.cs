@@ -36,8 +36,7 @@ namespace UnityEditor.XR.VisionOS
                     loaderType = typeof(VisionOSLoader).FullName,
                     supportedBuildTargets = new List<BuildTargetGroup>()
                     {
-                        BuildTargetGroup.VisionOS,
-                        BuildTargetGroup.Standalone
+                        BuildTargetGroup.VisionOS
                     }
                 },
             }

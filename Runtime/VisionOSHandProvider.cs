@@ -31,7 +31,6 @@ namespace UnityEngine.XR.VisionOS
                 }
             }
 
-            Debug.Log("Start hand provider");
             m_HandTrackingConfiguration = NativeApi_Hand_Tracking.ar_hand_tracking_configuration_create();
             m_HandTrackingProvider = NativeApi_Hand_Tracking.ar_hand_tracking_provider_create(m_HandTrackingConfiguration);
             VisionOSSessionSubsystem.VisionOSProvider.Instance.AddDataProvider(m_HandTrackingProvider);
@@ -39,7 +38,6 @@ namespace UnityEngine.XR.VisionOS
 
         public override void Stop()
         {
-            Debug.Log("Stop hand provider");
             VisionOSSessionSubsystem.VisionOSProvider.Instance.RemoveDataProvider(m_HandTrackingProvider);
         }
 

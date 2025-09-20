@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using UnityEngine;
 using UnityEngine.XR.ARSubsystems;
+using UnityEngine.XR.VisionOS;
 
 namespace UnityEditor.XR.VisionOS
 {
@@ -133,7 +134,7 @@ namespace UnityEditor.XR.VisionOS
             }
 
             m_Width = referenceImage.width;
-            name = referenceImage.name + "_" + referenceImage.guid.ToUUIDString();
+            name = VisionOSImageDatabase.GetReferenceImageName(referenceImage.name, referenceImage.guid);
         }
     }
 }

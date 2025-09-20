@@ -1,7 +1,13 @@
 #import <Foundation/Foundation.h>
 #include "IUnityInterface.h"
 #import <CompositorServices/CompositorServices.h>
+
+#if __has_include("visionos_config.h")
 #include "visionos_config.h"
+#else
+#define VISIONOS_SINGLE_PASS 1
+#define VISIONOS_SIMULATOR 0
+#endif
 
 #ifdef __cplusplus
 extern "C" {

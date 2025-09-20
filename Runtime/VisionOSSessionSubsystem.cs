@@ -36,34 +36,25 @@ namespace UnityEngine.XR.VisionOS
             bool m_SessionRunning;
 
             AR_Scene_Reconstruction_Mode m_SceneReconstructionMode = AR_Scene_Reconstruction_Mode.Default;
-            
+
             public IntPtr WorldTrackingProvider { get; }
 
             // ReSharper disable InconsistentNaming
             public VisionOSProvider()
             {
-                Debug.Log("Creating visionOS session subsystem provider");
                 Instance = this;
-                
-                //TODO: Wait for authorization?
-                //TODO: Handle authorization here?
                 m_Self = NativeApi_Session.ar_session_create();
-                Debug.Log($"Created session {m_Self}");
-                
+
                 NativeApi_Session.UnityVisionOS_impl_ar_session_set_data_provider_state_change_handler(m_Self, k_SessionCompletionHandler);
 
                 m_ProviderCollection = NativeApi_Data_Provider.ar_data_providers_create();
-                Debug.Log($"Created provider collection {m_ProviderCollection}");
 
                 WorldTrackingProvider = UnityVisionOSCreateWorldTrackingProvider();
-                Debug.Log($"Got world tracking provider from plugin {WorldTrackingProvider}");
-                
+
                 UpdateSceneReconstructionProvider();
 
                 // AddDataProvider will start the session
                 AddDataProvider(WorldTrackingProvider);
-                
-                //NativeApi_Session.ar_session_run(m_Self, m_ProviderCollection);
             }
 
             public void SetSceneReconstructionMode(AR_Scene_Reconstruction_Mode mode)
@@ -83,20 +74,13 @@ namespace UnityEngine.XR.VisionOS
             void UpdateSceneReconstructionProvider()
             {
                 if (m_SceneReconstructionProvider != IntPtr.Zero)
-                {
                     RemoveDataProvider(m_SceneReconstructionProvider);
-                }
 
                 m_SceneReconstructionProvider = UnityVisionOSCreateSceneReconstructionProvider(m_SceneReconstructionMode);
-                Debug.Log($"Got scene reconstruction provider from plugin {m_SceneReconstructionProvider}");
-
                 AddDataProvider(m_SceneReconstructionProvider);
             }
 
-            public override void Start()
-            {
-                Debug.Log("Session Subsystem start");
-            }
+            public override void Start() { }
 
             public override void Stop() => NativeApi_Session.ar_session_stop_all_data_providers(m_Self);
 
@@ -106,28 +90,14 @@ namespace UnityEngine.XR.VisionOS
 
             public void AddDataProvider(IntPtr dataProvider)
             {
-                //TODO: Should we stop first before re-running?
-                //NativeApi_Session.AR_Session_Stop_All_Data_Providers(m_Self);
-
-                Debug.Log($"Adding data provider: {dataProvider}");
                 NativeApi_Data_Provider.ar_data_providers_add_data_provider(m_ProviderCollection, dataProvider);
-
-                Debug.Log($"Running session with session: {m_Self}, providerCollection: {m_ProviderCollection}");
-                // TODO: Can't re-run the session anymore?
                 NativeApi_Session.ar_session_run(m_Self, m_ProviderCollection);
             }
 
             public void RemoveDataProvider(IntPtr dataProvider)
             {
-                //TODO: Should we stop first before re-running?
-                //NativeApi_Session.AR_Session_Stop_All_Data_Providers(m_Self);
-                Debug.Log($"Removing Data provider: {dataProvider}");
-
                 NativeApi_Data_Provider.ar_data_providers_remove_data_provider(m_ProviderCollection, dataProvider);
-                Debug.Log($"Running session with session: {m_Self}, providerCollection: {m_ProviderCollection}");
-
-                // TODO: Can't re-run the session anymore?
-                //NativeApi_Session.ar_session_run(m_Self, m_ProviderCollection);
+                NativeApi_Session.ar_session_run(m_Self, m_ProviderCollection);
             }
 
             [MonoPInvokeCallback(typeof(NativeApi_Session.AR_Session_Run_Providers_Completion_Handler))]
@@ -135,16 +105,9 @@ namespace UnityEngine.XR.VisionOS
             {
                 // TODO: read error code
                 Instance.m_SessionRunning = true;
-                Debug.Log($"session run completed with {true}");
             }
-            // ReSharper restore InconsistentNaming
-        }
 
-        /// <inheritdoc/>
-        protected override void OnCreate()
-        {
-            base.OnCreate();
-            Debug.Log("VisionOS Session Subsystem Created");
+            // ReSharper restore InconsistentNaming
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

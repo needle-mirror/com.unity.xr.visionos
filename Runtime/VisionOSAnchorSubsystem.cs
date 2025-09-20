@@ -42,7 +42,6 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Destroy()
             {
-                Debug.Log("Destroy world tracking provider");
                 m_AddedAnchors.Dispose();
                 m_UpdatedAnchors.Dispose();
                 m_RemovedAnchors.Dispose();
@@ -53,14 +52,12 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Start()
             {
-                Debug.Log("Start anchor provider");
                 m_WorldTrackingProvider = VisionOSSessionSubsystem.VisionOSProvider.Instance.WorldTrackingProvider;
                 NativeApi_World_Tracking.UnityVisionOS_impl_ar_world_tracking_provider_set_anchor_update_handler(m_WorldTrackingProvider, k_WorldTrackingUpdateHandler);
             }
 
             public override void Stop()
             {
-                Debug.Log("Stop anchor provider");
                 // Do nothing here, SessionSubsystem manages the lifecycle of WorldTrackingProvider
                 // TODO: Unsubscribe from updates? Re-create provider?
             }

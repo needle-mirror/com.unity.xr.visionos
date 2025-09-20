@@ -115,8 +115,8 @@ namespace UnityEngine.XR.VisionOS
             
             // TODO: #ifdef for runtime-only after removing macos stub
 #if INCLUDE_UNITY_XR_HANDS
-            GetLoadedSubsystem<XRHandSubsystem>().Start();
-            m_Updater.Start();
+            StartSubsystem<XRHandSubsystem>();
+            m_Updater?.Start();
 #endif
             return true;
         }
@@ -132,8 +132,8 @@ namespace UnityEngine.XR.VisionOS
             
             // TODO: #ifdef for runtime-only after removing macos stub
 #if INCLUDE_UNITY_XR_HANDS
-            GetLoadedSubsystem<XRHandSubsystem>().Stop();
-            m_Updater.Stop();
+            StopSubsystem<XRHandSubsystem>();
+            m_Updater?.Stop();
 #endif
             
             return true;

@@ -75,9 +75,6 @@ namespace UnityEditor.XR.VisionOS
                 var settings = VisionOSSettings.currentSettings;
                 if (settings.appMode == VisionOSSettings.AppMode.MR)
                 {
-                    if (path.Contains("UnityVisionOS.m"))
-                        return false;
-                    
                     if (path.Contains(".swift"))
                         return false;
                 }

@@ -39,13 +39,11 @@ namespace UnityEngine.XR.VisionOS
 
             public VisionOSProvider()
             {
-                Debug.Log("Create image provider");
                 s_Instance = this;
             }
 
             public override void Destroy()
             {
-                Debug.Log("Destroy image provider");
                 m_AddedImages.Dispose();
                 m_UpdatedImages.Dispose();
                 m_RemovedImages.Dispose();
@@ -56,8 +54,6 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Start()
             {
-                Debug.Log("Start image provider");
-                
                 // TODO: Warn about starting with no reference images?
                 // Configuration may have already been created by imageLibrary setter, otherwise no library is selected, so use an empty configuration
                 if (m_ImageTrackingConfiguration == IntPtr.Zero)
@@ -71,7 +67,6 @@ namespace UnityEngine.XR.VisionOS
 
             public override void Stop()
             {
-                Debug.Log("Stop plane provider");
                 VisionOSSessionSubsystem.VisionOSProvider.Instance.RemoveDataProvider(m_ImageTrackingProvider);
             }
             
@@ -124,7 +119,6 @@ namespace UnityEngine.XR.VisionOS
             unsafe void ProcessImageUpdates(void* added_anchors, int added_anchor_count,
                 void* updated_anchors, int updated_anchor_count, void* removed_anchors, int removed_anchor_count)
             {
-                Debug.Log($"Process updates added: {added_anchor_count} updated: {updated_anchor_count} removed: {removed_anchor_count}");
                 var imageAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(added_anchors, added_anchor_count, Allocator.None);
                 foreach (var image in ProcessImageArray(imageAnchors))
                 {
@@ -168,7 +162,6 @@ namespace UnityEngine.XR.VisionOS
             {
                 set
                 {
-                    Debug.Log($"Set image library {value}");
                     if (value == null)
                     {
                         m_ImageDatabase = null;
@@ -185,7 +178,6 @@ namespace UnityEngine.XR.VisionOS
                         // Restart session with new provider if one exists, otherwise assume subsystem is not started, and we will create one with the correct configuration at start
                         if (m_ImageTrackingProvider != IntPtr.Zero)
                         {
-                            Debug.Log("Restarting");
                             var sessionSubsystem = VisionOSSessionSubsystem.VisionOSProvider.Instance;
                             sessionSubsystem.RemoveDataProvider(m_ImageTrackingProvider);
                             m_ImageTrackingProvider = NativeApi_Image_Tracking.ar_image_tracking_provider_create(m_ImageTrackingConfiguration);

@@ -4,7 +4,8 @@
     "references": [
         "Unity.XR.ARSubsystems",
         "Unity.XR.Management",
-        "Unity.XR.Hands"
+        "Unity.XR.Hands",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor",
@@ -26,6 +27,11 @@
             "name": "com.unity.xr.hands",
             "expression": "1.1.0",
             "define": "INCLUDE_UNITY_XR_HANDS_1_1"
+        },
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "1.0.0",
+            "define": "INCLUDE_UNITY_INPUT_SYSTEM"
         }
     ],
     "noEngineReferences": false

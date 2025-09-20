@@ -6,6 +6,7 @@ using System.Text;
 using JetBrains.Annotations;
 using Unity.Collections;
 using Unity.Jobs;
+using UnityEditor.XR.VisionOS;
 using UnityEngine.XR.ARSubsystems;
 using UnityEngine.Assertions;
 
@@ -37,10 +38,11 @@ namespace UnityEngine.XR.VisionOS
         // TODO: Pointers are not equivalent?
         //readonly Dictionary<IntPtr, XRReferenceImage> m_ReferenceImages = new();
         readonly Dictionary<string, XRReferenceImage> m_ReferenceImages = new();
+        readonly Dictionary<string, SerializableGuid> m_NameToGuid = new();
+        readonly Dictionary<string, SerializableGuid> m_NameToTextureGuid = new();
 
         static IntPtr CreateImageDatabase(XRReferenceImageLibrary library)
         {
-            Debug.Log($"Create image db with library {library.name}");
             if (library == null)
             {
                 return NativeApi_Image_Tracking.ar_reference_images_create();
@@ -86,12 +88,25 @@ namespace UnityEngine.XR.VisionOS
             k_StringBuilder.Length = 0;
             k_StringBuilder.Append(library.name);
             k_StringBuilder.Append("_");
-            k_StringBuilder.Append(library.guid.ToString());
+            k_StringBuilder.Append(library.guid.ToUUIDString());
             return k_StringBuilder.ToString();
         }
 
-        public VisionOSImageDatabase(XRReferenceImageLibrary serializedLibrary) =>
+        public static string GetReferenceImageName(string name, Guid guid)
+        {
+            return $"{name}_{guid.ToUUIDString()}";
+        }
+
+        public VisionOSImageDatabase(XRReferenceImageLibrary serializedLibrary)
+        {
             self = CreateImageDatabase(serializedLibrary);
+            foreach (var image in serializedLibrary)
+            {
+                var name = GetReferenceImageName(image.name, image.guid);
+                m_NameToGuid[name] = AsSerializedGuid(image.guid);
+                m_NameToTextureGuid[name] = AsSerializedGuid(image.textureGuid);
+            }
+        }
 
         /// <summary>
         /// (Read Only) Whether image validation is supported. `True` on iOS 13 and later.
@@ -152,9 +167,10 @@ namespace UnityEngine.XR.VisionOS
 
             if (!m_ReferenceImages.TryGetValue(referenceImageName, out var xrReferenceImage))
             {
-                // TODO: Get guid from image name instead? Does it matter?
-                var imageGuid = AsSerializedGuid(Guid.NewGuid());
-                var textureGuid = SerializableGuid.empty;
+                if (!m_NameToGuid.TryGetValue(referenceImageName, out var imageGuid))
+                    Debug.LogError($"Could not find guid for reference image with name: {referenceImageName}");
+
+                m_NameToTextureGuid.TryGetValue(referenceImageName, out var textureGuid);
                 var width = NativeApi_Image_Tracking.ar_reference_image_get_physical_width(referenceImagePtr);
                 var height = NativeApi_Image_Tracking.ar_reference_image_get_physical_height(referenceImagePtr);
                 
