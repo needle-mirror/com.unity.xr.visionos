@@ -47,6 +47,8 @@ namespace UnityEditor.XR.VisionOS
             pbx.AddFrameworkToProject(pbx.GetUnityFrameworkTargetGuid(), "CompositorServices.framework", false);
             pbx.AddFrameworkToProject(pbx.GetUnityFrameworkTargetGuid(), "ARKit.framework", false);
             pbx.SetBuildProperty(pbx.GetUnityMainTargetGuid(), "SWIFT_VERSION", "5.0");
+            pbx.UpdateBuildProperty(pbx.GetUnityMainTargetGuid(), "OTHER_LDFLAGS", new []{"-Wl,-ld64"}, null);
+            pbx.UpdateBuildProperty(pbx.GetUnityFrameworkTargetGuid(), "OTHER_LDFLAGS", new []{"-Wl,-ld64"}, null);
             pbx.AddFile(outputPath + "/" + configHeader, configHeader);
             pbx.RemoveFile(pbx.FindFileGuidByProjectPath("MainApp/main.mm"));
             
