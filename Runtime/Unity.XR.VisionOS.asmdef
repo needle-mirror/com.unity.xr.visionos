@@ -1,0 +1,32 @@
+{
+    "name": "Unity.XR.VisionOS",
+    "rootNamespace": "",
+    "references": [
+        "Unity.XR.ARSubsystems",
+        "Unity.XR.Management",
+        "Unity.XR.Hands"
+    ],
+    "includePlatforms": [
+        "Editor",
+        "VisionOS"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.hands",
+            "expression": "1.0.0-pre.1",
+            "define": "INCLUDE_UNITY_XR_HANDS"
+        },
+        {
+            "name": "com.unity.xr.hands",
+            "expression": "1.1.0",
+            "define": "INCLUDE_UNITY_XR_HANDS_1_1"
+        }
+    ],
+    "noEngineReferences": false
+}
