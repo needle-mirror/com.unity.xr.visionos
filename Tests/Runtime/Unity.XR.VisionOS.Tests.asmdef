@@ -30,7 +30,7 @@
         },
         {
             "name": "Unity",
-            "expression": "6000.1.4f",
+            "expression": "6000.1.4f1",
             "define": "UNITY_VISIONOS_RUN_IN_BACKGROUND_SUPPORT"
         },
         {

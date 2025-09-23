@@ -16,7 +16,7 @@ namespace UnityEditor.XR.VisionOSTests
         {
             public IEnumerator GetEnumerator()
             {
-                foreach (var rule in VisionOSProjectValidation.k_ValidationRules)
+                foreach (var rule in VisionOSProjectValidation.GetAllRules())
                 {
                     yield return new object[] {rule.Name, rule};
                 }

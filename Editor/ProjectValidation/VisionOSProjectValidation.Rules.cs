@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Unity.XR.CoreUtils.Editor;
@@ -72,17 +73,11 @@ namespace UnityEditor.XR.VisionOS
 
         const BuildTargetGroup k_VisionOSBuildTarget = BuildTargetGroup.VisionOS;
 
-        // TODO: LXR-4185 Expose color gamuts player setting API
-        static readonly MethodInfo k_GetColorGamuts = typeof(PlayerSettings).GetMethod("GetColorGamuts", BindingFlags.Static | BindingFlags.NonPublic);
-        static readonly MethodInfo k_SetColorGamuts = typeof(PlayerSettings).GetMethod("SetColorGamuts", BindingFlags.Static | BindingFlags.NonPublic);
-
-        static readonly BuildValidationRule[] k_Rules;
-
         // This field needs to be made internal for testing
         // ReSharper disable once MemberCanBePrivate.Global
-        internal static readonly RuleTestContainer[] k_ValidationRules =
+        internal static IEnumerable<RuleTestContainer> GetValidationRules()
         {
-            new()
+            yield return new()
             {
                 Name = "Color Space",
                 Rule = new()
@@ -104,8 +99,9 @@ namespace UnityEditor.XR.VisionOS
                     PlayerSettings.colorSpace = s_PreviousColorSpace;
                     return null;
                 }
-            },
-            new()
+            };
+
+            var arSessionRuleContainer = new RuleTestContainer()
             {
                 Name = "ARSession",
                 Rule = new()
@@ -113,19 +109,6 @@ namespace UnityEditor.XR.VisionOS
                     Message = k_ARSessionMessageMetal,
                     Category = string.Format(k_CategoryFormat, "ARSession"),
                     Error = true,
-                    CheckPredicate = () =>
-                    {
-                        // TODO: Is this check really needed? If so let's update this comment to explain why
-                        var thisRule = k_Rules?[1];
-                        if (thisRule != null)
-                        {
-                            var isMetal = CheckAppMode(VisionOSSettings.AppMode.Metal);
-                            thisRule.Error = isMetal;
-                            thisRule.Message = isMetal ? k_ARSessionMessageMetal : k_ARSessionMessageRealityKit;
-                        }
-
-                        return UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include) != null;
-                    },
                     FixIt = CreateARSession,
                     IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && !CheckAppMode(VisionOSSettings.AppMode.Windowed)
                 },
@@ -159,8 +142,19 @@ namespace UnityEditor.XR.VisionOS
                     var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
                     return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
                 }
-            },
-            new()
+            };
+
+            arSessionRuleContainer.Rule.CheckPredicate = () =>
+            {
+                var isMetal = CheckAppMode(VisionOSSettings.AppMode.Metal);
+                arSessionRuleContainer.Rule.Error = isMetal;
+                arSessionRuleContainer.Rule.Message = isMetal ? k_ARSessionMessageMetal : k_ARSessionMessageRealityKit;
+                return UnityObject.FindAnyObjectByType<ARSession>(FindObjectsInactive.Include) != null;
+            };
+
+            yield return arSessionRuleContainer;
+
+            yield return new()
             {
                 Name = "ARSession and XR Plug-in",
                 Rule = new()
@@ -193,8 +187,9 @@ namespace UnityEditor.XR.VisionOS
                     DestroyARSessionIfNewSessionExists();
                     return SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
                 }
-            },
-            new()
+            };
+
+            yield return new()
             {
                 Name = "Metal app mode and XR Plug-in",
                 Rule = new()
@@ -239,8 +234,9 @@ namespace UnityEditor.XR.VisionOS
                     var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
                     return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
                 }
-            },
-            new()
+            };
+
+            yield return new()
             {
                 Name = "World Sensing Usage Description",
                 Rule = new()
@@ -296,8 +292,9 @@ namespace UnityEditor.XR.VisionOS
                     settings.worldSensingUsageDescription = k_TestUsageDescription;
                     return null;
                 }
-            },
-            new()
+            };
+
+            yield return new()
             {
                 Name = "Splash Screen",
                 Rule = new()
@@ -321,10 +318,10 @@ namespace UnityEditor.XR.VisionOS
                     PlayerSettings.SplashScreen.show = s_SplashScreenWasEnabled;
                     return null;
                 }
-            },
+            };
 
 #if UNITY_HAS_URP
-            new()
+            yield return new()
             {
                 Name = "Camera depth texture",
                 Rule = new()
@@ -362,9 +359,11 @@ namespace UnityEditor.XR.VisionOS
                     var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
                     return HandleMultipleMessagesInTearDown(settingsMessage, destroyMessage, loaderMessage);
                 },
-                SkipTest = () => UniversalRenderPipeline.asset == null ? "Skipping Camera depth texture validation test because there is no URP asset set." : null
-            },
-            new()
+                SkipTest = () =>
+                    UniversalRenderPipeline.asset == null ? "Skipping Camera depth texture validation test because there is no URP asset set." : null
+            };
+
+            yield return new()
             {
                 Name = "DepthTextureMode",
                 Rule = new()
@@ -406,11 +405,11 @@ namespace UnityEditor.XR.VisionOS
                     return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
                 },
                 SkipTest = () => UniversalRenderPipeline.asset == null ? "Skipping DepthTextureMode validation test because there is no URP asset set." : null
-            },
+            };
 #endif
 
 #if INCLUDE_UNITY_XR_HANDS
-            new()
+            yield return new()
             {
                 Name = "Hand Tracking Usage Description Error",
                 Rule = new()
@@ -477,8 +476,9 @@ namespace UnityEditor.XR.VisionOS
                     editorSettings.handsTrackingUsageDescription = k_TestUsageDescription;
                     return null;
                 }
-            },
-            new()
+            };
+
+            yield return new()
             {
                 Name = "Hand Tracking Usage Description Warning",
                 Rule = new()
@@ -545,419 +545,9 @@ namespace UnityEditor.XR.VisionOS
                     editorSettings.handsTrackingUsageDescription = k_TestUsageDescription;
                     return null;
                 }
-            },
+            };
 #endif
-
-            new()
-            {
-                Name = "DisplayP3 Color Gamut",
-                Rule = new ()
-                {
-                    Message = "DisplayP3 color gamut is required for HDR rendering.",
-                    FixItMessage = "Enable DisplayP3 color gamut",
-                    Category = string.Format(k_CategoryFormat, "DisplayP3 Color Gamut"),
-                    Error = true,
-                    CheckPredicate = () =>
-                    {
-                        if (k_GetColorGamuts == null)
-                            return true;
-
-                        var gamuts = k_GetColorGamuts.Invoke(null, null) as ColorGamut[];
-                        if (gamuts == null)
-                            return true;
-
-                        return gamuts.Contains(ColorGamut.DisplayP3);
-                    },
-                    FixIt = () =>
-                    {
-                        if (k_SetColorGamuts == null)
-                            return;
-
-                        try
-                        {
-                            k_SetColorGamuts.Invoke(null, new object[] { new[] { ColorGamut.DisplayP3, ColorGamut.sRGB } });
-                        }
-                        catch (Exception)
-                        {
-                            // Ignore potential null reference exception that can occur if the user clicks "Fix" before having ever loaded player settings
-                        }
-                    },
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal() && IsHDREnabled()
-                },
-                SetUp = () =>
-                {
-                    var message = GetEditorSettingsIfExists(out var settings);
-                    if (message != null)
-                        return message;
-
-                    if (k_GetColorGamuts == null)
-                        return "Validation test failed: GetColorGamuts method could not be found via reflection.";
-
-                    // Check for SetColorGamuts since FixMe will silently fail if it is nul
-                    if (k_SetColorGamuts == null)
-                        return "Validation test failed: SetColorGamuts method could not be found via reflection.";
-
-                    s_PreviousColorGamuts = k_GetColorGamuts.Invoke(null, null);
-                    if (s_PreviousColorGamuts == null)
-                        return "Validation test failed: GetColorGamuts returned null.";
-
-                    // Set color gamuts to ensure DisplayP3 is not included
-                    try
-                    {
-                        k_SetColorGamuts.Invoke(null, new object[] { new[] { ColorGamut.sRGB } });
-                    }
-                    catch (Exception)
-                    {
-                        // Ignore potential null reference exception that can occur if the user clicks "Fix" before having ever loaded player settings
-                    }
-
-                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
-                    message = SetVisionOSLoaderEnabledForTests(true);
-                    if (message != null)
-                        return message;
-
-                    s_PreviousAppMode = settings.appMode;
-                    s_HdrWasEnabled = IsHDREnabled();
-                    settings.appMode = VisionOSSettings.AppMode.Metal;
-                    SetHDREnabled(true);
-
-                    return null;
-                },
-                TearDown = () =>
-                {
-                    var settingsMessage = GetEditorSettingsIfExists(out var settings);
-                    if (settingsMessage != null)
-                        settings.appMode = s_PreviousAppMode;
-
-                    string reflectionMessage = null;
-                    if (k_SetColorGamuts == null)
-                    {
-                        reflectionMessage = "Validation test failed: SetColorGamuts method could not be found via reflection.";
-                    }
-                    else
-                    {
-                        try
-                        {
-                            k_SetColorGamuts.Invoke(null, new[] { s_PreviousColorGamuts });
-                        }
-                        catch (Exception)
-                        {
-                            // Ignore potential null reference exception that can occur if the tests are run before having ever loaded player settings
-                        }
-                    }
-
-                    SetHDREnabled(s_HdrWasEnabled);
-
-                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
-                    return HandleMultipleMessagesInTearDown(settingsMessage, reflectionMessage, loaderMessage);
-                }
-            },
-            new()
-            {
-                Name = "Allow HDR Display Output",
-                Rule = new ()
-                {
-                    // TODO: LXR-4047 This is only necessary for URP because PLATFORM_REQUIRES_HDR doesn't change the behavior of shader stripping.
-                    // URP strips the HDR Overlay shader if PlayerSettings.allowHDRDisplaySupport is false, even though we have things
-                    // configured to assume this setting is always enabled in the player
-                    Message = "Allow HDR Display Output is required for HDR rendering on visionOS with the Universal Render Pipeline.",
-                    FixItMessage = "Enable Allow HDR Display Output",
-                    Category = string.Format(k_CategoryFormat, "Allow HDR Display Output"),
-                    Error = true,
-                    CheckPredicate = () => PlayerSettings.allowHDRDisplaySupport,
-                    FixIt = () => PlayerSettings.allowHDRDisplaySupport = true,
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal() && IsHDREnabled() && HasUrpAsset()
-                },
-                SetUp = () =>
-                {
-                    var message = GetEditorSettingsIfExists(out var settings);
-                    if (message != null)
-                        return message;
-
-                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
-                    message = SetVisionOSLoaderEnabledForTests(true);
-                    if (message != null)
-                        return message;
-
-                    s_PreviousAppMode = settings.appMode;
-                    s_HdrWasEnabled = IsHDREnabled();
-                    s_AllowHDRDisplaySupportWasEnabled = PlayerSettings.allowHDRDisplaySupport;
-                    settings.appMode = VisionOSSettings.AppMode.Metal;
-                    SetHDREnabled(true);
-                    PlayerSettings.allowHDRDisplaySupport = false;
-
-                    return null;
-                },
-                TearDown = () =>
-                {
-                    var settingsMessage = GetEditorSettingsIfExists(out var settings);
-                    if (settings != null)
-                        settings.appMode = s_PreviousAppMode;
-
-                    SetHDREnabled(s_HdrWasEnabled);
-                    PlayerSettings.allowHDRDisplaySupport = s_AllowHDRDisplaySupportWasEnabled;
-
-                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
-                    return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
-                },
-                SkipTest = () => !HasUrpAsset() ? "Skipping Allow HDR Display Output validation test because there is no URP asset set." : null
-            },
-            new()
-            {
-                Name = "HDR Post Processing Tone Mapping",
-                Rule = new ()
-                {
-                    Message = "HDR rendering will not look right when post processing is enabled but tone mapping is disabled.",
-                    FixItMessage = "Enable tone mapping in global volume profile",
-                    Category = string.Format(k_CategoryFormat, "HDR Post Processing Tone Mapping"),
-                    CheckPredicate = IsToneMappingEnabled,
-                    FixIt = () => SetToneMappingEnabled(true),
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal() && IsHDREnabled() && HasUrpAsset()
-                },
-                SetUp = () =>
-                {
-                    var message = GetEditorSettingsIfExists(out var settings);
-                    if (message != null)
-                        return message;
-
-                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
-                    message = SetVisionOSLoaderEnabledForTests(true);
-                    if (message != null)
-                        return message;
-
-                    s_PreviousAppMode = settings.appMode;
-                    s_HdrWasEnabled = IsHDREnabled();
-                    s_ToneMappingWasEnabled = IsToneMappingEnabled();
-                    settings.appMode = VisionOSSettings.AppMode.Metal;
-                    SetHDREnabled(true);
-                    SetToneMappingEnabled(false);
-                    return null;
-                },
-                TearDown = () =>
-                {
-                    var settingsMessage = GetEditorSettingsIfExists(out var settings);
-                    if (settings != null)
-                        settings.appMode = s_PreviousAppMode;
-
-                    SetHDREnabled(s_HdrWasEnabled);
-                    SetToneMappingEnabled(s_ToneMappingWasEnabled);
-
-                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
-                    return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
-                },
-                SkipTest = () => !HasUrpAsset() ? "Skipping HDR Post Processing Tone Mapping validation test because there is no URP asset set." : null
-            },
-            new()
-            {
-                Name = "Bloom High Quality Filtering",
-                Rule = new ()
-                {
-                    Message = "Bloom High Quality Filtering must be disabled.",
-                    FixItMessage = "Disable Bloom High Quality Filtering in the Graphics Settings.",
-                    Category = string.Format(k_CategoryFormat, "Bloom High Quality Filtering"),
-                    CheckPredicate = IsBloomHighQualityFilteringDisabled,
-                    FixIt = () => SetBloomHighQualityFilteringEnabled(false),
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal() && IsHDREnabled() && HasUrpAsset()
-                },
-                SetUp = () =>
-                {
-                    var message = GetEditorSettingsIfExists(out var settings);
-                    if (message != null)
-                        return message;
-
-                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
-                    message = SetVisionOSLoaderEnabledForTests(true);
-                    if (message != null)
-                        return message;
-
-                    s_PreviousAppMode = settings.appMode;
-                    s_HdrWasEnabled = IsHDREnabled();
-                    s_BloomHighQualityFilteringWasEnabled = IsBloomHighQualityFilteringDisabled();
-                    settings.appMode = VisionOSSettings.AppMode.Metal;
-                    SetHDREnabled(true);
-                    SetBloomHighQualityFilteringEnabled(true);
-                    return null;
-                },
-                TearDown = () =>
-                {
-                    var settingsMessage = GetEditorSettingsIfExists(out var settings);
-                    if (settings != null)
-                        settings.appMode = s_PreviousAppMode;
-
-                    SetHDREnabled(s_HdrWasEnabled);
-                    SetToneMappingEnabled(s_BloomHighQualityFilteringWasEnabled);
-
-                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
-                    return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
-                },
-                SkipTest = () => !HasUrpAsset() ? "Skipping HDR Post Processing Tone Mapping validation test because there is no URP asset set." : null
-            },
-#if UNITY_HAS_URP
-            new()
-            {
-                Name = "Upscaling Filter",
-                Rule = new ()
-                {
-                    Message = "The application will not render if the Upscaling Filter is not set to Automatic.",
-                    FixItMessage = "Set the Upscaling Filter to Automatic in your active Render Pipeline Asset",
-                    Category = string.Format(k_CategoryFormat, "Upscaling Filter"),
-                    CheckPredicate = IsRenderPipelineUpscalingFilterAutomatic,
-                    FixIt = () => SetRenderPipelineUpscalingFilter(UpscalingFilterSelection.Auto),
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal() && IsHDREnabled() && HasUrpAsset()
-                },
-                SetUp = () =>
-                {
-                    var message = GetEditorSettingsIfExists(out var settings);
-                    if (message != null)
-                        return message;
-
-                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
-                    message = SetVisionOSLoaderEnabledForTests(true);
-                    if (message != null)
-                        return message;
-
-                    s_HdrWasEnabled = IsHDREnabled();
-                    s_PreviousAppMode = settings.appMode;
-
-                    SetHDREnabled(true);
-                    settings.appMode = VisionOSSettings.AppMode.Metal;
-
-                    StoreRenderPipelineUpscalingFilterSettings();
-                    SetRenderPipelineUpscalingFilter(UpscalingFilterSelection.FSR);
-                    return null;
-                },
-                TearDown = () =>
-                {
-                    var settingsMessage = GetEditorSettingsIfExists(out var settings);
-                    if (settings != null)
-                        settings.appMode = s_PreviousAppMode;
-
-                    SetHDREnabled(s_HdrWasEnabled);
-
-                    RestoreRenderPipelineUpscalingFilterSettings();
-
-                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
-                    return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
-                },
-                SkipTest = () => !HasUrpAsset() ? "Skipping Quality Upscaling Filter validation test because there is no URP asset set." : null
-            },
-#endif
-            new()
-            {
-                Name = "FP16 Format",
-                Rule = new ()
-                {
-                    // FP16 is the only supported HDR format for builtin that includes alpha
-                    Message = "FP16 format is required for passthrough",
-                    FixItMessage = "Enable FP16 format",
-                    Category = string.Format(k_CategoryFormat, "FP16 Format"),
-                    Error = true,
-                    CheckPredicate = () => GetTierSettings().hdrMode == CameraHDRMode.FP16,
-                    FixIt = () =>
-                    {
-                        var tierSettings = GetTierSettings();
-                        tierSettings.hdrMode = CameraHDRMode.FP16;
-                        SetTierSettings(tierSettings);
-                    },
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal() && IsHDREnabled()
-                        && !HasUrpAsset() && AppSupportsMixedImmersion()
-                },
-                SetUp = () =>
-                {
-                    var message = GetEditorSettingsIfExists(out var settings);
-                    if (message != null)
-                        return message;
-
-                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
-                    message = SetVisionOSLoaderEnabledForTests(true);
-                    if (message != null)
-                        return message;
-
-                    s_PreviousAppMode = settings.appMode;
-                    s_PreviousImmersionStyle = settings.metalImmersionStyle;
-                    s_HdrWasEnabled = IsHDREnabled();
-                    s_PreviousTierSettings = GetTierSettings();
-                    var newTierSettings = s_PreviousTierSettings;
-                    newTierSettings.hdrMode = CameraHDRMode.R11G11B10;
-                    newTierSettings.hdr = true;
-                    SetTierSettings(newTierSettings);
-                    settings.appMode = VisionOSSettings.AppMode.Metal;
-                    settings.metalImmersionStyle = VisionOSSettings.ImmersionStyle.Automatic;
-
-                    return null;
-                },
-                TearDown = () =>
-                {
-                    var settingsMessage = GetEditorSettingsIfExists(out var settings);
-                    if (settings != null)
-                    {
-                        settings.appMode = s_PreviousAppMode;
-                        settings.metalImmersionStyle = s_PreviousImmersionStyle;
-                    }
-
-                    SetTierSettings(s_PreviousTierSettings);
-
-                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
-                    return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
-                },
-                SkipTest = () => HasUrpAsset() ? "Skipping FP16 Format validation test because URP is in use." : null
-            },
-            new()
-            {
-                Name = "Alpha Output",
-                Rule = new ()
-                {
-                    Message = "Alpha output is required for passthrough when using post processing on Universal Render Pipeline.",
-                    FixItMessage = "Enable alpha output in project settings and URP asset. You can ignore the warning in the URP asset inspector about camera" +
-                        " back-buffer format",
-                    Category = string.Format(k_CategoryFormat, "Alpha Output"),
-                    Error = true,
-                    CheckPredicate = IsAlphaOutputEnabled,
-                    FixIt = () => SetAlphaOutputEnabled(true, true),
-                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled() && AppModeSupportsMetal() && IsHDREnabled()
-                        && AppSupportsMixedImmersion() && IsUrpPostProcessingEnabled()
-                },
-                SetUp = () =>
-                {
-                    var message = GetEditorSettingsIfExists(out var settings);
-                    if (message != null)
-                        return message;
-
-                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
-                    message = SetVisionOSLoaderEnabledForTests(true);
-                    if (message != null)
-                        return message;
-
-                    s_PreviousAppMode = settings.appMode;
-                    s_HdrWasEnabled = IsHDREnabled();
-                    s_AlphaOutputWasEnabled = PlayerSettings.preserveFramebufferAlpha;
-
-#if UNITY_HAS_URP
-                    var asset = UniversalRenderPipeline.asset;
-                    if (asset != null)
-                        s_UrpPostProcessAlphaOutputWasEnabled = asset.allowPostProcessAlphaOutput;
-#endif
-
-                    settings.appMode = VisionOSSettings.AppMode.Metal;
-                    SetHDREnabled(true);
-                    SetAlphaOutputEnabled(false, false);
-
-                    return null;
-                },
-                TearDown = () =>
-                {
-                    var settingsMessage = GetEditorSettingsIfExists(out var settings);
-                    if (settings != null)
-                        settings.appMode = s_PreviousAppMode;
-
-                    SetHDREnabled(s_HdrWasEnabled);
-                    SetAlphaOutputEnabled(s_AlphaOutputWasEnabled, s_UrpPostProcessAlphaOutputWasEnabled);
-                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
-                    return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
-                },
-                SkipTest = () => !HasUrpAsset() ? "Skipping Alpha Output validation test because there is no URP asset set." : null
-            },
-        };
+        }
 
         static string HandleMultipleMessagesInTearDown(params string[] messages)
         {

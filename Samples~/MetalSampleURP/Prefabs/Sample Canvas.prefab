@@ -6217,6 +6217,7 @@ MonoBehaviour:
   m_HandTrackingAuthorizationText: {fileID: 8316094296900528624}
   m_WorldSensingAuthorizationText: {fileID: 6839452306212932419}
   m_QuitButton: {fileID: 7454296836546143145}
+  m_HDRToggleButton: {fileID: 7009344841496243376}
 --- !u!1 &4826482718505420535
 GameObject:
   m_ObjectHideFlags: 0

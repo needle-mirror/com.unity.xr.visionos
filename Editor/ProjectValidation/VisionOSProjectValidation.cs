@@ -28,14 +28,26 @@ namespace UnityEditor.XR.VisionOS
 
         static VisionOSProjectValidation()
         {
-            var length = k_ValidationRules.Length;
-            k_Rules = new BuildValidationRule[length];
-            for (var i = 0; i < length; ++i)
+            var rules = new List<BuildValidationRule>();
+            foreach (var rule in GetAllRules())
             {
-                k_Rules[i] = k_ValidationRules[i].Rule;
+                rules.Add(rule.Rule);
             }
 
-            BuildValidator.AddRules(k_VisionOSBuildTarget, k_Rules);
+            BuildValidator.AddRules(k_VisionOSBuildTarget, rules.ToArray());
+        }
+
+        internal static IEnumerable<RuleTestContainer> GetAllRules()
+        {
+            foreach (var rule in GetValidationRules())
+            {
+                yield return rule;
+            }
+
+            foreach (var rule in GetHDRValidationRules())
+            {
+                yield return rule;
+            }
         }
 
         static TierSettings GetTierSettings()
@@ -375,8 +387,18 @@ namespace UnityEditor.XR.VisionOS
 
         static bool IsAlphaOutputEnabled()
         {
+            return PlayerSettings.preserveFramebufferAlpha;
+        }
+
+        static void SetAlphaOutputEnabled(bool enabled)
+        {
+            PlayerSettings.preserveFramebufferAlpha = enabled;
+        }
+
+        static bool IsAlphaProcessingEnabled()
+        {
 #if UNITY_HAS_URP
-            QualitySettings.GetRenderPipelineAssetsForPlatform(BuildTargetGroup.VisionOS.ToString(), out HashSet<UniversalRenderPipelineAsset> assets);
+            QualitySettings.GetRenderPipelineAssetsForPlatform(nameof(BuildTargetGroup.VisionOS), out HashSet<UniversalRenderPipelineAsset> assets);
             foreach(var asset in assets)
             {
                 if (!asset.allowPostProcessAlphaOutput)
@@ -384,18 +406,15 @@ namespace UnityEditor.XR.VisionOS
             }
 #endif
 
-            // Both allowPostProcessAlphaOutput and preserveFramebufferAlpha are required for alpha output when URP postprocessing is enabled
-            return PlayerSettings.preserveFramebufferAlpha;
+            return true;
         }
 
         // urpPostProcessEnabled is only used when URP package is present
         // ReSharper disable once UnusedParameter.Local
-        static void SetAlphaOutputEnabled(bool enabled, bool urpPostProcessEnabled)
+        static void SetAlphaProcessingEnabled(bool urpPostProcessEnabled)
         {
-            PlayerSettings.preserveFramebufferAlpha = enabled;
-
 #if UNITY_HAS_URP
-            QualitySettings.GetRenderPipelineAssetsForPlatform(BuildTargetGroup.VisionOS.ToString(), out HashSet<UniversalRenderPipelineAsset> assets);
+            QualitySettings.GetRenderPipelineAssetsForPlatform(nameof(BuildTargetGroup.VisionOS), out HashSet<UniversalRenderPipelineAsset> assets);
             foreach(var asset in assets)
             {
                 var serializedObject = new SerializedObject(asset);
@@ -407,34 +426,6 @@ namespace UnityEditor.XR.VisionOS
                 serializedObject.ApplyModifiedProperties();
             }
 #endif
-        }
-
-        static bool IsHDREnabled()
-        {
-#if UNITY_HAS_URP
-            var asset = UniversalRenderPipeline.asset;
-            if (asset != null)
-                return asset.supportsHDR;
-#endif
-
-            return GetTierSettings().hdr;
-        }
-
-        static void SetHDREnabled(bool enabled)
-        {
-#if UNITY_HAS_URP
-            var asset = UniversalRenderPipeline.asset;
-            if (asset != null)
-            {
-                Undo.RecordObject(asset, "Disable URP HDR");
-                asset.supportsHDR = enabled;
-                return;
-            }
-#endif
-
-            var tierSettings = GetTierSettings();
-            tierSettings.hdr = enabled;
-            SetTierSettings(tierSettings);
         }
 
         static bool SetVisionOSLoaderEnabled(bool enabled)

@@ -342,8 +342,8 @@ namespace UnityEngine.XR.VisionOSTests
         /// <returns>True if we expect to receive OnApplicationFocus messages.</returns>
         static bool ExpectFocusMessages()
         {
-#if (MACOS || WINDOWS) && UNITY_6000_2_OR_NEWER
-            // TODO: LXR-4674 fix lifecycle tests in CI in 6000.2
+#if (MACOS || WINDOWS) && UNITY_6000_3_OR_NEWER
+            // TODO: LXR-4674 fix lifecycle tests in CI in 6000.3
             // Return true here to test locally--the issue appears to be related to permissions dialogs which you can dismiss manually
             return false;
 #elif UNITY_STANDALONE_WIN
@@ -375,8 +375,8 @@ namespace UnityEngine.XR.VisionOSTests
         /// <returns>True if we expect to receive OnApplicationPause messages.</returns>
         static bool ExpectPauseMessages()
         {
-#if (MACOS || WINDOWS) && UNITY_6000_2_OR_NEWER
-            // TODO: LXR-4674 fix lifecycle tests in CI in 6000.2
+#if (MACOS || WINDOWS) && UNITY_6000_3_OR_NEWER
+            // TODO: LXR-4674 fix lifecycle tests in CI in 6000.3
             // Return true here to test locally--the issue appears to be related to permissions dialogs which you can dismiss manually
             return false;
 #elif UNITY_STANDALONE_WIN

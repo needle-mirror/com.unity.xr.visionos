@@ -7,6 +7,14 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.4.2] - 2025-09-23
+
+### Changed
+- Broadened the scope of HDR-related Project Validation rules to show as warnings even if HDR is not enabled in the URP settings asset. Because this setting can be toggled at runtime, it was possible to miss configuration issues if HDR is not enabled in the Editor but scripts (like the `HDR Toggle` button in the sample) enable it at runtime. These validations become errors when HDR is enabled.
+
+### Fixed
+- Disable `HDR Toggle` button in URP sample scene if HDR is not set up properly in Player Settings. This prevents a crash that can occur when trying to enable HDR in builds with incorrect settings.
+
 ## [2.3.1] - 2025-05-12
 
 ### Added

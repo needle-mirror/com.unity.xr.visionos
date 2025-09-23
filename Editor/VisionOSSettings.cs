@@ -4,6 +4,10 @@ using UnityEngine;
 using UnityEngine.XR.Management;
 using UnityEngine.XR.VisionOS;
 
+#if UNITY_VISIONOS && UNITY_HAS_POLYSPATIAL
+using Unity.PolySpatial;
+#endif
+
 namespace UnityEditor.XR.VisionOS
 {
     /// <summary>
@@ -437,5 +441,27 @@ namespace UnityEditor.XR.VisionOS
                     throw new ArgumentOutOfRangeException(nameof(immersionStyle), immersionStyle, null);
             }
         }
+
+#if UNITY_VISIONOS && UNITY_HAS_POLYSPATIAL
+        [InitializeOnLoadMethod]
+        static void Initialize()
+        {
+            PolySpatialSettings.Instance.RegisterPlayToDeviceCondition(PlayToDeviceAppModeCondition);
+        }
+
+        static bool PlayToDeviceAppModeCondition()
+        {
+            // If the app mode is not RealityKit, we can't enable PlayToDevice.
+            var settings = GetOrCreateSettings();
+            if (settings == null || settings.appMode != AppMode.RealityKit)
+            {
+                Debug.LogWarning("Play to Device only supports the RealityKit AppMode. Please change the selected AppMode in Project Settings > " +
+                                 "XR Plug-in Management > Apple visionOS, or disable the Play To Device feature.");
+                return false;
+            }
+
+            return true;
+        }
+#endif
     }
 }

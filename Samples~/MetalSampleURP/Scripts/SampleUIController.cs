@@ -1,4 +1,5 @@
 using System;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR.ARFoundation;
@@ -53,9 +54,17 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         [SerializeField]
         Button m_QuitButton;
 
+        [SerializeField]
+        Button m_HDRToggleButton;
+
         void Awake()
         {
             UpdateSkyboxToggleText();
+
+            // Toggling HDR when it is not enabled in player settings will cause a crash or failure to render properly.
+            // The actual player setting for preserveFramebufferAlpha is not available at runtime, so instead check for one of the shaders it will include.
+            if (Shader.Find("Hidden/BlitCopyHDRTonemappedToHDRTonemap") == null || Graphics.activeColorGamut != ColorGamut.DisplayP3)
+                m_HDRToggleButton.interactable = false;
 
 #if UNITY_HAS_URP
             UpdateHDRText();
