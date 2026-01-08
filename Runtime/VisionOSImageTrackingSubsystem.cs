@@ -167,6 +167,13 @@ namespace UnityEngine.XR.VisionOS
 
             bool GetTrackedImage(IntPtr imageAnchor, out XRTrackedImage trackedImage)
             {
+                if (m_ImageDatabase == null)
+                {
+                    // TODO: LXR-5118 See if we can remove this block after we figure out why we are calling Stop() 2x
+                    trackedImage = default;
+                    return false;
+                }
+
                 var isTracked = NativeApi.Anchor.ar_trackable_anchor_is_tracked(imageAnchor);
                 var pose = NativeApi.Utilities.GetWorldPose(imageAnchor);
                 var trackableId = NativeApi.Utilities.GetTrackableId(imageAnchor);

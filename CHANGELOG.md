@@ -7,6 +7,16 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.0.5] - 2026-01-08
+
+### Fixed
+- Fixed a NPE in VisionOSImageTrackingProvider.GetTrackedImage in cases where image tracking would get enabled/disabled multiple times.
+
+## [3.0.3-pre.4] - 2025-11-19
+
+### Fixed
+- Fixed a crash in the visionOS player when disabling hand tracking.
+
 ## [3.0.3-pre.3] - 2025-10-22
 
 ## [3.0.3-pre.2] - 2025-10-20

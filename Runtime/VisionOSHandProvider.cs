@@ -236,7 +236,18 @@ namespace UnityEngine.XR.VisionOS
                 if (jointID == XRHandJointID.Palm)
                     trackingState = XRHandJointTrackingState.WillNeverBeValid;
 
-                jointArray[index] = CreateJoint(handedness, trackingState, jointID, Pose.identity);
+                var createdJoint = CreateJoint(handedness, trackingState, jointID, Pose.identity);
+                if (jointID < XRHandJointID.EndMarker)
+                {
+                    jointArray[index] = createdJoint;
+                }
+                else
+                {
+                    var visionOSHand = handedness == Handedness.Left
+                        ? VisionOSHandExtensions.leftHand
+                        : VisionOSHandExtensions.rightHand;
+                    visionOSHand.SetJoint(createdJoint);
+                }
             }
         }
 
