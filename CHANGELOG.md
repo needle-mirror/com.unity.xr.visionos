@@ -7,6 +7,12 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-02-20
+
+### Added
+- Added MSAA and Post Processing AA controls to Metal samples to make testing AA modes easier.
+- Added NativeApi.Utilities.ConvertExistingDataToNativeArrayWithSafetyHandle to create safety handles when converting native pointers to NativeArrays.
+
 ## [3.0.5] - 2026-01-08
 
 ### Fixed
@@ -16,10 +22,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 - Fixed a crash in the visionOS player when disabling hand tracking.
-
-## [3.0.3-pre.3] - 2025-10-22
-
-## [3.0.3-pre.2] - 2025-10-20
 
 ## [3.0.3-pre.1] - 2025-10-13
 

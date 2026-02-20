@@ -212,14 +212,14 @@ namespace UnityEngine.XR.VisionOS
             unsafe void ProcessImageUpdates(void* added_anchors, int added_anchor_count,
                 void* updated_anchors, int updated_anchor_count, void* removed_anchors, int removed_anchor_count)
             {
-                var imageAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(added_anchors, added_anchor_count, Allocator.None);
+                var imageAnchors = NativeApi.Utilities.ConvertExistingDataToNativeArrayWithSafetyHandle<IntPtr>(added_anchors, added_anchor_count, Allocator.None);
                 foreach (var image in ProcessImageArray(imageAnchors))
                 {
                     // NB: Using a dictionary does not preserve update order
                     m_TempAddedImages[image.trackableId] = image;
                 }
 
-                imageAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(updated_anchors, updated_anchor_count, Allocator.None);
+                imageAnchors = NativeApi.Utilities.ConvertExistingDataToNativeArrayWithSafetyHandle<IntPtr>(updated_anchors, updated_anchor_count, Allocator.None);
                 foreach (var image in ProcessImageArray(imageAnchors))
                 {
                     // NB: Using a dictionary does not preserve update order
@@ -231,7 +231,7 @@ namespace UnityEngine.XR.VisionOS
                         m_TempUpdatedImages[trackableId] = image;
                 }
 
-                imageAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(removed_anchors, removed_anchor_count, Allocator.None);
+                imageAnchors = NativeApi.Utilities.ConvertExistingDataToNativeArrayWithSafetyHandle<IntPtr>(removed_anchors, removed_anchor_count, Allocator.None);
                 foreach (var image in imageAnchors)
                 {
                     var trackableId = NativeApi.Utilities.GetTrackableId(image);

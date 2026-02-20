@@ -39,7 +39,7 @@ namespace UnityEngine.XR.VisionOS
                     throw new InvalidOperationException($"Unexpected vertex format {format} getting mesh classifications. Only {nameof(MTLVertexFormat.MTLVertexFormatUChar)} is supported");
 
                 var buffer = NativeApi.SceneReconstruction.UnityVisionOS_impl_ar_geometry_source_get_buffer(classifications);
-                var tmp = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<ARMeshClassification>((void*)buffer, numClassifications, Allocator.None);
+                var tmp = NativeApi.Utilities.ConvertExistingDataToNativeArrayWithSafetyHandle<ARMeshClassification>((void*)buffer, numClassifications, Allocator.None);
                 meshClassifications.CopyFrom(tmp);
             }
 

@@ -1,5 +1,4 @@
 using System;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR.ARFoundation;
@@ -52,10 +51,19 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
         Text m_WorldSensingAuthorizationText;
 
         [SerializeField]
+        Text m_ActiveColorGamutText;
+
+        [SerializeField]
         Button m_QuitButton;
 
         [SerializeField]
         Button m_HDRToggleButton;
+
+        [SerializeField]
+        Dropdown m_MSAADropdown;
+
+        [SerializeField]
+        Dropdown m_PostProcessingAADropdown;
 
         void Awake()
         {
@@ -63,22 +71,62 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
 
             // Toggling HDR when it is not enabled in player settings will cause a crash or failure to render properly.
             // The actual player setting for preserveFramebufferAlpha is not available at runtime, so instead check for one of the shaders it will include.
-            if (Shader.Find("Hidden/BlitCopyHDRTonemappedToHDRTonemap") == null || Graphics.activeColorGamut != ColorGamut.DisplayP3)
-                m_HDRToggleButton.interactable = false;
+            var hdrSupported = Shader.Find("Hidden/BlitCopyHDRTonemap") != null;
+
+            // On visionOS, P3 color gamut is also required for HDR to work properly
+#if UNITY_VISIONOS && !UNITY_EDITOR
+            hdrSupported &= Graphics.activeColorGamut == ColorGamut.DisplayP3;
+#endif
+
+            m_HDRToggleButton.interactable = hdrSupported;
 
 #if UNITY_HAS_URP
             UpdateHDRText();
-            UpdatePostProcessingText();
+            UpdatePostProcessingUI();
+            UpdateMSAAUI();
+            m_PostProcessingAADropdown.SetValueWithoutNotify(GetPostProcessingAADropdownValue());
 #endif
+
+            m_MSAADropdown.SetValueWithoutNotify(GetMSAADropdownValue());
 
 #if UNITY_VISIONOS || UNITY_EDITOR
             UpdateAuthorizationText();
 #endif
 
+            m_ActiveColorGamutText.text = $"Active Color Gamut: {Graphics.activeColorGamut}";
+
 #if UNITY_EDITOR
             // Disable quit button in Editor (play mode) because `Application.Quit` doesn't do anything in play mode
             m_QuitButton.interactable = false;
 #endif
+        }
+
+        int GetPostProcessingAADropdownValue()
+        {
+#if UNITY_HAS_URP
+            return (int)m_Camera.GetComponent<UniversalAdditionalCameraData>().antialiasing;
+#else
+            return 0;
+#endif
+        }
+
+        static int GetMSAADropdownValue()
+        {
+#if UNITY_HAS_URP
+            var sampleCount = UniversalRenderPipeline.asset.msaaSampleCount;
+#else
+            var sampleCount = QualitySettings.antiAliasing;
+#endif
+
+            switch (sampleCount)
+            {
+                case 0: return 0;
+                case 1: return 0;
+                case 2: return 1;
+                case 4: return 2;
+                case 8: return 3;
+                default: throw new ArgumentOutOfRangeException(nameof(sampleCount), sampleCount, null);
+            }
         }
 
 #if UNITY_VISIONOS || UNITY_EDITOR
@@ -170,7 +218,7 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
 #if UNITY_HAS_URP
             var additionalCameraData = m_Camera.GetUniversalAdditionalCameraData();
             additionalCameraData.renderPostProcessing = !additionalCameraData.renderPostProcessing;
-            UpdatePostProcessingText();
+            UpdatePostProcessingUI();
 #endif
         }
 
@@ -180,9 +228,17 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
             m_HDRToggleText.text = UniversalRenderPipeline.asset.supportsHDR ? k_DisableHDRText : k_EnableHDRText;
         }
 
-        void UpdatePostProcessingText()
+        void UpdatePostProcessingUI()
         {
-            m_PostProcessingToggleText.text = m_Camera.GetUniversalAdditionalCameraData().renderPostProcessing ? k_DisablePostProcessingText : k_EnablePostProcessingText;
+            var isEnabled = m_Camera.GetUniversalAdditionalCameraData().renderPostProcessing;
+            m_PostProcessingToggleText.text = isEnabled ? k_DisablePostProcessingText : k_EnablePostProcessingText;
+            m_PostProcessingAADropdown.interactable = isEnabled;
+        }
+
+        // ReSharper disable once InconsistentNaming
+        void UpdateMSAAUI()
+        {
+            m_MSAADropdown.interactable = m_Camera.GetComponent<UniversalAdditionalCameraData>().antialiasing != AntialiasingMode.TemporalAntiAliasing;
         }
 #endif
 
@@ -209,6 +265,41 @@ namespace UnityEngine.XR.VisionOS.Samples.URP
                 var isTracked = updatedTrackable.trackingState == TrackingState.Tracking;
                 updatedTrackable.gameObject.SetActive(isTracked);
             }
+        }
+
+        public void OnMSAADropdownValueChanged(int value)
+        {
+            var sampleCount = value switch
+            {
+#if UNITY_HAS_URP
+                0 => 1,
+#else
+                0 => 0,
+#endif
+                1 => 2,
+                2 => 4,
+                3 => 8,
+                _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
+            };
+
+#if UNITY_HAS_URP
+            UniversalRenderPipeline.asset.msaaSampleCount = sampleCount;
+#else
+            QualitySettings.antiAliasing = sampleCount;
+#endif
+        }
+
+        public void OnPostProcessingAADropdownValueChanged(int value)
+        {
+#if UNITY_HAS_URP
+            var mode = (AntialiasingMode)value;
+            m_Camera.GetComponent<UniversalAdditionalCameraData>().antialiasing = mode;
+            UpdateMSAAUI();
+
+            // Disable MSAA when TAA is enabled
+            if (mode == AntialiasingMode.TemporalAntiAliasing)
+                m_MSAADropdown.value = 0;
+#endif
         }
     }
 }

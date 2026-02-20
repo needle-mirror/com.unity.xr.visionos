@@ -49,6 +49,10 @@ namespace UnityEngine.XR.VisionOS
 
             IntPtr m_ARSession = IntPtr.Zero;
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle m_BoundsArraySafetyHandle;
+#endif
+
             /// <summary>
             /// Get the current plane detection mode in use.
             /// </summary>
@@ -57,6 +61,11 @@ namespace UnityEngine.XR.VisionOS
             public VisionOSPlaneProvider()
             {
                 s_Instance = this;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                m_BoundsArraySafetyHandle = AtomicSafetyHandle.Create();
+                AtomicSafetyHandle.SetStaticSafetyId(ref m_BoundsArraySafetyHandle, AtomicSafetyHandle.NewStaticSafetyId<Vector3>());
+#endif
             }
 
             public bool TryStartNativeSession(Feature features)
@@ -125,6 +134,10 @@ namespace UnityEngine.XR.VisionOS
                 m_AddedPlanes.Dispose();
                 m_UpdatedPlanes.Dispose();
                 m_RemovedPlanes.Dispose();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                AtomicSafetyHandle.Release(m_BoundsArraySafetyHandle);
+#endif
             }
 
             public override void Start()
@@ -240,7 +253,13 @@ namespace UnityEngine.XR.VisionOS
                     var vertexBuffer = NativeApi.SceneReconstruction.UnityVisionOS_impl_ar_geometry_source_get_buffer(geometrySource);
                     unsafe
                     {
+                        // Because boundArray will be used in a job, we can't use AtomicSafetyHandle.GetTempUnsafePtrSliceHandle. Use our own handle instead.
                         var boundaryArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Vector3>((void*)vertexBuffer, vertexCount, Allocator.None);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                        NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref boundaryArray, m_BoundsArraySafetyHandle);
+#endif
+
                         m_Boundaries[trackableId] = boundaryArray;
                     }
                 }
@@ -273,14 +292,14 @@ namespace UnityEngine.XR.VisionOS
             unsafe void ProcessPlaneUpdates(void* added_anchors, int added_anchor_count,
                 void* updated_anchors, int updated_anchor_count, void* removed_anchors, int removed_anchor_count)
             {
-                var planeAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(added_anchors, added_anchor_count, Allocator.None);
+                var planeAnchors = NativeApi.Utilities.ConvertExistingDataToNativeArrayWithSafetyHandle<IntPtr>(added_anchors, added_anchor_count, Allocator.None);
                 foreach (var plane in ProcessPlaneArray(planeAnchors))
                 {
                     // NB: Using a dictionary does not preserve update order
                     m_TempAddedPlanes[plane.trackableId] = plane;
                 }
 
-                planeAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(updated_anchors, updated_anchor_count, Allocator.None);
+                planeAnchors = NativeApi.Utilities.ConvertExistingDataToNativeArrayWithSafetyHandle<IntPtr>(updated_anchors, updated_anchor_count, Allocator.None);
                 foreach (var plane in ProcessPlaneArray(planeAnchors))
                 {
                     // NB: Using a dictionary does not preserve update order
@@ -292,7 +311,7 @@ namespace UnityEngine.XR.VisionOS
                         m_TempUpdatedPlanes[trackableId] = plane;
                 }
 
-                planeAnchors = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<IntPtr>(removed_anchors, removed_anchor_count, Allocator.None);
+                planeAnchors = NativeApi.Utilities.ConvertExistingDataToNativeArrayWithSafetyHandle<IntPtr>(removed_anchors, removed_anchor_count, Allocator.None);
                 foreach (var plane in planeAnchors)
                 {
                     var trackableId = NativeApi.Utilities.GetTrackableId(plane);
@@ -314,7 +333,7 @@ namespace UnityEngine.XR.VisionOS
 
             // ReSharper restore InconsistentNaming
 
-            public override unsafe void GetBoundary(
+            public override void GetBoundary(
                 TrackableId trackableId,
                 Allocator allocator,
                 ref NativeArray<Vector2> boundary)
@@ -329,7 +348,7 @@ namespace UnityEngine.XR.VisionOS
                 CreateOrResizeNativeArrayIfNecessary(vertexCount, allocator, ref boundary);
                 var transformPositionsHandle = new TransformBoundaryPositionsJob
                 {
-                    positionsIn = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Vector3>(boundaryArray.GetUnsafePtr(), vertexCount, Allocator.None),
+                    positionsIn = boundaryArray,
                     positionsOut = boundary
                 }.Schedule(vertexCount, 1);
 

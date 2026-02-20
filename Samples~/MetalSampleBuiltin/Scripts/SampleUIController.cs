@@ -45,6 +45,12 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
         Text m_WorldSensingAuthorizationText;
 
         [SerializeField]
+        Text m_ActiveColorGamutText;
+
+        [SerializeField]
+        Dropdown m_MSAADropdown;
+
+        [SerializeField]
         Button m_QuitButton;
 
         void Awake()
@@ -52,14 +58,32 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
             UpdateSkyboxToggleText();
             UpdateHDRText();
 
+            m_MSAADropdown.SetValueWithoutNotify(GetMSAADropdownValue());
+
 #if UNITY_VISIONOS || UNITY_EDITOR
             UpdateAuthorizationText();
 #endif
+
+            m_ActiveColorGamutText.text = $"Active Color Gamut: {Graphics.activeColorGamut}";
 
 #if UNITY_EDITOR
             // Disable quit button in Editor (play mode) because `Application.Quit` doesn't do anything in play mode
             m_QuitButton.interactable = false;
 #endif
+        }
+
+        static int GetMSAADropdownValue()
+        {
+            var sampleCount = QualitySettings.antiAliasing;
+            switch (sampleCount)
+            {
+                case 0: return 0;
+                case 1: return 0;
+                case 2: return 1;
+                case 4: return 2;
+                case 8: return 3;
+                default: throw new ArgumentOutOfRangeException(nameof(sampleCount), sampleCount, null);
+            }
         }
 
 #if UNITY_VISIONOS || UNITY_EDITOR
@@ -135,7 +159,6 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
             m_SkyboxToggleText.text = m_Camera.clearFlags == CameraClearFlags.Skybox ? k_ShowPassthroughText : k_ShowSkyboxText;
         }
 
-        // TODO: LXR-4049 toggling HDR at runtime results in depth/transparency artifacts. Disabled for now...
         public void ToggleHDR()
         {
             m_Camera.allowHDR = !m_Camera.allowHDR;
@@ -181,6 +204,20 @@ namespace UnityEngine.XR.VisionOS.Samples.Builtin
                 var isTracked = updatedTrackable.trackingState == TrackingState.Tracking;
                 updatedTrackable.gameObject.SetActive(isTracked);
             }
+        }
+
+        public void OnMSAADropdownValueChanged(int value)
+        {
+            var sampleCount = value switch
+            {
+                0 => 0,
+                1 => 2,
+                2 => 4,
+                3 => 8,
+                _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
+            };
+
+            QualitySettings.antiAliasing = sampleCount;
         }
     }
 }

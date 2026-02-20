@@ -109,7 +109,11 @@ namespace UnityEditor.XR.VisionOS
             if (UniversalRenderPipeline.asset == null)
                 return;
 
+#if UNITY_6000_4_OR_NEWER
+            var cameras = UnityObject.FindObjectsByType<Camera>(FindObjectsInactive.Include);
+#else
             var cameras = UnityObject.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#endif
             foreach (var camera in cameras)
             {
                 var cameraData = camera.GetUniversalAdditionalCameraData();
@@ -127,7 +131,11 @@ namespace UnityEditor.XR.VisionOS
             if (UniversalRenderPipeline.asset == null)
                 return true;
 
+#if UNITY_6000_4_OR_NEWER
+            var cameras = UnityObject.FindObjectsByType<Camera>(FindObjectsInactive.Include);
+#else
             var cameras = UnityObject.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#endif
             foreach (var camera in cameras)
             {
                 var cameraData = camera.GetUniversalAdditionalCameraData();
@@ -438,23 +446,11 @@ namespace UnityEditor.XR.VisionOS
             if (visionOSLoader == null)
                 return false;
 
-            var visionOSBuildTargetGroup = BuildPipeline.GetBuildTargetGroup(BuildTarget.VisionOS);
-            var visionOSXRSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(visionOSBuildTargetGroup);
+            var visionOSXRSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(
+                BuildPipeline.GetBuildTargetGroup(BuildTarget.VisionOS));
 
             if (visionOSXRSettings == null)
-            {
-                // There is no VisionOS Settings asset, create a default one
-                var generalSettingsMapType = typeof(XRGeneralSettingsPerBuildTarget);
-                var getOrCreateMethod = generalSettingsMapType.GetMethod("GetOrCreate", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-                var generalSettingsMap = getOrCreateMethod?.Invoke(null, null) as XRGeneralSettingsPerBuildTarget;
-                if (generalSettingsMap == null)
-                    return false;
-
-                generalSettingsMap.CreateDefaultManagerSettingsForBuildTarget(visionOSBuildTargetGroup);
-                visionOSXRSettings = XRGeneralSettingsPerBuildTarget.XRGeneralSettingsForBuildTarget(visionOSBuildTargetGroup);
-                if (visionOSXRSettings == null)
-                    return false;
-            }
+                return false;
 
             var manager = visionOSXRSettings.Manager;
             if (manager == null)

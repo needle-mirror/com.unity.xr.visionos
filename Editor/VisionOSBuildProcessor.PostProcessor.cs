@@ -1,5 +1,6 @@
 #if UNITY_VISIONOS
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using UnityEditor.Build;
@@ -330,7 +331,7 @@ var VisionOSUpperLimbVisibility: Visibility = {upperLimbVisibilityString}
 var VisionOSPersistentSystemOverlays: Visibility = {persistentSystemOverlaysString}
 var VisionOSImmersionStyle: ImmersionStyle = {immersionStyleString}
 var VisionOSSkipPresent = true
-var VisionOSEDRHeadroom = {edrHeadroom}
+var VisionOSEDRHeadroom = {edrHeadroom.ToString(CultureInfo.InvariantCulture)}
 ";
             }
         }

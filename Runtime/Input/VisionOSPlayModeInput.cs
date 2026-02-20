@@ -43,7 +43,11 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         {
             // Disable mouse input on input modules in order to prevent doubling up of events
             m_PreviouslyEnabledModules.Clear();
+#if UNITY_6000_4_OR_NEWER
+            foreach (var inputModule in FindObjectsByType<XRUIInputModule>(FindObjectsInactive.Include))
+#else
             foreach (var inputModule in FindObjectsByType<XRUIInputModule>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+#endif
             {
                 if (inputModule.enableMouseInput)
                 {

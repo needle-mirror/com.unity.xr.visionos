@@ -64,7 +64,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         void IInputUpdateCallbackReceiver.OnUpdate()
         {
             // Ensures we only dequeue one event per hand per input system update
-            eventListener.ProcessEventQueue();
+            eventListener?.ProcessEventQueue();
         }
 
         /// <summary>

@@ -57,22 +57,28 @@ namespace UnityEngine.XR.VisionOS
         {
             try
             {
-                var referenceObject = (VisionOSReferenceObject)GCHandle.FromIntPtr(context).Target;
-
-                if (success != 0)
+                var contextHandle = GCHandle.FromIntPtr(context);
+                try
                 {
-                    referenceObject.m_Self = nativeReferenceObject;
-                    referenceObject.m_Loaded = true;
-                }
-                else
-                {
-                    referenceObject.m_Self = IntPtr.Zero;
-                    Debug.LogError("Failed to load referenceobject file.");
+                    var referenceObject = (VisionOSReferenceObject)contextHandle.Target;
+                    if (success != 0)
+                    {
+                        referenceObject.m_Self = nativeReferenceObject;
+                        referenceObject.m_Loaded = true;
+                    }
+                    else
+                    {
+                        referenceObject.m_Self = IntPtr.Zero;
+                        Debug.LogError("Failed to load referenceobject file.");
 
-                    var convertedError = NativeApi.ObjectTracking.ar_error_copy_cf_error(error);
-                    NativeApi.ObjectTracking.UnityVisionOSPrintCFErrorDescription(convertedError);
+                        var convertedError = NativeApi.ObjectTracking.ar_error_copy_cf_error(error);
+                        NativeApi.ObjectTracking.UnityVisionOSPrintCFErrorDescription(convertedError);
+                    }
                 }
-                GCHandle.FromIntPtr(context).Free();
+                finally
+                {
+                    contextHandle.Free();
+                }
             }
             catch (Exception e)
             {

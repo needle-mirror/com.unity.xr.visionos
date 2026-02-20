@@ -222,7 +222,7 @@ namespace UnityEngine.XR.VisionOS
             if (handSubsystem != null)
             {
                 DestroySubsystem<XRHandSubsystem>();
-                m_Updater?.Stop();
+                m_Updater?.Destroy();
                 m_Updater = null;
             }
 #else

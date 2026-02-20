@@ -45,7 +45,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
             // MonoPInvokeCallback methods will leak exceptions and cause crashes; always use a try/catch in these methods
             try
             {
-                var inputEvents = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<VisionOSSpatialPointerEvent>(
+                var inputEvents = NativeApi.Utilities.ConvertExistingDataToNativeArrayWithSafetyHandle<VisionOSSpatialPointerEvent>(
                     eventsPtr,
                     eventCount,
                     Allocator.None);

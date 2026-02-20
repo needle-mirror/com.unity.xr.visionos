@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.XR.ARSubsystems;
 
 namespace UnityEngine.XR.VisionOS
@@ -89,6 +90,17 @@ namespace UnityEngine.XR.VisionOS
                 {
                     array[count++] = element;
                 }
+            }
+
+            public static unsafe NativeArray<T> ConvertExistingDataToNativeArrayWithSafetyHandle<T>(void* dataPointer, int length, Allocator allocator) where T : struct
+            {
+                var nativeArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(dataPointer, length, allocator);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref nativeArray, AtomicSafetyHandle.GetTempUnsafePtrSliceHandle());
+#endif
+
+                return nativeArray;
             }
         }
     }
