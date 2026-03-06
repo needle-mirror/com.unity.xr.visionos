@@ -547,6 +547,50 @@ namespace UnityEditor.XR.VisionOS
                 }
             };
 #endif
+
+            yield return new()
+            {
+                Name = "MSAA Sample Count",
+                Rule = new()
+                {
+                    Message = "MSAA set to 8x is not supported on visionOS.",
+                    FixItMessage = "Set MSAA sample count to 4x or disable 8x.",
+                    Category = string.Format(k_CategoryFormat, "MSAA Sample Count"),
+                    Error = true,
+                    CheckPredicate = () => GetMSAASampleCount() != 8,
+                    FixIt = () => SetMSAASampleCount(4),
+                    IsRuleEnabled = () => VisionOSEditorUtils.IsLoaderEnabled()
+                },
+                SetUp = () =>
+                {
+                    var message = GetEditorSettingsIfExists(out var settings);
+                    if (message != null)
+                        return message;
+
+                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
+                    message = SetVisionOSLoaderEnabledForTests(true);
+                    if (message != null)
+                        return message;
+
+                    s_PreviousAppMode = settings.appMode;
+                    s_PreviousMSAASampleCount = GetMSAASampleCount();
+                    settings.appMode = VisionOSSettings.AppMode.Metal;
+                    SetMSAASampleCount(8);
+
+                    return null;
+                },
+                TearDown = () =>
+                {
+                    var settingsMessage = GetEditorSettingsIfExists(out var settings);
+                    if (settings != null)
+                        settings.appMode = s_PreviousAppMode;
+
+                    SetMSAASampleCount(s_PreviousMSAASampleCount);
+
+                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
+                    return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
+                }
+            };
         }
 
         static string HandleMultipleMessagesInTearDown(params string[] messages)
@@ -567,6 +611,36 @@ namespace UnityEditor.XR.VisionOS
             }
 
             return result;
+        }
+
+        static int GetMSAASampleCount()
+        {
+#if UNITY_HAS_URP
+            var asset = UniversalRenderPipeline.asset;
+            if (asset != null)
+                return asset.msaaSampleCount;
+#endif
+
+            return QualitySettings.antiAliasing;
+        }
+
+        static void SetMSAASampleCount(int sampleCount)
+        {
+#if UNITY_HAS_URP
+            var asset = UniversalRenderPipeline.asset;
+            if (asset != null)
+            {
+                var serializedObject = new SerializedObject(asset);
+                var msaaProperty = serializedObject.FindProperty("m_MSAA");
+                if (msaaProperty == null)
+                    return;
+
+                msaaProperty.intValue = sampleCount;
+                serializedObject.ApplyModifiedProperties();
+            }
+#endif
+
+            QualitySettings.antiAliasing = sampleCount;
         }
     }
 }

@@ -7,6 +7,11 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-03-06
+
+### Added
+- Added a project validation rule that flags and prevents MSAA sample count set to 8x, as the configuration is not supported on visionOS.
+
 ## [3.1.0] - 2026-02-20
 
 ### Added
