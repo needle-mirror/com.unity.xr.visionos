@@ -345,7 +345,11 @@ namespace UnityEngine.XR.VisionOS
                 }
 
                 var vertexCount = boundaryArray.Length;
+#if ARFOUNDATION_6_6_OR_NEWER
+                Unity.XR.CoreUtils.NativeArrayUtils.EnsureExactSize(ref boundary, vertexCount, allocator);
+#else
                 CreateOrResizeNativeArrayIfNecessary(vertexCount, allocator, ref boundary);
+#endif
                 var transformPositionsHandle = new TransformBoundaryPositionsJob
                 {
                     positionsIn = boundaryArray,
@@ -463,13 +467,18 @@ namespace UnityEngine.XR.VisionOS
                 subsystemTypeOverride = typeof(VisionOSPlaneSubsystem),
                 supportsHorizontalPlaneDetection = true,
 
-                // TODO: Does platform X always support vertical planes?
+                // TODO: Does visionOS always support vertical planes?
                 supportsVerticalPlaneDetection = true,
                 supportsArbitraryPlaneDetection = false,
-                supportsBoundaryVertices = true,
 
-                // TODO: Does platform X always support classification?
+                // TODO: Does visionOS always support classification?
+#if ARFOUNDATION_6_5_OR_NEWER
+                supportsBoundaryVerticesDelegate = () => true,
+                supportsClassificationDelegate = () => true
+#else
+                supportsBoundaryVertices = true,
                 supportsClassification = true
+#endif
             };
 
             XRPlaneSubsystemDescriptor.Register(cinfo);

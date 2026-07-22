@@ -113,6 +113,13 @@ namespace UnityEditor.XR.VisionOS
                 var unityMainTargetGuid = pbxProject.GetUnityMainTargetGuid();
                 var unityFrameworkTargetGuid = pbxProject.GetUnityFrameworkTargetGuid();
 
+                var targetVersion = PlayerSettings.VisionOS.targetOSVersionString;
+                if (string.IsNullOrEmpty(targetVersion))
+                    targetVersion = "1.0"; // Default to 1.0 if not set
+
+                // Only raise the deployment target to 2.0 if the configured version is lower.
+                var shouldRaiseDeploymentTarget = CompareVersionStrings(targetVersion, "2.0") < 0;
+
                 // We have lots of exported-symbol goop in the UnityFramework target for the simulator.
                 // It's not necessary, and actually causes problems because it requires all exported
                 // symbols to be specified that way. Remove these here until we get rid of them in the
@@ -124,10 +131,16 @@ namespace UnityEditor.XR.VisionOS
                     if (frameworkConfigGuid == null)
                         continue;
 
-                    pbxProject.SetBuildPropertyForConfig(frameworkConfigGuid, "XROS_DEPLOYMENT_TARGET", "2.0");
+                    if (shouldRaiseDeploymentTarget)
+                    {
+                        pbxProject.SetBuildPropertyForConfig(frameworkConfigGuid, "XROS_DEPLOYMENT_TARGET", "2.0");
+                    }
+
                     var mainConfigGuid = pbxProject.BuildConfigByName(unityMainTargetGuid, configName);
-                    if (mainConfigGuid != null)
+                    if (mainConfigGuid != null && shouldRaiseDeploymentTarget)
+                    {
                         pbxProject.SetBuildPropertyForConfig(mainConfigGuid, "XROS_DEPLOYMENT_TARGET", "2.0");
+                    }
 
                     var existing = pbxProject.GetBuildPropertyForConfig(frameworkConfigGuid, "OTHER_LDFLAGS");
                     if (existing != null)

@@ -550,6 +550,84 @@ namespace UnityEditor.XR.VisionOS
 
             yield return new()
             {
+                Name = "Minimum visionOS Version",
+                Rule = new()
+                {
+                    Message = "Metal, RealityKit, and Hybrid apps require minimum visionOS version 2.0.",
+                    FixItMessage = "Set the Target Minimum visionOS Version to 2.0 in Player Settings.",
+                    Category = string.Format(k_CategoryFormat, "Minimum visionOS Version"),
+                    Error = true,
+                    CheckPredicate = () =>
+                    {
+                        if (!GetEditorSettings(out var settings))
+                            return true;
+
+                        // Only check for Metal, RealityKit, or Hybrid modes
+                        if (settings.appMode == VisionOSSettings.AppMode.Windowed)
+                            return true;
+
+                        var targetVersion = PlayerSettings.VisionOS.targetOSVersionString;
+                        if (string.IsNullOrEmpty(targetVersion))
+                            return true; // Default/not set, will be set by post-processor
+
+                        // Check if version is >= 2.0
+                        return VisionOSBuildProcessor.CompareVersionStrings(targetVersion, "2.0") >= 0;
+                    },
+                    FixIt = () =>
+                    {
+                        try
+                        {
+                            PlayerSettings.VisionOS.targetOSVersionString = "2.0";
+                            Debug.Log("Set Target Minimum visionOS Version to 2.0");
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogWarning($"Failed to set minimum visionOS version: {e.Message}");
+                        }
+                    },
+                    IsRuleEnabled = () =>
+                    {
+                        if (!GetEditorSettings(out var settings))
+                            return false;
+
+                        // Only enable for Metal, RealityKit, or Hybrid modes
+                        return settings.appMode != VisionOSSettings.AppMode.Windowed && VisionOSEditorUtils.IsLoaderEnabled();
+                    }
+                },
+                SetUp = () =>
+                {
+                    var message = GetEditorSettingsIfExists(out var settings);
+                    if (message != null)
+                        return message;
+
+                    s_LoaderWasEnabled = VisionOSEditorUtils.IsLoaderEnabled();
+                    message = SetVisionOSLoaderEnabledForTests(true);
+                    if (message != null)
+                        return message;
+
+                    s_PreviousAppMode = settings.appMode;
+                    settings.appMode = VisionOSSettings.AppMode.Metal;
+
+                    s_PreviousTargetOSVersion = PlayerSettings.VisionOS.targetOSVersionString;
+                    PlayerSettings.VisionOS.targetOSVersionString = "1.0";
+
+                    return null;
+                },
+                TearDown = () =>
+                {
+                    var message = GetEditorSettingsIfExists(out var settings);
+                    if (settings != null)
+                        settings.appMode = s_PreviousAppMode;
+
+                    PlayerSettings.VisionOS.targetOSVersionString = s_PreviousTargetOSVersion;
+
+                    var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
+                    return HandleMultipleMessagesInTearDown(message, loaderMessage);
+                }
+            };
+
+            yield return new()
+            {
                 Name = "MSAA Sample Count",
                 Rule = new()
                 {

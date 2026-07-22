@@ -290,7 +290,11 @@ namespace UnityEngine.XR.VisionOS
                 subsystemTypeOverride = typeof(VisionOSAnchorSubsystem),
 
                 // TODO: Support attachment
+#if ARFOUNDATION_6_6_OR_NEWER
+                supportsTrackableAttachmentsDelegate = () => false
+#else
                 supportsTrackableAttachments = false
+#endif
             };
 
             XRAnchorSubsystemDescriptor.Register(cinfo);

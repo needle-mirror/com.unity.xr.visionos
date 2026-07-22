@@ -28,6 +28,7 @@ namespace UnityEditor.XR.VisionOS
         static bool s_InitializeHandTrackingWasEnabled;
         static bool s_HdrWasEnabled;
         static int s_PreviousMSAASampleCount;
+        static string s_PreviousTargetOSVersion;
 
 #if UNITY_HAS_URP
         static readonly Dictionary<UnityObject, int> k_PreviousCopyDepthModes = new();

@@ -30,6 +30,27 @@ namespace UnityEditor.XR.VisionOS
             return Path.Combine(outputPath, k_XcodeProjectFolder, k_XcodeProjectName);
         }
 
+        internal static int CompareVersionStrings(string version1, string version2)
+        {
+            if (!version1.Contains('.'))
+                version1 += ".0";
+
+            if (!version2.Contains('.'))
+                version2 += ".0";
+
+            try
+            {
+                var v1 = System.Version.Parse(version1);
+                var v2 = System.Version.Parse(version2);
+                return v1.CompareTo(v2);
+            }
+            catch
+            {
+                // Fallback to string comparison if parsing fails
+                return string.Compare(version1, version2, System.StringComparison.Ordinal);
+            }
+        }
+
         class LinkerProcessor : IUnityLinkerProcessor
         {
             public int callbackOrder => 0;
