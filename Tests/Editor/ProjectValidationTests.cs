@@ -80,12 +80,13 @@ namespace UnityEditor.XR.VisionOSTests
         [UnityTest]
         public IEnumerator Step0_SetUpTest()
         {
-            SkipTestIfRequested();
-
-            // Wait a frame to allow things like URP to initialize
-            // Specifically, the HDR Post Processing Tone Mapping test fails because the global volume profile is null if we don't wait a frame.
-            // This is called inside its own test because we need to yield, we only want this to happen once per rule, and there is no [UnityOneTimeSetUp]
+            // Wait a frame to allow things like URP to initialize before evaluating SkipTest or running SetUp.
+            // Specifically, the HDR Post Processing Tone Mapping test's global volume profile is null until a frame passes;
+            // evaluating the skip check beforehand would make it always skip, and running SetUp beforehand made it flaky.
+            // This is done inside its own test because we need to yield, we only want this to happen once per rule, and there is no [UnityOneTimeSetUp]
             yield return null;
+
+            SkipTestIfRequested();
 
             var message = m_TestContainer.SetUp?.Invoke();
             if (message != null)

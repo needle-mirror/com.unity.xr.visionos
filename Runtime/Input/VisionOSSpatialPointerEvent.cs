@@ -56,4 +56,31 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         [FieldOffset(59)] // 58+1
         public VisionOSSpatialPointerPhase phase;
     }
+
+    /// <summary>
+    /// Native binding for the ABI guard on <see cref="VisionOSSpatialPointerEvent"/>.
+    /// </summary>
+    /// <remarks>
+    /// The native input callback marshals an array of these structs, so the C# struct size must equal Swift's
+    /// <c>MemoryLayout&lt;SpatialPointerEvent&gt;.stride</c>. If they differ, element 0 reads fine but every
+    /// element after it is read at the wrong offset, silently corrupting the second concurrent spatial pointer
+    /// (two-handed input). The bridge in VisionOSNativeBridge.mm reads Swift's stride so a device/sim test can
+    /// compare the two. Routed through the bridge rather than binding the Swift symbol directly because the
+    /// bridge compiles into UnityFramework alongside the IL2CPP caller, whereas SpatialPointerEvent.swift
+    /// compiles into the app target and so cannot be linked against from here.
+    /// </remarks>
+    static class VisionOSSpatialPointerEventNative
+    {
+        /// <summary>Sentinel returned by <see cref="GetNativeStride"/> when the Swift symbol is absent.</summary>
+        internal const int StrideUnavailable = -1;
+
+        /// <summary>
+        /// Returns Swift's <c>MemoryLayout&lt;SpatialPointerEvent&gt;.stride</c>, or
+        /// <see cref="StrideUnavailable"/> if the Swift trampoline was not built into the player. Only
+        /// resolvable in the visionOS player, where <see cref="NativeApi.Constants.LibraryName"/> is
+        /// <c>__Internal</c>; in the Editor it points at the mock, which has no such symbol.
+        /// </summary>
+        [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "UnityVisionOS_GetSpatialPointerEventStride")]
+        internal static extern int GetNativeStride();
+    }
 }

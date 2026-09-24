@@ -1,9 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+#if ARFOUNDATION_6_7_OR_NEWER
+using System.Threading;
+#endif
 using AOT;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+#if ARFOUNDATION_6_7_OR_NEWER
+using Unity.XR.CoreUtils;
+#endif
 using UnityEngine.Scripting;
 using UnityEngine.XR.ARSubsystems;
 
@@ -246,11 +252,24 @@ namespace UnityEngine.XR.VisionOS
 
             // ReSharper restore InconsistentNaming
 
+#if ARFOUNDATION_6_7_OR_NEWER
+            [Obsolete("CreateRuntimeLibrary is deprecated in AR Foundation 6.7. Use TryCreateRuntimeLibraryAsync instead.")]
+#endif
             public override RuntimeReferenceImageLibrary CreateRuntimeLibrary(
                 XRReferenceImageLibrary serializedLibrary)
             {
                 return new VisionOSImageDatabase(serializedLibrary);
             }
+
+#if ARFOUNDATION_6_7_OR_NEWER
+            public override Awaitable<Result<RuntimeReferenceImageLibrary>> TryCreateRuntimeLibraryAsync(
+                XRReferenceImageLibrary serializedLibrary, CancellationToken cancellationToken = default)
+            {
+                RuntimeReferenceImageLibrary library = new VisionOSImageDatabase(serializedLibrary);
+                return AwaitableUtils<Result<RuntimeReferenceImageLibrary>>.FromResult(
+                    new Result<RuntimeReferenceImageLibrary>(library));
+            }
+#endif
 
             public override RuntimeReferenceImageLibrary imageLibrary
             {

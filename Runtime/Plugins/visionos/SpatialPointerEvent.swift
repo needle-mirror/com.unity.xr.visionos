@@ -35,6 +35,20 @@ struct SpatialPointerEvent {
     }
 }
 
+// Exposed for the C# ABI guard, which asserts this equals the marshalled size of the C# struct — see
+// VisionOSSpatialPointerEvent.cs for why the two must agree. The native bridge looks this class up by name at
+// runtime, the same way it reaches UnityVisionOSCompositorBridge, because this file compiles into the app
+// target while the bridge compiles into UnityFramework and cannot link against it.
+//
+// The explicit @objc name is load-bearing: without it Swift prefixes the app module name and
+// NSClassFromString cannot find the class. Do not remove it.
+@objc(UnityVisionOSSpatialPointerBridge)
+public class UnityVisionOSSpatialPointerBridge: NSObject {
+    @objc public class func spatialPointerEventStride() -> Int32 {
+        Int32(MemoryLayout<SpatialPointerEvent>.stride)
+    }
+}
+
 func convertKindToUInt8(_ kind: SpatialEventCollection.Event.Kind) -> UInt8 {
     // VisionOSSpatialPointerKind values match SpatialEventCollection.Event.Kind 1:1
     switch kind {

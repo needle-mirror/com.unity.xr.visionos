@@ -258,6 +258,24 @@ namespace UnityEditor.XR.VisionOS
             return true;
         }
 
+        // Whether the there's a global default volume profile with the required tonemapping component.
+        // Used to skip a flaky unit test where this can occur because of scene timing
+        static bool HasGlobalTonemappingComponent()
+        {
+#if UNITY_HAS_URP
+            var components = VolumeManager.instance?.globalDefaultProfile?.components;
+            if (components != null)
+            {
+                foreach (var component in components)
+                {
+                    if (component is Tonemapping)
+                        return true;
+                }
+            }
+#endif
+            return false;
+        }
+
         // enabled is only used when URP package is present
         // ReSharper disable once UnusedParameter.Local
         static void SetToneMappingEnabled(bool enabled)

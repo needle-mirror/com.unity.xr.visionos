@@ -514,6 +514,25 @@ EXPORT(bool) UnityVisionOS_IsImmersiveSpaceReady()
     return s_ImmersiveSpaceReady;
 }
 
+// Compile-time declaration of the soft-linked app-target class; never linked against. Declared as a protocol
+// rather than called through performSelector: because the method returns a scalar.
+@protocol UnityVisionOSSpatialPointerBridge <NSObject>
++ (int32_t)spatialPointerEventStride;
+@end
+
+// ABI guard for SpatialPointerEvent, read by C# to compare against its marshalled struct size. See
+// VisionOSSpatialPointerEvent.cs for the rationale. The Swift class lives in the app target, so it cannot be
+// referenced from here at link time and is resolved by name instead. Returns -1 when the Swift trampoline was
+// not built into the app, which is the case in Windowed app mode.
+EXPORT(int) UnityVisionOS_GetSpatialPointerEventStride()
+{
+    Class<UnityVisionOSSpatialPointerBridge> bridge = NSClassFromString(@"UnityVisionOSSpatialPointerBridge");
+    if (bridge == nil || ![(Class)bridge respondsToSelector:@selector(spatialPointerEventStride)])
+        return -1;
+
+    return [bridge spatialPointerEventStride];
+}
+
 EXPORT(void) UnityVisionOS_SetUpInputEventHandler(unity_spatial_input_event_callback callback)
 {
     s_OnInputEvent = callback;

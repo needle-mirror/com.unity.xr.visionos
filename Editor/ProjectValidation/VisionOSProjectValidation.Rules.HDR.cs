@@ -227,7 +227,15 @@ namespace UnityEditor.XR.VisionOS
                 var loaderMessage = SetVisionOSLoaderEnabledForTests(s_LoaderWasEnabled);
                 return HandleMultipleMessagesInTearDown(settingsMessage, loaderMessage);
             },
-            SkipTest = () => !HasUrpAsset() ? "Skipping HDR Post Processing Tone Mapping validation test because there is no URP asset set." : null
+            SkipTest = () =>
+            {
+                if (!HasUrpAsset())
+                    return "Skipping HDR Post Processing Tone Mapping  test because there's no URP asset.";
+                if (!HasGlobalTonemappingComponent())
+                    return "Skipping HDR Post Processing Tone Mapping test because the global default volume " +
+                        "profile has no tonemapping component.";
+                return null;
+            }
         };
 
         static readonly RuleTestContainer k_HighQualityBloom = new()

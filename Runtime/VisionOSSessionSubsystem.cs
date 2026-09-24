@@ -288,6 +288,9 @@ namespace UnityEngine.XR.VisionOS
                 }
             }
 
+#if ARFOUNDATION_6_7_OR_NEWER
+            [Obsolete("GetAvailabilityAsync has been deprecated in AR Foundation version 6.7. All visionOS devices support ARKit.")]
+#endif
             public override Promise<SessionAvailability> GetAvailabilityAsync() => Promise<SessionAvailability>.CreateResolvedPromise(SessionAvailability.Supported | SessionAvailability.Installed);
 
             // TODO: Check world tracking provider status
@@ -615,7 +618,6 @@ namespace UnityEngine.XR.VisionOS
                 id = sessionSubsystemId,
                 providerType = typeof(VisionOSSessionProvider),
                 subsystemTypeOverride = typeof(VisionOSSessionSubsystem),
-                supportsInstall = false,
                 supportsMatchFrameRate = false
             });
         }
