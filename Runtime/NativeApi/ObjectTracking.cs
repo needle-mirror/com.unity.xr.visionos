@@ -71,6 +71,7 @@ namespace UnityEngine.XR.VisionOS
             /// </summary>
             /// <returns><see langword="true"/> if the object tracking provider is supported on this device. Otherwise, <see langword="false"/>.</returns>
             [DllImport(Constants.LibraryName, EntryPoint = "ar_object_tracking_provider_is_supported")]
+            [return: MarshalAs(UnmanagedType.I1)]
             internal static extern bool ar_object_tracking_provider_is_supported();
 
             /// <summary>
@@ -92,6 +93,12 @@ namespace UnityEngine.XR.VisionOS
             [DllImport(Constants.LibraryName, EntryPoint = "ar_reference_objects_add_object")]
             internal static extern IntPtr ar_reference_objects_add_object(IntPtr reference_objects, IntPtr object_to_add);
 
+            [DllImport(Constants.LibraryName, EntryPoint = "ar_retain")]
+            internal static extern IntPtr ar_retain(IntPtr arObject);
+
+            [DllImport(Constants.LibraryName, EntryPoint = "ar_release")]
+            internal static extern void ar_release(IntPtr arObject);
+
             [DllImport(Constants.LibraryName, EntryPoint = "ar_object_anchor_get_reference_object")]
             internal static extern IntPtr ar_object_anchor_get_reference_object(IntPtr object_anchor);
 
@@ -102,6 +109,7 @@ namespace UnityEngine.XR.VisionOS
             /// <param name="obj2">Second ar_reference_object_t to compare against.</param>
             /// <returns>true if the ar_reference_object_get_identifier's match between the two ar_reference_object_t's.</returns>
             [DllImport(Constants.LibraryName, EntryPoint = "UnityVisionOSCompareReferenceObjectUUIDs")]
+            [return: MarshalAs(UnmanagedType.I1)]
             internal static extern bool UnityVisionOSCompareReferenceObjectUUIDs(IntPtr obj1, IntPtr obj2);
 
             [DllImport(Constants.LibraryName, EntryPoint = "UnityVisionOSPrintCFErrorDescription")]

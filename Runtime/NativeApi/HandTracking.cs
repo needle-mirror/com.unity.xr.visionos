@@ -55,6 +55,7 @@ namespace UnityEngine.XR.VisionOS
             /// </summary>
             /// <returns><see langword="true"/> if the hand tracking provider is supported on this device. Otherwise, <see langword="false"/>.</returns>
             [DllImport(Constants.LibraryName, EntryPoint = "ar_hand_tracking_provider_is_supported")]
+            [return: MarshalAs(UnmanagedType.I1)]
             public static extern bool ar_hand_tracking_provider_is_supported();
 
             /// <summary>
@@ -66,6 +67,7 @@ namespace UnityEngine.XR.VisionOS
             /// <param name="hand_anchor_right">`ar_hand_anchor_t` instance for the right hand to be updated</param>
             /// <returns><see langword="true"/> on success and <see langword="false"/> if there is no update for either of the hands.</returns>
             [DllImport(Constants.LibraryName, EntryPoint = "ar_hand_tracking_provider_get_latest_anchors")]
+            [return: MarshalAs(UnmanagedType.I1)]
             public static extern bool ar_hand_tracking_provider_get_latest_anchors(IntPtr hand_tracking_provider,
                 IntPtr hand_anchor_left, IntPtr hand_anchor_right);
 

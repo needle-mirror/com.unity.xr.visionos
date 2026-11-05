@@ -11,7 +11,8 @@
         "Unity.XR.Management",
         "Unity.XR.Management.Editor",
         "Unity.XR.VisionOS.Tests",
-        "Unity.XR.ARSubsystems.Editor"
+        "Unity.XR.ARSubsystems.Editor",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor"

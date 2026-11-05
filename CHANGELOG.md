@@ -7,6 +7,12 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-11-05
+
+### Fixed
+- Fixed spatial pointer input stopping in the Editor after the first Play mode session when domain reload is disabled.
+- Fixed a crash at startup on device when object tracking uses a reference object library, caused by the loaded reference objects being freed while still in use.
+
 ## [3.3.1] - 2026-09-24
 
 ### Added

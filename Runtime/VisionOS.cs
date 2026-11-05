@@ -29,6 +29,7 @@ namespace UnityEngine.XR.VisionOS
         /// </summary>
         /// <returns><see langword="true"/> if the immersive space is ready. Otherwise, <see langword="false"/>.</returns>
         [DllImport(k_LibraryName, EntryPoint = "UnityVisionOS_IsImmersiveSpaceReady")]
+        [return: MarshalAs(UnmanagedType.I1)]
         public static extern bool IsImmersiveSpaceReady();
 
         /// <summary>

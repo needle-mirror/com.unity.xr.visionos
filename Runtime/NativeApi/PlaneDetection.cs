@@ -143,6 +143,7 @@ namespace UnityEngine.XR.VisionOS
             /// </summary>
             /// <returns><see langword="true"/> if the plane detection provider is supported on this device. Otherwise, <see langword="false"/>.</returns>
             [DllImport(Constants.LibraryName, EntryPoint = "ar_plane_detection_provider_is_supported")]
+            [return: MarshalAs(UnmanagedType.I1)]
             public static extern bool ar_plane_detection_provider_is_supported();
         }
     }

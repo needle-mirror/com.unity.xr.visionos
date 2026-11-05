@@ -44,7 +44,11 @@ namespace UnityEngine.XR.VisionOS.Internal
 
         internal static void CheckLicenseRequirements(bool isBuilding = false)
         {
+#if UNITY_7000_0_OR_NEWER
+            if (UnityEditor.Licensing.LicensingUtility.HasPro())
+#else
             if (UnityEditorInternal.InternalEditorUtility.HasPro())
+#endif
             {
                 return;
             }

@@ -59,6 +59,7 @@ namespace UnityEngine.XR.VisionOS
             /// </summary>
             /// <returns><see langword="true"/> if the scene reconstruction provider is supported on this device. Otherwise, <see langword="false"/>.</returns>
             [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "ar_hand_tracking_provider_is_supported")]
+            [return: MarshalAs(UnmanagedType.I1)]
             public static extern bool ar_scene_reconstruction_provider_is_supported();
 
             /// <summary>

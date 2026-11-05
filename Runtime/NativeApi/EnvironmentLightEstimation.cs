@@ -78,6 +78,7 @@ namespace UnityEngine.XR.VisionOS
             /// </summary>
             /// <returns><see langword="true"/> if the environment light estimation provider is supported on this device. Otherwise, <see langword="false"/>.</returns>
             [DllImport(NativeApi.Constants.LibraryName, EntryPoint = "ar_environment_light_estimation_provider_is_supported")]
+            [return: MarshalAs(UnmanagedType.I1)]
             public static extern bool ar_environment_light_estimation_provider_is_supported();
 
             /// <summary>

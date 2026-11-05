@@ -25,6 +25,7 @@ namespace UnityEngine.XR.VisionOS
             public static extern void ar_anchor_get_identifier(IntPtr anchor, IntPtr out_identifier);
 
             [DllImport(Constants.LibraryName, EntryPoint = "ar_trackable_anchor_is_tracked")]
+            [return: MarshalAs(UnmanagedType.I1)]
             public static extern bool ar_trackable_anchor_is_tracked(IntPtr anchor);
         }
     }

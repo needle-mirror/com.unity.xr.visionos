@@ -18,7 +18,11 @@ namespace UnityEngine.XR.VisionOS
 
         public void Dispose()
         {
+            if (m_Self != IntPtr.Zero)
+                NativeApi.ObjectTracking.ar_release(m_Self);
+
             m_Self = IntPtr.Zero;
+            m_Loaded = false;
         }
 
         public VisionOSReferenceObject(NativeSlice<byte> bytes)
@@ -63,7 +67,8 @@ namespace UnityEngine.XR.VisionOS
                     var referenceObject = (VisionOSReferenceObject)contextHandle.Target;
                     if (success != 0)
                     {
-                        referenceObject.m_Self = nativeReferenceObject;
+                        // ARKit only lends the object for the duration of this callback.
+                        referenceObject.m_Self = NativeApi.ObjectTracking.ar_retain(nativeReferenceObject);
                         referenceObject.m_Loaded = true;
                     }
                     else

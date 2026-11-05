@@ -61,6 +61,7 @@ namespace UnityEngine.XR.VisionOS
                 AR_World_Tracking_Update_Handler world_tracking_update_handler);
 
             [DllImport(Constants.LibraryName, EntryPoint = "ar_world_tracking_provider_is_supported")]
+            [return: MarshalAs(UnmanagedType.I1)]
             public static extern bool ar_world_tracking_provider_is_supported();
 
             [DllImport(Constants.LibraryName,

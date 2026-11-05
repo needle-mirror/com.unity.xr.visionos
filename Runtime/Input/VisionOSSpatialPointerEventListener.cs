@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using AOT;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using UnityEditor;
-using UnityEngine;
 
 namespace UnityEngine.XR.VisionOS.InputDevices
 {
@@ -20,7 +18,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         readonly Dictionary<int, VisionOSSpatialPointerEventState> m_Inputs = new();
         readonly Dictionary<int, Vector3> m_StartInputDevicePositions = new();
         readonly VisionOSSpatialPointerDevice m_PointerDevice;
-        static readonly Lazy<VisionOSSpatialPointerEventListener> k_Instance = new(() => new VisionOSSpatialPointerEventListener());
+        static Lazy<VisionOSSpatialPointerEventListener> s_Instance = new(() => new VisionOSSpatialPointerEventListener());
 
         struct QueuedEvent
         {
@@ -50,7 +48,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
                     eventCount,
                     Allocator.None);
 
-                k_Instance.Value.OnInputEvents(inputEvents);
+                s_Instance.Value.OnInputEvents(inputEvents);
             }
             catch (Exception exception)
             {
@@ -60,7 +58,7 @@ namespace UnityEngine.XR.VisionOS.InputDevices
 
         internal static void OnInputEvent(VisionOSSpatialPointerEvent @event)
         {
-            k_Instance.Value.QueueEvent(@event);
+            s_Instance.Value.QueueEvent(@event);
         }
 
 #if !UNITY_EDITOR
@@ -86,10 +84,13 @@ namespace UnityEngine.XR.VisionOS.InputDevices
         }
 
 #if UNITY_EDITOR
-        static void EditorApplicationOnplayModeStateChanged(PlayModeStateChange change)
+        internal static void EditorApplicationOnplayModeStateChanged(PlayModeStateChange change)
         {
             if (change != PlayModeStateChange.ExitingPlayMode)
                 return;
+
+            EditorApplication.playModeStateChanged -= EditorApplicationOnplayModeStateChanged;
+            s_Instance = new(() => new VisionOSSpatialPointerEventListener());
 
             var devices = InputSystem.devices;
             for (var i = devices.Count - 1; i > -1; i--)

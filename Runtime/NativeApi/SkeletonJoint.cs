@@ -18,6 +18,7 @@ namespace UnityEngine.XR.VisionOS
             public static extern IntPtr ar_skeleton_joint_get_anchor_from_joint_transform(IntPtr joint);
 
             [DllImport(Constants.LibraryName, EntryPoint = "ar_skeleton_joint_is_tracked")]
+            [return: MarshalAs(UnmanagedType.I1)]
             public static extern bool ar_skeleton_joint_is_tracked(IntPtr joint);
 
         }

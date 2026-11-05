@@ -140,6 +140,7 @@ namespace UnityEngine.XR.VisionOS
             /// </summary>
             /// <returns><see langword="true"/> if the image tracking provider is supported on this device. Otherwise, <see langword="false"/>.</returns>
             [DllImport(Constants.LibraryName, EntryPoint = "ar_image_tracking_provider_is_supported")]
+            [return: MarshalAs(UnmanagedType.I1)]
             public static extern bool ar_image_tracking_provider_is_supported();
 
             /// <summary>
@@ -173,7 +174,7 @@ namespace UnityEngine.XR.VisionOS
             /// <param name="name">Name that will get returned when the image gets tracked.</param>
             /// <returns></returns>
             [DllImport("__Internal", EntryPoint = "UnityVisionOS_impl_add_image")]
-            public static extern unsafe bool UnityVisionOS_impl_add_image(
+            public static extern unsafe void UnityVisionOS_impl_add_image(
                 IntPtr reference_images, void* bytes, TextureFormat format,
                 int width, int height, float physicalWidth, string name);
 
