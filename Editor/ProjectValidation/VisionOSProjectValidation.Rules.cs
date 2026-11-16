@@ -6,6 +6,9 @@ using Unity.XR.CoreUtils.Editor;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.XR.ARFoundation;
+#if ARFOUNDATION_7_0_OR_NEWER
+using ARSession = UnityEngine.XR.ARFoundation.ARSessionManager;
+#endif
 using UnityObject = UnityEngine.Object;
 
 #if UNITY_HAS_URP

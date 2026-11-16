@@ -28,6 +28,11 @@
             "name": "com.unity.xr.interaction.toolkit",
             "expression": "1.0.0",
             "define": "INCLUDE_UNITY_XRI"
+        },
+        {
+            "name": "com.unity.xr.arfoundation",
+            "expression": "7.0.0-pre.0",
+            "define": "ARFOUNDATION_7_0_OR_NEWER"
         }
     ],
     "noEngineReferences": false

@@ -8,6 +8,9 @@ using UnityObject = UnityEngine.Object;
 
 #if UNITY_EDITOR || UNITY_VISIONOS
 using UnityEngine.XR.ARFoundation;
+#if ARFOUNDATION_7_0_OR_NEWER
+using ARSession = UnityEngine.XR.ARFoundation.ARSessionManager;
+#endif
 using UnityEngine.XR.VisionOS.InputDevices;
 #endif
 

@@ -2,6 +2,9 @@ using System;
 using UnityEditor.Rendering;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
+#if ARFOUNDATION_7_0_OR_NEWER
+using ARSession = UnityEngine.XR.ARFoundation.ARSessionManager;
+#endif
 using UnityEngine.XR.VisionOS;
 using UnityObject = UnityEngine.Object;
 

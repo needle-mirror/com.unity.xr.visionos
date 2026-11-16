@@ -7,6 +7,9 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using UnityEngine.Scripting;
 using UnityEngine.XR.ARSubsystems;
+#if ARFOUNDATION_7_0_OR_NEWER
+using BoundedPlane = UnityEngine.XR.ARSubsystems.XRPlane;
+#endif
 
 namespace UnityEngine.XR.VisionOS
 {

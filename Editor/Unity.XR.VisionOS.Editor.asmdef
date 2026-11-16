@@ -51,6 +51,11 @@
             "name": "com.unity.xr.hands",
             "expression": "1.0.0-pre.1",
             "define": "INCLUDE_UNITY_XR_HANDS"
+        },
+        {
+            "name": "com.unity.xr.arfoundation",
+            "expression": "7.0.0-pre.0",
+            "define": "ARFOUNDATION_7_0_OR_NEWER"
         }
     ],
     "noEngineReferences": false
